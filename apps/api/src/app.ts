@@ -219,6 +219,18 @@ const storiesQuerySchema = z.object({
   // fixed today, just found via a fresh angle (reviewing /admin/stories
   // itself, not re-auditing an already-fixed pattern).
   offset: z.coerce.number().int().min(0).default(0),
+  // Real gap found and fixed 2026-09-09, user's explicit request (they
+  // directly noticed the homepage's own "Latest" feed was mostly raw,
+  // just-ingested Stories with no real Article behind them at all —
+  // confirmed live: 19 of the real top 20 by lastUpdatedAt had zero
+  // real PUBLISHED English Article). This endpoint is deliberately
+  // shared with /admin/stories, whose entire purpose is showing an
+  // editor every Story regardless of write/publish status — the
+  // unfiltered default stays exactly as-is for that caller. Opt-in only:
+  // apps/web's own public reader-facing "Latest" feed passes this
+  // explicitly (see apps/web/src/lib/api.ts's getStories()), nothing
+  // else does.
+  hasArticle: z.coerce.boolean().optional(),
 });
 
 app.get("/v1/stories", async (req, res) => {
@@ -229,7 +241,10 @@ app.get("/v1/stories", async (req, res) => {
   }
 
   const rows = await prisma.story.findMany({
-    where: parsed.data.status ? { status: parsed.data.status } : undefined,
+    where: {
+      ...(parsed.data.status ? { status: parsed.data.status } : {}),
+      ...(parsed.data.hasArticle ? { articles: { some: { status: "PUBLISHED", locale: "en" } } } : {}),
+    },
     orderBy: { lastUpdatedAt: "desc" },
     // Fetches one extra row to detect a real next page without a
     // separate COUNT query — trimmed back to the real requested limit
@@ -709,7 +724,15 @@ app.get("/v1/topics/:slug", async (req, res) => {
   }
 
   const stories = await prisma.story.findMany({
-    where: { primaryTopicId: topic.id },
+    // Real gap found and fixed 2026-09-09, user's explicit request (see
+    // GET /v1/stories' own new `hasArticle` comment for the full story
+    // — the identical bug, found here independently): this endpoint is
+    // exclusively the public topic page's + the homepage's per-topic
+    // sections' data source (no admin caller shares it), so filtering
+    // by default — rather than an opt-in param like /v1/stories' — is
+    // safe and correct: a reader-facing topic feed should never show a
+    // raw, unwritten Story stub with nothing real to read.
+    where: { primaryTopicId: topic.id, articles: { some: { status: "PUBLISHED", locale: "en" } } },
     orderBy: { lastUpdatedAt: "desc" },
     take: 50,
     include: {

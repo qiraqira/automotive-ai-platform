@@ -81,7 +81,17 @@ function rankStories(stories: StorySummary[]): StorySummary[] {
 }
 
 export default async function HomePage() {
-  const [{ stories: unranked }, topicSections] = await Promise.all([getStories({ limit: 20 }), getTopicSections()]);
+  // Real gap found and fixed 2026-09-09, user's explicit request: this
+  // used to fetch ANY Story regardless of whether the Writer stage had
+  // produced a real Article for it yet — confirmed live that 19 of the
+  // real top 20 (by lastUpdatedAt) were raw, just-ingested stubs with
+  // nothing real to read, prominently listed on the homepage anyway
+  // (unlinked, per the `story.articles[0] ? Link : plain text` guard
+  // below, but still occupying the "Latest" feed's real estate). The
+  // reader's actual workflow should be ingest -> write -> quality gate
+  // -> publish, in that order, before anything shows up here — not
+  // ingest -> immediately show. `hasArticle: true` is the real fix.
+  const [{ stories: unranked }, topicSections] = await Promise.all([getStories({ limit: 20, hasArticle: true }), getTopicSections()]);
   const stories = rankStories(unranked);
 
   return (

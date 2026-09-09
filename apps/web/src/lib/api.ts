@@ -105,12 +105,18 @@ async function apiGet<T>(path: string): Promise<T> {
 // this with a fixed limit, every Story older than the most recent page
 // was permanently unreachable through the admin UI.
 export function getStories(
-  params: { status?: string; limit?: number; offset?: number } = {},
+  // `hasArticle` added 2026-09-09, user's explicit request: the reader-
+  // facing homepage passes this (see its own page.tsx) so its "Latest"
+  // feed only ever shows Stories with a real published Article behind
+  // them — /admin/stories deliberately never passes it, since an
+  // editor's whole job there is seeing every Story, written or not.
+  params: { status?: string; limit?: number; offset?: number; hasArticle?: boolean } = {},
 ): Promise<{ stories: StorySummary[]; hasMore: boolean; offset: number; limit: number }> {
   const qs = new URLSearchParams();
   if (params.status) qs.set("status", params.status);
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.offset) qs.set("offset", String(params.offset));
+  if (params.hasArticle) qs.set("hasArticle", "true");
   const suffix = qs.toString() ? `?${qs}` : "";
   return apiGet(`/v1/stories${suffix}`);
 }

@@ -214,6 +214,19 @@ async function main() {
     // link — proves that threshold both ways, not just the "has one".
     "market-business": 3,
   };
+  // Real gap found and fixed 2026-09-09, later same day: GET /v1/stories'
+  // new `hasArticle` filter and GET /v1/topics/:slug's own new default
+  // filter (both added the same tick the user directly noticed the
+  // public homepage's "Latest" feed was mostly raw, unwritten Story
+  // stubs with nothing real to read — see README's "AI Writer stage"
+  // row) mean a demo Story with no real Article no longer counts toward
+  // either endpoint's results at all. The block below used to create
+  // bare Story rows; now creates a real SourceArticle + Article +
+  // Citation per demo Story too, so this seed's own demo content still
+  // satisfies the (correctly stricter) public-facing queries, and — not
+  // just incidentally — never reproduces the exact "published with zero
+  // Citation rows" gap this same session already fixed elsewhere.
+  const electrek = await prisma.source.findFirst({ where: { name: "Electrek" } });
   for (const [slug, minCount] of Object.entries(demoTopicMinStories)) {
     const topic = await prisma.topic.findUnique({ where: { slug } });
     if (!topic) continue;
@@ -227,8 +240,31 @@ async function main() {
       // substring match found 2 real headings and failed strict mode.
       // Uses the topic's slug (hyphenated, never a substring of the
       // real space-separated section heading) instead of its name.
-      await prisma.story.create({
-        data: { title: `Dev seed story ${i + 1} (${slug})`, status: "DISCOVERED", primaryTopicId: topic.id },
+      const title = `Dev seed story ${i + 1} (${slug})`;
+      const story = await prisma.story.create({
+        data: { title, status: "PUBLISHED", primaryTopicId: topic.id },
+      });
+      if (!electrek) continue; // seed.ts's own bootstrap guarantees this — defensive only
+      const url = `https://dev-seed.invalid/${slug}-${i + 1}`;
+      const sourceArticle = await prisma.sourceArticle.create({
+        data: { sourceId: electrek.id, storyId: story.id, url, urlHash: `dev-seed-${slug}-${i + 1}`, title },
+      });
+      const article = await prisma.article.create({
+        data: {
+          storyId: story.id,
+          locale: "en",
+          type: "NEWS",
+          contentPurpose: "BACKGROUND",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          slug: `dev-seed-${slug}-${i + 1}`,
+          headline: title,
+          authorType: "AI_AGENT",
+          blocks: { create: [{ type: "TEXT", position: 0, data: { text: "Dev seed demo article body." } }] },
+        },
+      });
+      await prisma.citation.create({
+        data: { articleId: article.id, sourceArticleId: sourceArticle.id, label: `Electrek: ${title}`, url },
       });
     }
   }
