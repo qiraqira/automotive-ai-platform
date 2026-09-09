@@ -132,12 +132,28 @@ GitHub Actions pipeline sketched below, which has still never run for
 real. This repo *does* now have real git history as of 2026-09-09 (first
 commit `45771a5`, pushed to `github.com/qiraqira/automotive-ai-platform`,
 default branch renamed `master` → `main` to match this very
-workflow's `on: push: branches: [main]` trigger) — but the running
-production containers and that git history are currently two disconnected
-things: pushing to GitHub does not yet update what's live on
-`147.45.156.155`. Bringing the server onto a real git-pull-based deploy
-(so the two stay in sync going forward, and so this workflow's `on: push`
-trigger becomes meaningful) is the next real gap, not yet closed.
+workflow's `on: push: branches: [main]` trigger).
+
+**Closed the same day**: the server's `/opt/automotive-ai-platform` now
+has a real `.git` (`git init` + `remote add origin` + `fetch` + `reset
+--mixed origin/main`, verified metadata-only — zero working-tree impact,
+all 5 containers' uptime unaffected, site stayed live throughout), and a
+real `git fetch origin && git merge --ff-only origin/main` has already
+been run for real on the production host, bringing it from commit
+`0a7e546` to `b432f3c` (the repo is public, so this needs no GitHub
+credential at all — verified live, no token exists on the host).
+`infrastructure/scripts/deploy.sh` now encodes the full real deploy
+procedure (fetch, fast-forward-only merge, `prisma migrate deploy`,
+rebuild the 3 app images, `--force-recreate`, re-verify the `webproxy`
+network attachment) — see that file's own header comment for exactly
+which parts have been run for real versus reasoned through by hand and
+still awaiting a real end-to-end run. This repo's own git history and
+what's actually running in production are no longer permanently
+disconnected; **the CI workflow's own `on: push` trigger against GitHub
+still does not itself deploy anywhere** — a real deploy is still a
+manual `infrastructure/scripts/deploy.sh` run on the host, not yet an
+automated step in `ci.yml` (see "When that's closed" below for that
+still-unbuilt shape).
 
 **When that's closed**, the intended shape (spec §6) is: on push to
 `main`, after the existing test job passes, build each app's Docker

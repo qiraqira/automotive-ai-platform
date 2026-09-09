@@ -1,0 +1,10 @@
+# infrastructure/scripts/deploy.sh (added 2026-09-09) runs on the real
+# Linux production host — this repo's Windows dev machine's git config
+# stores/checks out most tracked files with CRLF (confirmed empirically:
+# diffing the server's native LF files against this repo's committed
+# blobs found 34 files differing by line endings alone), which silently
+# corrupts a shell script's shebang and breaks every line under bash
+# (`env: bash\r: No such file or directory`). Forces LF regardless of
+# what any contributor's local git config does, for every current and
+# future shell script in this repo.
+*.sh text eol=lf
