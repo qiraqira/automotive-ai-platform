@@ -29,7 +29,16 @@ set -euo pipefail
 # trusting it unattended.
 
 cd "$(dirname "$0")/../.."
-COMPOSE_FILES=(-f infrastructure/docker/docker-compose.yml -f infrastructure/docker/docker-compose.override.yml)
+# Real gap found and fixed on this script's own first real end-to-end run
+# (2026-09-09): docker compose's automatic .env discovery did not
+# reliably pick up this directory's real .env when invoked this way (a
+# real `prisma migrate deploy` run failed with "STORAGE_SECRET_ACCESS_KEY
+# is missing a value" etc. even though every one of those vars is
+# genuinely present in .env, confirmed by listing its real key names) —
+# passing --env-file explicitly fixed it, verified live immediately
+# after. Better to be explicit and correct than rely on discovery that's
+# already demonstrated to be unreliable in this exact context.
+COMPOSE_FILES=(--env-file .env -f infrastructure/docker/docker-compose.yml -f infrastructure/docker/docker-compose.override.yml)
 
 echo "==> Fetching latest from origin/main"
 git fetch origin
