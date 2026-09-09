@@ -1,0 +1,16 @@
+services:
+  postgres:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  api:
+    ports: !reset []
+  web:
+    ports: !reset []
+    networks:
+      - default
+      - webproxy
+
+networks:
+  webproxy:
+    external: true
