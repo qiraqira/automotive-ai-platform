@@ -47,6 +47,17 @@ jobs:
     env:
       DATABASE_URL: postgresql://automotive:ci_test_password@localhost:5432/automotive_platform
       REDIS_URL: redis://localhost:6379
+      # Real gap found and fixed 2026-09-09, first real GitHub Actions
+      # run: apps/worker/src/embed.ts and generate-image.ts both guard
+      # `if (!env.OPENAI_API_KEY) return null` before ever reaching
+      # fetch — every real dev machine has a real key, so this was never
+      # exercised, but CI has none, so the tests' mocked `fetch` was
+      # never actually called. These unit tests always mock `fetch`
+      # (never a real network call regardless of what's set — see either
+      # test file's own comment for the real-money incident that made
+      # that a hard rule), so a fake value here only satisfies the guard.
+      OPENAI_API_KEY: ci-fake-key-tests-always-mock-fetch
+      ANTHROPIC_API_KEY: ci-fake-key-tests-always-mock-fetch
 
     steps:
       - uses: actions/checkout@v4

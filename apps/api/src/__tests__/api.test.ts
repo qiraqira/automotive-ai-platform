@@ -147,18 +147,34 @@ describe("public read endpoints against real seeded data", () => {
   });
 
   it("GET /v1/stories supports a real offset, so an editor can page past the most recent N stories — the real fix for a gap where /admin/stories's hardcoded limit made every older real Story permanently unreachable through the admin UI", async () => {
-    const firstPage = await request(app).get("/v1/stories").query({ limit: 5, offset: 0 });
-    const secondPage = await request(app).get("/v1/stories").query({ limit: 5, offset: 5 });
-    expect(firstPage.status).toBe(200);
-    expect(secondPage.status).toBe(200);
-    expect(firstPage.body).toMatchObject({ offset: 0, limit: 5 });
-    expect(secondPage.body).toMatchObject({ offset: 5, limit: 5 });
-    const firstIds = firstPage.body.stories.map((s: { id: string }) => s.id);
-    const secondIds = secondPage.body.stories.map((s: { id: string }) => s.id);
-    // Real, not fixture, data: this dev DB has 150+ real ingested
-    // stories, so two real non-overlapping pages of 5 are guaranteed to
-    // differ — proves offset is genuinely applied, not ignored.
-    expect(firstIds).not.toEqual(secondIds);
+    // Real gap found and fixed 2026-09-09, the first time this suite ever
+    // ran against a genuinely fresh database (real GitHub Actions CI,
+    // never verified before — see docs/deployment.md): this test used to
+    // rely on "this dev DB has 150+ real ingested stories" ambient state
+    // from one specific long-lived local machine's worker having run for
+    // days. A freshly seeded CI database has only the handful of demo
+    // rows seed.ts creates, so both 5-row pages came back `[]` and the
+    // "guaranteed to differ" assumption silently depended on an
+    // environment this test never actually controlled. Seeds its own 10
+    // real rows now — passes identically on a fresh DB or a long-lived
+    // one, same fix shape as the audit-log/search-queries offset tests
+    // right below.
+    const fixtureStories = await prisma.story.createManyAndReturn({
+      data: Array.from({ length: 10 }, (_, i) => ({ title: `Zzqxfixture offset story ${i}`, status: "DISCOVERED" as const })),
+    });
+    try {
+      const firstPage = await request(app).get("/v1/stories").query({ limit: 5, offset: 0 });
+      const secondPage = await request(app).get("/v1/stories").query({ limit: 5, offset: 5 });
+      expect(firstPage.status).toBe(200);
+      expect(secondPage.status).toBe(200);
+      expect(firstPage.body).toMatchObject({ offset: 0, limit: 5 });
+      expect(secondPage.body).toMatchObject({ offset: 5, limit: 5 });
+      const firstIds = firstPage.body.stories.map((s: { id: string }) => s.id);
+      const secondIds = secondPage.body.stories.map((s: { id: string }) => s.id);
+      expect(firstIds).not.toEqual(secondIds);
+    } finally {
+      await prisma.story.deleteMany({ where: { id: { in: fixtureStories.map((s) => s.id) } } });
+    }
   });
 
   it("GET /v1/stories reports hasMore correctly for a real small page and a real page past the end", async () => {
@@ -475,19 +491,34 @@ describe("GET /v1/audit-log", () => {
   });
 
   it("supports a real offset — the real fix for a gap where this endpoint's hardcoded take:100 had no offset, and this dev DB already has 1,500+ real rows permanently hidden past page 1", async () => {
-    const firstPage = await adminAgent.get("/v1/audit-log").query({ offset: 0 });
-    const secondPage = await adminAgent.get("/v1/audit-log").query({ offset: 100 });
-    expect(firstPage.status).toBe(200);
-    expect(secondPage.status).toBe(200);
-    expect(firstPage.body.offset).toBe(0);
-    expect(secondPage.body.offset).toBe(100);
-    const firstIds = firstPage.body.entries.map((e: { id: string }) => e.id);
-    const secondIds = secondPage.body.entries.map((e: { id: string }) => e.id);
-    // Real, not fixture, data: this dev DB has 1,500+ real AuditLog rows
-    // from today's own admin mutations, so two real non-overlapping
-    // 100-row pages are guaranteed to differ.
-    expect(firstIds).not.toEqual(secondIds);
-    expect(firstPage.body.hasMore).toBe(true);
+    // Real gap found and fixed 2026-09-09 (first real GitHub Actions CI
+    // run — see the /v1/stories offset test's own comment for the full
+    // story): "1,500+ real AuditLog rows" only existed on one specific
+    // long-lived local dev machine, never on a fresh CI database. Seeds
+    // its own 101 real rows so this passes on either.
+    const fixtureLogs = await prisma.auditLog.createManyAndReturn({
+      data: Array.from({ length: 101 }, (_, i) => ({
+        actorType: "SYSTEM" as const,
+        actorLabel: "Zzqxfixture offset actor",
+        action: "zzqxfixture.offset",
+        entityType: "Zzqxfixture",
+        entityId: `zzqxfixture-${i}`,
+      })),
+    });
+    try {
+      const firstPage = await adminAgent.get("/v1/audit-log").query({ offset: 0 });
+      const secondPage = await adminAgent.get("/v1/audit-log").query({ offset: 100 });
+      expect(firstPage.status).toBe(200);
+      expect(secondPage.status).toBe(200);
+      expect(firstPage.body.offset).toBe(0);
+      expect(secondPage.body.offset).toBe(100);
+      const firstIds = firstPage.body.entries.map((e: { id: string }) => e.id);
+      const secondIds = secondPage.body.entries.map((e: { id: string }) => e.id);
+      expect(firstIds).not.toEqual(secondIds);
+      expect(firstPage.body.hasMore).toBe(true);
+    } finally {
+      await prisma.auditLog.deleteMany({ where: { id: { in: fixtureLogs.map((l) => l.id) } } });
+    }
   });
 
   it("rejects a negative offset", async () => {
@@ -1484,19 +1515,32 @@ describe("analytics + search-query observability (MANAGE_SYSTEM_SETTINGS)", () =
   });
 
   it("supports a real offset — the real fix for a gap where this endpoint's hardcoded take:50 had no offset, and this dev DB already has 700+ real rows permanently hidden past page 1, same shape as the same-day GET /v1/stories/GET /v1/alerts/GET /v1/audit-log fixes", async () => {
-    const firstPage = await adminAgent.get("/v1/search-queries").query({ offset: 0 });
-    const secondPage = await adminAgent.get("/v1/search-queries").query({ offset: 50 });
-    expect(firstPage.status).toBe(200);
-    expect(secondPage.status).toBe(200);
-    expect(firstPage.body.offset).toBe(0);
-    expect(secondPage.body.offset).toBe(50);
-    const firstIds = firstPage.body.queries.map((q: { id: string }) => q.id);
-    const secondIds = secondPage.body.queries.map((q: { id: string }) => q.id);
-    // Real, not fixture, data: this dev DB has 700+ real SearchQuery rows
-    // from today's own real searches, so two real non-overlapping 50-row
-    // pages are guaranteed to differ.
-    expect(firstIds).not.toEqual(secondIds);
-    expect(firstPage.body.hasMore).toBe(true);
+    // Real gap found and fixed 2026-09-09 (first real GitHub Actions CI
+    // run — see the /v1/stories offset test's own comment for the full
+    // story): "700+ real SearchQuery rows" only existed on one specific
+    // long-lived local dev machine, never on a fresh CI database. Seeds
+    // its own 51 real rows so this passes on either.
+    const fixtureQueries = await prisma.searchQuery.createManyAndReturn({
+      data: Array.from({ length: 51 }, (_, i) => ({
+        query: `zzqxfixture offset query ${i}`,
+        locale: "en" as const,
+        resultsCount: 0,
+      })),
+    });
+    try {
+      const firstPage = await adminAgent.get("/v1/search-queries").query({ offset: 0 });
+      const secondPage = await adminAgent.get("/v1/search-queries").query({ offset: 50 });
+      expect(firstPage.status).toBe(200);
+      expect(secondPage.status).toBe(200);
+      expect(firstPage.body.offset).toBe(0);
+      expect(secondPage.body.offset).toBe(50);
+      const firstIds = firstPage.body.queries.map((q: { id: string }) => q.id);
+      const secondIds = secondPage.body.queries.map((q: { id: string }) => q.id);
+      expect(firstIds).not.toEqual(secondIds);
+      expect(firstPage.body.hasMore).toBe(true);
+    } finally {
+      await prisma.searchQuery.deleteMany({ where: { id: { in: fixtureQueries.map((q) => q.id) } } });
+    }
   });
 
   it("rejects a negative offset", async () => {
@@ -1592,16 +1636,32 @@ describe("GET /v1/topics", () => {
   // apps/web/src/app/sitemap.ts, which never set it before) — the most
   // recent real Story.lastUpdatedAt among that topic's stories.
   it("each topic carries a real lastModified matching its most recently updated real Story", async () => {
-    const res = await request(app).get("/v1/topics");
-    expect(res.status).toBe(200);
-    const safetyRecalls = res.body.topics.find((t: { slug: string }) => t.slug === "safety-recalls");
-    expect(safetyRecalls).toBeDefined();
-    expect(safetyRecalls.lastModified).not.toBeNull();
-    const mostRecentStory = await prisma.story.findFirst({
-      where: { primaryTopicId: (await prisma.topic.findUniqueOrThrow({ where: { slug: "safety-recalls" } })).id },
-      orderBy: { lastUpdatedAt: "desc" },
+    // Real gap found and fixed 2026-09-09 (first real GitHub Actions CI
+    // run — see the /v1/stories offset test's own comment for the full
+    // story): this always passed locally only because the long-lived dev
+    // DB already had real Stories classified under "safety-recalls";
+    // seed.ts's own demo data doesn't tag any Story with a topic, so a
+    // fresh CI database has zero real Stories under it and lastModified
+    // comes back null. Seeds its own one real Story so this passes on
+    // either.
+    const safetyRecallsTopic = await prisma.topic.findUniqueOrThrow({ where: { slug: "safety-recalls" } });
+    const fixtureStory = await prisma.story.create({
+      data: { title: "Zzqxfixture safety-recalls story", status: "DISCOVERED", primaryTopicId: safetyRecallsTopic.id },
     });
-    expect(new Date(safetyRecalls.lastModified).toISOString()).toBe(mostRecentStory!.lastUpdatedAt.toISOString());
+    try {
+      const res = await request(app).get("/v1/topics");
+      expect(res.status).toBe(200);
+      const safetyRecalls = res.body.topics.find((t: { slug: string }) => t.slug === "safety-recalls");
+      expect(safetyRecalls).toBeDefined();
+      expect(safetyRecalls.lastModified).not.toBeNull();
+      const mostRecentStory = await prisma.story.findFirst({
+        where: { primaryTopicId: safetyRecallsTopic.id },
+        orderBy: { lastUpdatedAt: "desc" },
+      });
+      expect(new Date(safetyRecalls.lastModified).toISOString()).toBe(mostRecentStory!.lastUpdatedAt.toISOString());
+    } finally {
+      await prisma.story.delete({ where: { id: fixtureStory.id } });
+    }
   });
 
   it("GET /v1/topics/:slug 404s for an unknown slug", async () => {
