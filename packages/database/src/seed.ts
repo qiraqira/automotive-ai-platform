@@ -219,8 +219,16 @@ async function main() {
     if (!topic) continue;
     const existing = await prisma.story.count({ where: { primaryTopicId: topic.id } });
     for (let i = existing; i < minCount; i++) {
+      // Real gap found and fixed 2026-09-09, same tick: the first version
+      // of this title literally embedded the real Topic name ("Dev seed:
+      // Electric Vehicles story 1"), which collided with
+      // page.getByRole('heading', { name: 'Electric Vehicles' }) in
+      // apps/web/e2e/public-pages.spec.ts — Playwright's default
+      // substring match found 2 real headings and failed strict mode.
+      // Uses the topic's slug (hyphenated, never a substring of the
+      // real space-separated section heading) instead of its name.
       await prisma.story.create({
-        data: { title: `Dev seed: ${topic.name} story ${i + 1}`, status: "DISCOVERED", primaryTopicId: topic.id },
+        data: { title: `Dev seed story ${i + 1} (${slug})`, status: "DISCOVERED", primaryTopicId: topic.id },
       });
     }
   }
