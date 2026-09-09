@@ -73,6 +73,35 @@ jobs:
       - name: Run migrations against the real Postgres service
         run: npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
 
+      # Real gap found 2026-09-09, the first time this workflow ever ran
+      # for real on actual GitHub Actions (never verified before — see
+      # docs/deployment.md's own "written and reasoned through by hand,
+      # not run-and-verified" note): Seed/Typecheck/Test all import
+      # cross-package (e.g. packages/database/src/seed.ts imports
+      # @automotive/types), which resolves through that package's own
+      # package.json "main"/"types" fields to `dist/`  — gitignored, so a
+      # fresh `npm ci` checkout has none of it. `tsx` compiles the file
+      # you point it at on the fly, but NOT its workspace dependencies.
+      # `npm run build --workspaces --if-present` further below builds
+      # everything, but far too late (after Seed/Typecheck/Test already
+      # needed it). Fixed by building just the packages/* every later
+      # step needs, in the one order already proven correct by all 3
+      # Dockerfiles (infrastructure/docker/Dockerfile.{api,worker,web})
+      # rather than trusting plain `--workspaces` (npm does not build in
+      # dependency order). The later `npm run build --workspaces
+      # --if-present` step still runs too (now redundant for these 7, but
+      # harmless — tsc just recompiles — and it's still the one place
+      # apps/api|worker|web themselves get built).
+      - name: Build workspace packages (proven order, matches infrastructure/docker/Dockerfile.*)
+        run: |
+          npm run build --workspace @automotive/types
+          npm run build --workspace @automotive/database
+          npm run build --workspace @automotive/config
+          npm run build --workspace @automotive/ai
+          npm run build --workspace @automotive/editorial
+          npm run build --workspace @automotive/seo
+          npm run build --workspace @automotive/utils
+
       - name: Seed (real sources/roles/permissions, needed by apps/api's integration tests)
         run: npm run db:seed
 
