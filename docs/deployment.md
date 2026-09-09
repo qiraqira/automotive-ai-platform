@@ -116,15 +116,38 @@ honesty already applied to the Dockerfiles/`nginx.conf` above — worth
 a real first push (even to a throwaway branch) to confirm before
 relying on this workflow for anything real.
 
-**When a real production host exists**, the intended shape (spec §6) is:
-on push to `main`, after the existing test job passes, build each app's
-Docker image, then deploy (compose pull + up -d) to the production host
-over SSH, with migrations (`prisma migrate deploy`) run as an explicit
-step before the new `api`/`worker` images go live — never as a side
-effect of application boot, matching how this repo's local Dockerfiles/
-compose file are already structured. **Never `npm run db:seed` against
-the production `DATABASE_URL`** — see "Required production environment
-variables" below.
+**Corrected 2026-09-09 — a real production host exists now, this whole
+section above is stale**: the site is live at **https://autonewsfeed.com**
+(and `www.`), running as Docker Compose on a VPS at `147.45.156.155`
+(`/opt/automotive-ai-platform`, containers `automotive-ai-platform-{web,
+api,worker,redis,postgres}-1`, `pgvector/pgvector:pg17`), behind
+Cloudflare (DNS resolves to Cloudflare edge IPs, not the origin directly).
+Verified live 2026-09-09: real HTML from the real Next.js build (not a
+placeholder), worker logs show genuine ongoing RSS ingestion, AI article
+drafting, and real paid AI hero-image generation, zero errors in recent
+API logs. **How it actually got there does NOT match the "CD" shape
+described above**: the code on the server has no `.git` directory at all
+— it was copied over directly (rsync/scp), not deployed via the
+GitHub Actions pipeline sketched below, which has still never run for
+real. This repo *does* now have real git history as of 2026-09-09 (first
+commit `45771a5`, pushed to `github.com/qiraqira/automotive-ai-platform`,
+default branch renamed `master` → `main` to match this very
+workflow's `on: push: branches: [main]` trigger) — but the running
+production containers and that git history are currently two disconnected
+things: pushing to GitHub does not yet update what's live on
+`147.45.156.155`. Bringing the server onto a real git-pull-based deploy
+(so the two stay in sync going forward, and so this workflow's `on: push`
+trigger becomes meaningful) is the next real gap, not yet closed.
+
+**When that's closed**, the intended shape (spec §6) is: on push to
+`main`, after the existing test job passes, build each app's Docker
+image, then deploy (compose pull + up -d) to the production host over
+SSH, with migrations (`prisma migrate deploy`) run as an explicit step
+before the new `api`/`worker` images go live — never as a side effect of
+application boot, matching how this repo's local Dockerfiles/compose file
+are already structured. **Never `npm run db:seed` against the production
+`DATABASE_URL`** — see "Required production environment variables"
+below.
 
 ## Required production environment variables
 
