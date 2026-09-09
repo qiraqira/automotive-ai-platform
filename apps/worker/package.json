@@ -1,0 +1,35 @@
+{
+  "name": "@automotive/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "ingest:once": "tsx src/run-ingest-once.ts",
+    "backfill:topics": "tsx src/backfill-topics.ts",
+    "backfill:authors": "tsx src/backfill-authors.ts",
+    "backfill:importance": "tsx src/backfill-importance.ts",
+    "write:articles": "tsx src/write-article.ts",
+    "backfill:images": "tsx src/backfill-images.ts",
+    "backfill:entities": "tsx src/backfill-entities.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@automotive/ai": "0.1.0",
+    "@automotive/config": "0.1.0",
+    "@automotive/database": "0.1.0",
+    "@automotive/editorial": "0.1.0",
+    "@automotive/types": "0.1.0",
+    "bullmq": "^6.3.4",
+    "fast-xml-parser": "^5.11.1",
+    "ioredis": "^6.0.0",
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^5.0.0"
+  }
+}

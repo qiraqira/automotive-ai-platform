@@ -1,0 +1,45 @@
+{
+  "name": "automotive-ai-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:web": "npm run dev --workspace @automotive/web",
+    "dev:api": "npm run dev --workspace @automotive/api",
+    "dev:worker": "npm run dev --workspace @automotive/worker",
+    "ingest:once": "npm run ingest:once --workspace @automotive/worker",
+    "backfill:topics": "npm run backfill:topics --workspace @automotive/worker",
+    "backfill:authors": "npm run backfill:authors --workspace @automotive/worker",
+    "backfill:importance": "npm run backfill:importance --workspace @automotive/worker",
+    "db:generate": "npm run generate --workspace @automotive/database",
+    "db:migrate": "npm run migrate:dev --workspace @automotive/database",
+    "db:seed": "npm run seed --workspace @automotive/database",
+    "db:bootstrap": "npm run bootstrap --workspace @automotive/database",
+    "db:create-admin": "npm run create-admin --workspace @automotive/database",
+    "test": "npm run test --workspaces --if-present",
+    "e2e": "npm run e2e --workspace @automotive/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify:docker-build-order": "node infrastructure/docker/verify-build-order.js",
+    "verify:env-example": "node infrastructure/verify-env-example.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.28.2": true,
+    "prisma@5.22.0": true,
+    "esbuild@0.21.5": true,
+    "msgpackr-extract@3.0.4": true
+  }
+}

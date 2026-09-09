@@ -1,0 +1,104 @@
+:root {
+  --ink: #12141a;
+  --ink-dim: #5b6270;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --line: #e4e6eb;
+  --accent: #c0392b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+header.site {
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+}
+
+header.site .wordmark {
+  font-family: Arial, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+footer.site {
+  border-top: 1px solid var(--line);
+  margin-top: 40px;
+  padding: 28px 0;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+footer.site .footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 12px;
+}
+
+footer.site .footer-links a {
+  text-decoration: none;
+  color: var(--ink-dim);
+}
+
+footer.site .footer-links a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.story-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.story-item {
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+}
+
+.story-item h2 {
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.story-meta {
+  font-family: Arial, sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge {
+  display: inline-block;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  margin-right: 6px;
+}

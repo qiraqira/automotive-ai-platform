@@ -1,0 +1,180 @@
+name: automotive-ai-platform
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-automotive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-automotive_platform}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-automotive}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY_ID:?set STORAGE_ACCESS_KEY_ID in .env}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_ACCESS_KEY:?set STORAGE_SECRET_ACCESS_KEY in .env}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Same real named volume as `web`'s own uploads_data mount (see that
+      # service's comment) — apps/worker/src/generate-image.ts (the real
+      # OpenAI gpt-image-1 fallback for when apps/worker/src/
+      # fetch-images.ts's free-stock search finds nothing) writes real
+      # generated image bytes here; `web` serves them from the SAME
+      # underlying volume at its own mount point
+      # (/repo/apps/web/uploads, served by a real Route Handler — see
+      # apps/web/src/app/uploads/[filename]/route.ts — not Next's public/
+      # static serving, which doesn't pick up a file added after the
+      # server booted, confirmed live) — different mount path in each
+      # container, same shared storage, since worker's own image never
+      # contains an `apps/web` directory at all to mount into.
+      - uploads_data:/repo/uploads
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+      # See Dockerfile.web's own comment on the real bug this fixes —
+      # these need to reach the `next build` step itself, not just the
+      # running container's env, or Next.js's statically-prerendered
+      # pages (the 404 boundary, confirmed live) bake in the fallback
+      # placeholder literals permanently.
+      args:
+        PROJECT_NAME: ${PROJECT_NAME}
+        PUBLIC_URL: ${PUBLIC_URL}
+        PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      - api
+    # Real gap found and fixed 2026-09-09: the shared nginx (sibling
+    # ai-music-deconstructor project, see infrastructure's own notes on
+    # this) reaches this container by name over the `webproxy` network —
+    # previously attached by a one-off manual `docker network connect`,
+    # which is per-container state, not per-service config, so it
+    # silently vanished the moment this container was next recreated
+    # (confirmed live: a routine `--force-recreate web` for an unrelated
+    # env-var change broke autonewsfeed.com with a real 502 until this was
+    # reconnected by hand). Declaring it here makes every future recreate
+    # attach it automatically. `default` must be listed explicitly too —
+    # once a service names its own `networks:`, Compose stops
+    # auto-attaching the project's default network.
+    networks:
+      - default
+      - webproxy
+    volumes:
+      # Real admin-uploaded hero images (the "search free stock, upload
+      # your own if nothing's found" flow — apps/web/src/app/api/admin/
+      # articles/[id]/upload-image/route.ts) need to survive a
+      # `docker compose up -d --force-recreate web` (a real, established
+      # gotcha this whole session — the container's own filesystem is a
+      # build-time COPY, not persistent). A named volume, not local
+      # object storage (`minio` below is real infra but unconfigured —
+      # STORAGE_ACCESS_KEY_ID/SECRET aren't set — standing that up was
+      # judged disproportionate scope for what's currently a handful of
+      # manually-uploaded images).
+      - uploads_data:/repo/apps/web/uploads
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+
+  # Real gap found and fixed 2026-09-07: `nginx` above has mounted these
+  # two volumes read-only since this file's initial scaffold, but nothing
+  # ever wrote a real certificate into them — `certbot_conf`/
+  # `certbot_webroot` existed with no service populating them. This
+  # service handles ongoing renewal (webroot mode, matching `nginx.conf`'s
+  # `/.well-known/acme-challenge/` location); the very first real
+  # certificate still needs one manual bootstrap run before `nginx`'s
+  # `443` server block has anything to serve — see docs/deployment.md
+  # "TLS certificates" for the exact one-off command (real domain/email
+  # required, so it can't be baked into this file as an unattended step).
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: >-
+      /bin/sh -c 'trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done;'
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  certbot_conf:
+  certbot_webroot:
+  uploads_data:
+
+networks:
+  default: {}
+  # Created by the sibling ai-music-deconstructor project's own compose
+  # file, shared across every project on this VPS whose nginx-routed
+  # service needs to be reachable by container name from that shared
+  # nginx (see `web`'s own comment above). Declared `external` since this
+  # project doesn't own its lifecycle — it must already exist before this
+  # file's `up` runs, and `docker compose down` here must never remove it.
+  webproxy:
+    external: true

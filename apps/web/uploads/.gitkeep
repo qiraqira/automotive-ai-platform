@@ -1,0 +1,17 @@
+Real hero images (free-stock manual uploads and OpenAI-generated ones —
+apps/web/src/app/api/admin/articles/[id]/upload-image/route.ts and
+apps/worker/src/generate-image.ts) land here at runtime, served by
+apps/web/src/app/uploads/[filename]/route.ts.
+
+Deliberately NOT inside public/ — real gap found and fixed live
+2026-09-08: Next.js's `next start` only serves files that existed in
+public/ when the server booted; a file written there while the server is
+already running 404s until the next restart (confirmed live: the exact
+same file served 200 immediately after a plain `docker compose restart
+web`, nothing else changed). A real dynamic Route Handler reads the file
+from disk on every request instead, so a newly-generated image is
+servable immediately with no restart needed. This directory is a
+placeholder for local git/dev — infrastructure/docker/docker-compose.yml
+mounts a real named volume (uploads_data) over it in production, shared
+with apps/worker (which writes here from its own /repo/uploads mount
+point on the same volume).

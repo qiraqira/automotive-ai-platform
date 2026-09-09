@@ -1,0 +1,63 @@
+# Builds apps/api against the npm-workspaces monorepo root.
+FROM node:20-slim AS build
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Real gap found and fixed 2026-09-08, during the first-ever real Docker
+# build of this project: every package's tsconfig.json extends the root
+# ../../tsconfig.base.json, but no Dockerfile ever copied that file in —
+# `tsc` failed immediately with "Cannot read file '/repo/tsconfig.base.json'"
+# on the very first real build attempt.
+COPY package.json package-lock.json* tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/api ./apps/api
+RUN npm install
+# Real gap found and fixed 2026-09-08, before the first-ever real Docker
+# build of this project: none of these 3 Dockerfiles ever ran `prisma
+# generate` — `.github/workflows/ci.yml` already documents, from a real
+# CI failure, that `npm ci`/`npm install` does NOT reliably regenerate
+# the Prisma Client in this monorepo (schema lives outside the package
+# root); every package importing types from @automotive/database
+# (ArticleStatus, PermissionKey, etc.) fails to build without this
+# explicit step. Must run before any workspace build below, since
+# @automotive/database's own `tsc` build needs the generated client's
+# types to compile at all.
+RUN npx prisma generate --schema packages/database/prisma/schema.prisma
+# Build order follows the real dependency graph (packages/*'s own
+# package.json "dependencies") — @automotive/api depends on database,
+# types, and config; config has no internal deps, but database itself now
+# depends on types (added for the EntityRelation type-safety fix), so
+# types must build first. Two real bugs found and fixed here 2026-09-07:
+# first, this only ever built database then api, silently missing
+# types/config, which didn't exist as dependencies yet when this file was
+# first written; second (caught later the same day, by re-simulating this
+# exact chain locally after database gained its own dependency on types),
+# database was still listed *before* types, which would fail for the
+# same "missing dist/ output" reason but in the other direction. Neither
+# was ever automatically enforced — re-verify this order any time a
+# packages/* dependency graph changes.
+RUN npm run build --workspace @automotive/types
+RUN npm run build --workspace @automotive/database
+RUN npm run build --workspace @automotive/config
+RUN npm run build --workspace @automotive/api
+
+FROM node:20-slim AS runtime
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=build /repo /repo
+EXPOSE 4000
+CMD ["node", "apps/api/dist/index.js"]

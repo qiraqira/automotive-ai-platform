@@ -1,0 +1,1209 @@
+// Automotive AI Media Platform — core schema.
+//
+// Design notes that matter for anyone extending this file:
+//
+// 1. Embeddings are stored as `Float[]` (a portable Postgres array), not the
+//    pgvector `vector` type. Local dev Postgres on this machine has no
+//    pgvector extension installed; production (Docker, `pgvector/pgvector`
+//    image) does. A supplementary raw-SQL migration should convert these
+//    columns to `vector(N)` + add an ivfflat/hnsw index once pgvector is
+//    confirmed present — see docs/database.md "Embeddings" section. Do not
+//    block the whole schema on an extension that isn't guaranteed locally.
+//
+// 2. English and Spanish are INDEPENDENT EDITORIAL EDITIONS, not machine
+//    translations of each other (see docs/editorial-system.md and spec
+//    sections 20-21). `Article.locale` says which edition this is;
+//    `Article.editionGroupId` links the EN and ES articles that cover the
+//    same underlying Story/topic as editorial counterparts. There is no
+//    "translate this article" pipeline — `ArticleTranslation` from the
+//    original entity list is intentionally NOT modeled as a literal
+//    translation table; the edition-group pattern replaces it.
+//
+// 3. Knowledge-graph edges between heterogeneous entities (Car <-> Story,
+//    Story <-> Company, Article <-> Technology, etc.) use one generic
+//    polymorphic `EntityRelation` table rather than a join table per pair
+//    of entity types — Prisma doesn't support real polymorphic relations,
+//    and a table-per-pair approach would multiply combinatorially as the
+//    graph grows (spec section 25/3 of the extension explicitly wants an
+//    open-ended graph, not a fixed set of relations).
+//
+// 4. Facts are time-aware and market-aware (spec sections 90-91): a fact is
+//    never just `value` — it's `value + market + validFrom/validTo +
+//    sourceId + confidence + status`. Never overwrite a fact in place;
+//    superseding facts are new rows, and FactConflict records disagreement
+//    between simultaneously-valid facts pending resolution.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// 1. IDENTITY, ACCESS CONTROL, AUDIT  (spec §8, §40, §77)
+// ============================================================================
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  status       UserStatus @default(INVITED) // real creation path (POST /v1/users, apps/api/src/app.ts) explicitly sets ACTIVE — this default is never actually reached by current code, only a footgun for a future bulk/import path that skips that handler
+  roles        UserRole[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  articles         Article[]
+  articleRevisions ArticleRevision[]
+  editorialReviews EditorialReview[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  key         String           @unique // e.g. "editor", "admin", "ai_agent"
+  name        String
+  description String?
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+// One canonical, explicit permission list (spec §40 + §8 Permission entity).
+// AI agents get Roles like any human account, scoped down via the same table.
+enum PermissionKey {
+  READ_SOURCES
+  MANAGE_SOURCES
+  CREATE_STORY
+  UPDATE_STORY
+  CREATE_ARTICLE
+  UPDATE_ARTICLE
+  PUBLISH_ARTICLE
+  DELETE_ARTICLE
+  MODERATE_COMMENT
+  UPDATE_CAR
+  UPDATE_SEO
+  RUN_RESEARCH
+  GENERATE_IMAGE
+  MANAGE_USERS
+  MANAGE_AI_BUDGET
+  VIEW_AUDIT_LOG
+  MANAGE_SYSTEM_SETTINGS
+}
+
+model Permission {
+  id    String            @id @default(cuid())
+  key   PermissionKey     @unique
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Every consequential action — human, AI, or system (spec §77, §42).
+enum ActorType {
+  HUMAN
+  AI_AGENT
+  SYSTEM
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorType   ActorType
+  actorId     String? // User.id or AIAgentAction.id, loosely — see actorLabel for a human-readable fallback
+  actorLabel  String
+  action      String
+  entityType  String
+  entityId    String
+  reason      String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime  @default(now())
+  user        User?     @relation(fields: [actorUserId], references: [id])
+  actorUserId String?
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// 2. LOCALE / MARKET  (spec §22, §91)
+// ============================================================================
+
+enum Locale {
+  en
+  es
+}
+
+model Market {
+  id           String  @id @default(cuid())
+  code         String  @unique // "US", "GB", "ES", "MX", ...
+  name         String
+  currencyCode String // ISO 4217, e.g. "USD"
+  unitSystem   String // "imperial" | "metric"
+  facts        Fact[]
+
+  @@map("markets")
+}
+
+// ============================================================================
+// 3. SOURCE INGESTION  (spec §11-§20 + extension §9-§20, §56-§59)
+// ============================================================================
+
+enum SourceType {
+  RSS
+  ATOM
+  OFFICIAL_API
+  MANUFACTURER_PRESS_ROOM
+  GOVERNMENT
+  REGULATORY
+  FINANCIAL_FILING
+  NEWS_MEDIA
+  SOCIAL
+  OTHER
+}
+
+enum SourceTier {
+  PRIMARY // manufacturer, regulator, official filing
+  WIRE // major wire services
+  SPECIALIST // established automotive media
+  REGIONAL
+  SOCIAL_LEAD // leads only, never confirmation
+  UNVERIFIED
+}
+
+model Source {
+  id             String     @id @default(cuid())
+  name           String
+  url            String     @unique
+  feedUrl        String?
+  country        String? // ISO 3166-1 alpha-2
+  language       String? // ISO 639-1
+  type           SourceType
+  tier           SourceTier @default(UNVERIFIED)
+  trustScore     Int        @default(30) // 0-100, see docs/editorial-system.md "Source reliability"
+  active         Boolean    @default(true)
+  crawlInterval  Int        @default(900) // seconds
+  lastSuccessAt  DateTime?
+  lastErrorAt    DateTime?
+  lastError      String?
+  robotsStatus   String? // cached robots.txt evaluation
+  termsUrl       String?
+  crawlPolicy    Json? // ContentRightsPolicy snapshot, see extension §56-58
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  articles      SourceArticle[]
+  storySources  StorySource[]
+  scoreHistory  SourceScoreEvent[]
+  authors       SourceAuthor[]
+
+  @@index([type, active])
+  @@map("sources")
+}
+
+// Append-only trust-score change log (spec §18 "все изменения записывать").
+model SourceScoreEvent {
+  id        String   @id @default(cuid())
+  sourceId  String
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  delta     Int
+  newScore  Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@map("source_score_events")
+}
+
+// Real gap found and fixed 2026-09-08 (checked during a fresh review —
+// unlike most other relation gaps found this same day, this one is
+// LIVE: `apps/worker/src/ingest.ts`'s real `resolveSourceAuthor()`
+// already creates real `SourceAuthor` rows during real ingestion, 9 of
+// them in this dev DB at the time of this fix): `sourceId` had no
+// `@relation` at all — a bare, unlinked `String?` — while `Source`
+// itself had no reciprocal field either. Existing code worked around
+// this fine (`findFirst({ where: { sourceId, name } })` filters on the
+// raw scalar column, no relation needed for that), so this was never a
+// functional bug, only a missing FK constraint and missing
+// `include`-ability. Verified live before adding a real constraint,
+// not assumed safe: queried every real `SourceAuthor` row and confirmed
+// all 9 have a real, valid `sourceId` (zero `null`, zero pointing at a
+// non-existent `Source`) — safe to add the FK without risking a
+// migration failure against real, already-written data.
+model SourceAuthor {
+  id       String          @id @default(cuid())
+  sourceId String?
+  source   Source?         @relation(fields: [sourceId], references: [id])
+  name     String
+  profileUrl String?
+  articles SourceArticle[]
+
+  @@map("source_authors")
+}
+
+model SourceArticle {
+  id             String        @id @default(cuid())
+  sourceId       String
+  source         Source        @relation(fields: [sourceId], references: [id])
+  authorId       String?
+  author         SourceAuthor? @relation(fields: [authorId], references: [id])
+  url            String        @unique
+  urlHash        String        @unique // sha256(normalized url) - fast dedupe key
+  title          String
+  excerpt        String? // short excerpt only; see docs/security.md "no full-text mirroring"
+  publishedAt    DateTime?
+  fetchedAt      DateTime      @default(now())
+  language       String?
+  rawMeta        Json? // feed-provided metadata (categories, media, guid, etc.)
+  embedding      Float[]       @default([]) // see schema-level note #1 re: pgvector upgrade path
+  storyId        String?
+  story          Story?        @relation(fields: [storyId], references: [id])
+  facts          FactEvidence[]
+  citations      Citation[]
+
+  @@index([storyId])
+  @@index([publishedAt])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "source_articles_title_trgm_idx")
+  @@map("source_articles")
+}
+
+// ============================================================================
+// 4. STORY  (spec §9-§10, §52-§53)
+// ============================================================================
+
+enum StoryStatus {
+  DISCOVERED
+  CLUSTERING
+  RESEARCHING
+  FACT_CHECK
+  EDITORIAL_DRAFT
+  QUALITY_CHECK
+  READY
+  PUBLISHED
+  UPDATED
+  ARCHIVED
+}
+
+model Story {
+  id              String        @id @default(cuid())
+  title           String
+  summary         String?
+  status          StoryStatus   @default(DISCOVERED)
+  importanceScore Int           @default(30) // 1-100, see spec §53
+  confidence      Float         @default(0.5)
+  primaryTopicId  String?
+  primaryTopic    Topic?        @relation(fields: [primaryTopicId], references: [id])
+  firstSeenAt     DateTime      @default(now())
+  lastUpdatedAt   DateTime      @updatedAt
+
+  sources         StorySource[]
+  sourceArticles  SourceArticle[]
+  facts           Fact[]
+  articles        Article[]
+  events          StoryEvent[] // timeline (spec §9 "timeline", §52 story evolution)
+  aiJobs          AIJob[]
+
+  @@index([status])
+  @@index([importanceScore])
+  // Real gap found and fixed 2026-09-08: GET /v1/stories orders every
+  // real query by `lastUpdatedAt: "desc"` (the homepage feed, the
+  // admin stories queue, its own real offset-pagination) — this table
+  // had no index backing that sort at all, unlike AuditLog (the one
+  // other paginated-by-timestamp table already correctly indexed on
+  // its own sort column, `createdAt`). Real, growing data behind this,
+  // not speculative: this dev DB already has 150+ real ingested Story
+  // rows and grows every real crawl cycle.
+  @@index([lastUpdatedAt])
+  @@map("stories")
+}
+
+model StorySource {
+  storyId  String
+  sourceId String
+  story    Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, sourceId])
+  @@map("story_sources")
+}
+
+// One row per notable development in a story's life (spec §52 "Story evolution").
+model StoryEvent {
+  id          String   @id @default(cuid())
+  storyId     String
+  story       Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  occurredAt  DateTime
+  label       String // "rumor", "manufacturer confirmation", "official specifications", ...
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("story_events")
+}
+
+// ============================================================================
+// 5. FACT ENGINE  (spec §14-§15, extension §36-§39, §90-§93)
+// ============================================================================
+
+enum FactStatus {
+  CONFIRMED
+  REPORTED
+  UNCONFIRMED
+  RUMOR
+  DISPUTED
+  OUTDATED
+}
+
+// A Fact is scoped to (subject, attribute, market, time window) — never a
+// single mutable value. "BMW M3 power = 530hp" and a later "535hp" claim are
+// two rows, not one row overwritten (spec §90-91).
+model Fact {
+  id           String       @id @default(cuid())
+  storyId      String?
+  story        Story?       @relation(fields: [storyId], references: [id])
+  carModelId   String?
+  carModel     CarModel?    @relation(fields: [carModelId], references: [id])
+  attribute    String // e.g. "power_hp", "range_km", "price"
+  value        String // canonical stored value (unit-normalized where applicable, see §93)
+  unit         String?
+  marketId     String?
+  market       Market?      @relation(fields: [marketId], references: [id])
+  status       FactStatus   @default(REPORTED)
+  confidence   Float        @default(0.5)
+  validFrom    DateTime     @default(now())
+  validTo      DateTime?
+  originalCurrency String? // spec §92 — never discard the original currency
+  originalValue    String?
+  createdAt    DateTime     @default(now())
+
+  evidence     FactEvidence[]
+  conflictsAsA FactConflict[] @relation("FactA")
+  conflictsAsB FactConflict[] @relation("FactB")
+  citations    Citation[]
+
+  @@index([carModelId, attribute])
+  @@index([storyId])
+  @@map("facts")
+}
+
+model FactEvidence {
+  id              String         @id @default(cuid())
+  factId          String
+  fact            Fact           @relation(fields: [factId], references: [id], onDelete: Cascade)
+  sourceArticleId String
+  sourceArticle   SourceArticle  @relation(fields: [sourceArticleId], references: [id])
+  quote           String? // short, legally-bounded excerpt — see docs/security.md "No full-text mirroring"
+  retrievedAt     DateTime       @default(now())
+
+  @@map("fact_evidence")
+}
+
+enum ConflictResolution {
+  UNRESOLVED
+  RESOLVED_A
+  RESOLVED_B
+  RESOLVED_BOTH_VALID // e.g. two different markets
+  RESOLVED_MANUAL
+}
+
+model FactConflict {
+  id           String             @id @default(cuid())
+  factAId      String
+  factA        Fact               @relation("FactA", fields: [factAId], references: [id])
+  factBId      String
+  factB        Fact               @relation("FactB", fields: [factBId], references: [id])
+  resolution   ConflictResolution @default(UNRESOLVED)
+  resolvedNote String?
+  createdAt    DateTime           @default(now())
+  resolvedAt   DateTime?
+
+  @@map("fact_conflicts")
+}
+
+// ============================================================================
+// 6. ARTICLES  (spec §17-§21, extension §4, §50, §60-§64)
+// ============================================================================
+
+enum ArticleType {
+  BREAKING_NEWS
+  NEWS
+  ANALYSIS
+  EXPLAINER
+  COMPARISON
+  REVIEW
+  GUIDE
+  MARKET
+  TECHNOLOGY
+  RUMOR
+  TIMELINE
+  MODEL_UPDATE
+}
+
+// "Why does this article exist" — used for cannibalization prevention
+// (extension §4-§5).
+enum ContentPurpose {
+  BREAKING
+  UPDATE
+  BACKGROUND
+  ANALYSIS
+  EXPLAINER
+  COMPARISON
+  GUIDE
+  HISTORY
+  DATABASE
+  MARKET
+  TECHNOLOGY
+}
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  SCHEDULED
+  PUBLISHED
+  UPDATED
+  ARCHIVED
+  REJECTED
+}
+
+enum AuthorType {
+  HUMAN
+  AI_AGENT
+  HYBRID
+}
+
+model Article {
+  id              String         @id @default(cuid())
+  storyId         String?
+  story           Story?         @relation(fields: [storyId], references: [id])
+  locale          Locale
+  editionGroupId  String? // links the EN/ES independent editions of the "same" piece — see schema note #2
+  type            ArticleType
+  contentPurpose  ContentPurpose
+  status          ArticleStatus  @default(DRAFT)
+  slug            String
+  headline        String
+  subtitle        String?
+  keyTakeaway     String?
+  authorType      AuthorType     @default(AI_AGENT)
+  // Real gap found and fixed 2026-09-08 (checked during a systematic
+  // sweep for this exact shape after finding it twice already the same
+  // day, on Citation and SourceAuthor): `authorUserId` had no
+  // `@relation` at all — bare, unlinked, unlike `ArticleRevision.
+  // authorUserId` (same concept, same optional-human-author idea) right
+  // in this same schema, which already does this correctly. `Article`
+  // has zero real rows yet (0% built, matches Citation's dormant
+  // status, not SourceAuthor's live one — no extra live-data safety
+  // check needed here).
+  authorUserId    String?
+  author          User?          @relation(fields: [authorUserId], references: [id])
+  canonicalUrl    String?
+  metaTitle       String?
+  metaDescription String?
+  publishedAt     DateTime?
+  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now())
+
+  qualityScore      Float?
+  originalityScore  Float?
+  factualScore      Float?
+  sourceScore       Float?
+  valueScore        Float?
+  readabilityScore  Float?
+
+  blocks          ArticleBlock[]
+  revisions       ArticleRevision[]
+  images          ArticleImage[]
+  relatedFrom     RelatedArticle[]  @relation("ArticleFrom")
+  relatedTo       RelatedArticle[]  @relation("ArticleTo")
+  citations       Citation[]
+  reviews         EditorialReview[]
+  comments        Comment[]
+  seoRecord       SEORecord?
+  carModels       ArticleCarModel[]
+
+  @@unique([locale, slug])
+  @@index([editionGroupId])
+  @@index([status, locale])
+  @@map("articles")
+}
+
+// Ordered, typed content blocks (spec extension §61-§62) — never a single
+// opaque HTML blob, so the quality gate / renderer can reason about structure.
+enum ArticleBlockType {
+  TEXT
+  FACT_TABLE
+  SPEC_TABLE
+  TIMELINE
+  QUOTE
+  IMAGE
+  GALLERY
+  COMPARISON
+  RELATED_CARS
+  RELATED_STORIES
+  SOURCE_LIST
+  MAP
+  CHART
+}
+
+model ArticleBlock {
+  id        String           @id @default(cuid())
+  articleId String
+  article   Article          @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  type      ArticleBlockType
+  position  Int
+  data      Json // shape depends on `type`; validated at write time, not by the DB
+
+  @@index([articleId, position])
+  @@map("article_blocks")
+}
+
+model ArticleRevision {
+  id         String     @id @default(cuid())
+  articleId  String
+  article    Article    @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorType AuthorType
+  authorUserId String?
+  author     User?      @relation(fields: [authorUserId], references: [id])
+  changeType String // "create" | "edit" | "correction" | "regenerate" | ...
+  diff       Json
+  reason     String?
+  createdAt  DateTime   @default(now())
+
+  @@map("article_revisions")
+}
+
+model RelatedArticle {
+  fromArticleId String
+  toArticleId   String
+  fromArticle   Article  @relation("ArticleFrom", fields: [fromArticleId], references: [id], onDelete: Cascade)
+  toArticle     Article  @relation("ArticleTo", fields: [toArticleId], references: [id], onDelete: Cascade)
+  reason        String? // why the internal-linking engine chose this pairing
+
+  @@id([fromArticleId, toArticleId])
+  @@map("related_articles")
+}
+
+model ArticleCarModel {
+  articleId  String
+  carModelId String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  carModel   CarModel @relation(fields: [carModelId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, carModelId])
+  @@map("article_car_models")
+}
+
+// Evidence chain from a published claim back to its source (spec §71).
+//
+// Real gap found and fixed 2026-09-08 (checked during a fresh schema
+// review — zero real rows exist yet, `Article` itself is 0% built):
+// `factId`/`sourceArticleId` below had no `@relation` at all, unlike
+// `articleId` right above them — bare, unlinked ID columns with no real
+// FK, no `include`-ability, and (until this fix) no reciprocal field on
+// either `Fact` or `SourceArticle`. Unlike `EntityRelation`/
+// `AIAgentAction`'s deliberately polymorphic edges (one column pointing
+// at any of several types, correctly left as a plain `String` since
+// Prisma has no native polymorphic relation), `factId`/`sourceArticleId`
+// here each point at exactly one concrete, non-polymorphic model — there
+// was no structural reason for these two to differ from `articleId`.
+// Added the missing real relations (both still correctly optional — a
+// citation can reference a general source without a specific extracted
+// Fact, or vice versa) and the matching reciprocal `citations
+// Citation[]` fields on `Fact`/`SourceArticle`. Verified this produces a
+// real (not empty) migration, safe to apply given zero existing rows to
+// violate the new FK constraints.
+model Citation {
+  id              String         @id @default(cuid())
+  articleId       String
+  article         Article        @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  factId          String?
+  fact            Fact?          @relation(fields: [factId], references: [id])
+  sourceArticleId String?
+  sourceArticle   SourceArticle? @relation(fields: [sourceArticleId], references: [id])
+  label           String
+  url             String
+
+  @@map("citations")
+}
+
+// ============================================================================
+// 7. AUTOMOTIVE KNOWLEDGE BASE  (spec §23-§24, extension §35-§41)
+// ============================================================================
+
+model Brand {
+  id      String     @id @default(cuid())
+  slug    String     @unique
+  name    String
+  country String?
+  models  CarModel[]
+
+  @@map("brands")
+}
+
+model CarModel {
+  id          String       @id @default(cuid())
+  brandId     String
+  brand       Brand        @relation(fields: [brandId], references: [id])
+  slug        String
+  name        String
+  generations Generation[]
+  facts       Fact[]
+  articles    ArticleCarModel[]
+
+  @@unique([brandId, slug])
+  @@map("car_models")
+}
+
+model Generation {
+  id          String   @id @default(cuid())
+  carModelId  String
+  carModel    CarModel @relation(fields: [carModelId], references: [id])
+  slug        String // e.g. "g20"
+  name        String
+  startYear   Int?
+  endYear     Int?
+  trims       Trim[]
+
+  @@unique([carModelId, slug])
+  @@map("generations")
+}
+
+model Trim {
+  id           String     @id @default(cuid())
+  generationId String
+  generation   Generation @relation(fields: [generationId], references: [id])
+  slug         String
+  name         String
+  engines      Engine[]
+  batteries    Battery[]
+
+  @@unique([generationId, slug])
+  @@map("trims")
+}
+
+model Engine {
+  id      String @id @default(cuid())
+  trimId  String
+  trim    Trim   @relation(fields: [trimId], references: [id])
+  name    String
+  powerKw Float?
+  powerHp Float?
+  fuel    String?
+
+  @@map("engines")
+}
+
+model Battery {
+  id            String @id @default(cuid())
+  trimId        String
+  trim          Trim   @relation(fields: [trimId], references: [id])
+  capacityKwh   Float?
+  rangeKm       Float?
+  rangeMiles    Float?
+
+  @@map("batteries")
+}
+
+// ============================================================================
+// 8. PEOPLE, COMPANIES, TAXONOMY  (spec §8)
+// ============================================================================
+
+model Person {
+  id    String @id @default(cuid())
+  slug  String @unique
+  name  String
+  role  String? // "CEO", "designer", "journalist" — free text, not an enum
+
+  @@map("people")
+}
+
+model Company {
+  id    String @id @default(cuid())
+  slug  String @unique
+  name  String
+  kind  String? // "manufacturer" | "supplier" | "regulator" | ...
+
+  @@map("companies")
+}
+
+model Topic {
+  id      String  @id @default(cuid())
+  slug    String  @unique
+  name    String
+  stories Story[]
+
+  @@map("topics")
+}
+
+// Honest note added 2026-09-08, checked fresh rather than assumed: unlike
+// every other "0% built" model reviewed this session (AIJob, Image,
+// Comment, etc. — all missing only a write path, but each has real
+// relation fields tying it into the graph and/or a real doc section
+// describing its intended future use), `Category` and `Tag` below have
+// NEITHER — zero other model has a relation field pointing at them, zero
+// application code references `prisma.category`/`prisma.tag` anywhere,
+// and zero mention exists in any `docs/*.md` file or this README's
+// status table. `Topic` (which DOES have a real `stories Story[]`
+// relation and real application code/tests) already covers the
+// "classify content" role these two might once have been meant for.
+// Left in place rather than removed — genuine uncertainty about intent
+// (an early draft superseded by `Topic` and never cleaned up? forward
+// provisioning for a future Article-level classification distinct from
+// Story-level Topic, never written down?) is a reason to flag clearly,
+// not a reason to delete without being sure. Whoever next touches
+// content classification should read this note before assuming either
+// answer.
+model Category {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  @@map("categories")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  @@map("tags")
+}
+
+// Generic, open-ended knowledge-graph edge (schema note #3 above).
+// `fromType`/`toType` are entity-type discriminators ("story", "car_model",
+// "company", "person", "technology", "article", ...); `fromId`/`toId` point
+// at that entity's id. Validated in application code, not FK-enforced,
+// exactly because the whole point is to connect heterogeneous entities.
+model EntityRelation {
+  id        String   @id @default(cuid())
+  fromType  String
+  fromId    String
+  toType    String
+  toId      String
+  relation  String // "features", "competes_with", "succeeds", "mentions", ...
+  weight    Float    @default(1.0)
+  createdAt DateTime @default(now())
+
+  // Deliberately NO @relation()/foreign-key attributes on fromId/toId —
+  // real bug found and fixed 2026-09-07: three simultaneous @relation
+  // directives here (to Story, Person, Company, all on the same fromId
+  // column) each created a REAL enforced FK constraint requiring fromId
+  // to exist in ALL THREE tables at once, contradicting this model's own
+  // point (a polymorphic edge validated in application code, per
+  // docs/database.md's "one generic table" note) — the first real INSERT
+  // attempt failed with P2003 "Foreign key constraint violated" because
+  // no single id can simultaneously be a valid Story/Person/Company row.
+  // fromType/toType + application-level validation (packages/editorial)
+  // are the only correctness guarantee here, on purpose.
+
+  @@index([fromType, fromId])
+  @@index([toType, toId])
+  @@map("entity_relations")
+}
+
+// ============================================================================
+// 9. IMAGES & RIGHTS  (extension §23-§34)
+// ============================================================================
+
+enum ImageSourceType {
+  OFFICIAL_PRESS
+  LICENSED_STOCK
+  OWN_PHOTO
+  USER_LICENSED
+  PUBLIC_DOMAIN
+  CREATIVE_COMMONS
+  AI_GENERATED
+  EMBED_ONLY
+  UNKNOWN
+}
+
+enum ImageRightsStatus {
+  VERIFIED_LICENSE
+  OFFICIAL_USE_ALLOWED
+  LICENSE_REQUIRED
+  PUBLIC_DOMAIN
+  CC_BY
+  CC_BY_SA
+  EDITORIAL_ONLY
+  EMBED_ONLY
+  UNKNOWN
+  BLOCKED
+}
+
+model Image {
+  id               String            @id @default(cuid())
+  originalUrl      String
+  localStorageUrl  String?
+  sourceType       ImageSourceType
+  rightsStatus     ImageRightsStatus @default(UNKNOWN)
+  author           String?
+  copyright        String?
+  attribution      String?
+  licenseId        String?
+  license          ImageLicense?     @relation(fields: [licenseId], references: [id])
+  width            Int?
+  height           Int?
+  mimeType         String?
+  sha256           String            @unique
+  perceptualHash   String?
+  generatedByAi    Boolean           @default(false)
+  c2paMetadata     Json?
+  createdAt        DateTime          @default(now())
+
+  articleImages ArticleImage[]
+
+  @@index([perceptualHash])
+  @@map("images")
+}
+
+model ImageLicense {
+  id                   String   @id @default(cuid())
+  provider             String
+  licenseType          String
+  licenseUrl           String?
+  attributionRequired  Boolean  @default(true)
+  commercialUseAllowed Boolean  @default(false)
+  modificationAllowed  Boolean  @default(false)
+  expiresAt            DateTime?
+  notes                String?
+  verifiedBy           String?
+  verifiedAt           DateTime?
+  images               Image[]
+
+  @@map("image_licenses")
+}
+
+enum ArticleImageRole {
+  HERO
+  INLINE
+  GALLERY
+  OG
+}
+
+model ArticleImage {
+  id        String           @id @default(cuid())
+  articleId String
+  article   Article          @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  imageId   String
+  image     Image            @relation(fields: [imageId], references: [id])
+  role      ArticleImageRole
+  position  Int              @default(0)
+  altText   String?
+
+  @@map("article_images")
+}
+
+// ============================================================================
+// 10. AI ORCHESTRATION  (spec §39-§47, extension §72-§74)
+// ============================================================================
+
+enum AIJobType {
+  DISCOVER_SOURCES
+  CLUSTER_STORY
+  RESEARCH_STORY
+  EXTRACT_FACTS
+  FACT_CHECK
+  WRITE_ARTICLE
+  QUALITY_CHECK
+  MODERATE_COMMENT
+  SEO_AUDIT
+  UPDATE_STALE_CONTENT
+}
+
+enum AIJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+model AIJob {
+  id          String      @id @default(cuid())
+  type        AIJobType
+  status      AIJobStatus @default(PENDING)
+  priority    Int         @default(50)
+  storyId     String?
+  story       Story?      @relation(fields: [storyId], references: [id])
+  input       Json
+  result      Json?
+  attempts    Int         @default(0)
+  maxAttempts Int         @default(3)
+  deadline    DateTime?
+  createdAt   DateTime    @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  executions AIExecution[]
+
+  @@index([status, priority])
+  @@map("ai_jobs")
+}
+
+// One row per actual model call within a job (spec §45 cost accounting,
+// §72 reproducibility).
+model AIExecution {
+  id               String   @id @default(cuid())
+  jobId            String
+  job              AIJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  provider         String
+  model            String
+  promptTemplateId String?
+  promptTemplate   PromptTemplate? @relation(fields: [promptTemplateId], references: [id])
+  promptVersion    Int?
+  tokensIn         Int      @default(0)
+  tokensOut        Int      @default(0)
+  estimatedCostUsd Float    @default(0)
+  latencyMs        Int?
+  success          Boolean
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("ai_executions")
+}
+
+enum AutonomyLevel {
+  SAFE
+  CONTROLLED
+  HIGH_RISK
+}
+
+// Every autonomous action the agent takes, independent of whether it came
+// from an AIJob (spec §42 "AI Action Log").
+//
+// Forward-looking note added 2026-09-08 (checked during a fresh review —
+// this table has zero real callers yet, matches the AI pipeline's own
+// still-0%-built status): `entityType`/`entityId` below are a polymorphic
+// edge, structurally identical to `EntityRelation.fromType`/`fromId` —
+// and that exact pattern already caused a real bug earlier in this
+// project (raw string literals at every write site, no compile-time
+// typo protection, fixed by switching every real writer to
+// `packages/types`' `ENTITY_TYPE` const object instead of bare strings).
+// When this table gets its first real writer, use `ENTITY_TYPE` here too
+// rather than repeating that same mistake — the DB column stays a plain
+// `String` either way (Prisma has no native polymorphic-relation type),
+// the fix is entirely at the application call-site level.
+model AIAgentAction {
+  id              String        @id @default(cuid())
+  action          String
+  autonomyLevel   AutonomyLevel
+  entityType      String
+  entityId        String
+  reason          String
+  input           Json?
+  output          Json?
+  confidence      Float?
+  approvedByUserId String?
+  result          String // "applied" | "queued_for_review" | "rejected"
+  createdAt       DateTime      @default(now())
+
+  @@index([entityType, entityId])
+  @@map("ai_agent_actions")
+}
+
+model PromptTemplate {
+  id       String          @id @default(cuid())
+  key      String          @unique // "article_writer", "fact_checker", "story_clusterer", ...
+  versions PromptVersion[]
+  executions AIExecution[]
+
+  @@map("prompt_templates")
+}
+
+// Forward-looking note added 2026-09-08 (checked during a fresh review —
+// zero real rows/callers exist yet): docs/ai-pipeline.md describes this
+// as "one isActive at a time" per template, but nothing at the DB level
+// enforces that — `@@unique([promptTemplateId, version])` only prevents
+// two rows sharing the same version number, not two rows both having
+// `isActive: true` for the same template. Prisma's schema DSL has no
+// native partial-unique-index syntax for this (would need a raw-SQL
+// migration, e.g. `CREATE UNIQUE INDEX ... WHERE "isActive"`, the same
+// kind of extension this project's `pg_trgm` index already needed —
+// see docs/database.md's "non-obvious decision" #6 for that precedent).
+// Whoever builds the real prompt-versioning write path should either
+// add that migration or enforce "exactly one active version" in
+// application code (e.g. a transaction that deactivates the previous
+// active version before activating a new one) — currently neither
+// exists, so nothing would catch two simultaneously-active versions.
+model PromptVersion {
+  id               String         @id @default(cuid())
+  promptTemplateId String
+  promptTemplate   PromptTemplate @relation(fields: [promptTemplateId], references: [id])
+  version          Int
+  body             String
+  isActive         Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@unique([promptTemplateId, version])
+  @@map("prompt_versions")
+}
+
+// ============================================================================
+// 11. EDITORIAL REVIEW & MODERATION  (spec §37, §47-§48)
+// ============================================================================
+
+enum EditorialReviewDecision {
+  APPROVE
+  REJECT
+  EDIT
+  REGENERATE
+  MERGE
+  SPLIT
+}
+
+model EditorialReview {
+  id         String                   @id @default(cuid())
+  articleId  String
+  article    Article                  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  reviewerId String?
+  reviewer   User?                    @relation(fields: [reviewerId], references: [id])
+  decision   EditorialReviewDecision?
+  notes      String?
+  createdAt  DateTime                 @default(now())
+
+  @@map("editorial_reviews")
+}
+
+enum CommentModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED_FOR_HUMAN
+}
+
+model Comment {
+  id        String                   @id @default(cuid())
+  articleId String
+  article   Article                  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorName String
+  body      String
+  status    CommentModerationStatus  @default(PENDING)
+  score     Float?
+  reason    String?
+  createdAt DateTime                 @default(now())
+
+  @@map("comments")
+}
+
+// ============================================================================
+// 12. SEO  (spec §29-§31)
+// ============================================================================
+
+model SEORecord {
+  id              String   @id @default(cuid())
+  articleId       String   @unique
+  article         Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  indexable       Boolean  @default(true)
+  canonicalUrl    String?
+  structuredData  Json?
+  lastCrawledAt   DateTime?
+  impressions     Int?
+  clicks          Int?
+  updatedAt       DateTime @updatedAt
+
+  @@map("seo_records")
+}
+
+model Redirect {
+  id        String   @id @default(cuid())
+  fromPath  String   @unique
+  toPath    String
+  statusCode Int     @default(301)
+  createdAt DateTime @default(now())
+
+  @@map("redirects")
+}
+
+// ============================================================================
+// 13. SEARCH, ANALYTICS, OPERATIONS  (spec §32, §49, §55-§56)
+// ============================================================================
+
+model SearchQuery {
+  id        String   @id @default(cuid())
+  query     String
+  locale    Locale
+  resultsCount Int
+  createdAt DateTime @default(now())
+
+  // Real gap found and fixed 2026-09-08: GET /v1/search-queries orders
+  // every real query by `createdAt: "desc"` for its own real offset-
+  // pagination — this table had no index backing that sort at all. Of
+  // this project's 4 paginated-by-timestamp tables, this is the most
+  // urgent instance: this dev DB already has 722+ real logged
+  // SearchQuery rows (per this project's own earlier pagination fix),
+  // not a hypothetical future concern.
+  @@index([createdAt])
+  @@map("search_queries")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  type       String // "pageview" | "scroll" | "click" | ...
+  articleId  String?
+  path       String
+  sessionId  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@map("analytics_events")
+}
+
+enum SystemAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model SystemAlert {
+  id         String              @id @default(cuid())
+  severity   SystemAlertSeverity
+  source     String // "crawler" | "ai" | "database" | "publisher" | ...
+  message    String
+  metadata   Json?
+  resolved   Boolean             @default(false)
+  createdAt  DateTime            @default(now())
+  resolvedAt DateTime?
+
+  // Real gap found and fixed 2026-09-08: GET /v1/alerts orders every
+  // real query by `createdAt: "desc"` for its own real offset-
+  // pagination, same as SearchQuery/Story above — this table had an
+  // index for filtering (`resolved, severity`) but nothing backing the
+  // actual sort column.
+  @@index([createdAt])
+  @@index([resolved, severity])
+  @@map("system_alerts")
+}

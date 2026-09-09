@@ -1,0 +1,23 @@
+{
+  "name": "@automotive/ai",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "smoke-test": "tsx src/smoke-test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@automotive/config": "0.1.0",
+    "@automotive/database": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.1",
+    "vitest": "^5.0.0"
+  }
+}

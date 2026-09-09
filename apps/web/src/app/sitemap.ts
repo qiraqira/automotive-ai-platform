@@ -1,0 +1,80 @@
+import type { MetadataRoute } from "next";
+import { getCarModelSlugs, getTopicSlugs, getArticleSlugs } from "@/lib/api";
+
+// spec §29-31: a real sitemap enumerating actual indexable pages, not a
+// static stub. Topic pages were a real gap fixed 2026-09-07: they
+// existed and were linked from the homepage but were never added here.
+//
+// Real gap found and fixed 2026-09-09: this file's own comment used to
+// say "Article URLs join this once apps/web has article pages" — that
+// was accurate when written, but the Writer stage
+// (apps/worker/src/write-article.ts) and the real article page both
+// landed later without this ever being revisited: 0 of 105 real
+// published articles were in the sitemap when this was found (by the
+// user directly asking "will Google rank this?" and checking live).
+//
+// Real gap found and fixed 2026-09-07 (same day, later pass): the 6
+// /about/* pages are real, indexable pages — each emits a real
+// canonical/hreflang (fixed earlier the same day) and none carries
+// noindex — but weren't reachable from the homepage's own markup (no
+// site-wide nav/footer exists yet) and were entirely missing here too,
+// this file's own comment above notwithstanding ("actual indexable
+// pages"). /search is correctly still excluded: it sets
+// `robots: { index: false }` on purpose (see apps/web/src/app/search/
+// page.tsx), so it isn't an indexable page for this file to list.
+const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
+
+const ABOUT_PATHS = [
+  "/about",
+  "/about/editorial-policy",
+  "/about/how-we-use-ai",
+  "/about/sources",
+  "/about/corrections",
+  "/about/contact",
+];
+
+// Real gap found and fixed 2026-09-08: no entry here ever set
+// `lastModified`, even though real timestamp data exists for the car/
+// topic pages — search engines use it to prioritize re-crawling pages
+// that actually changed. `GET /v1/cars`/`GET /v1/topics` were widened to
+// carry a real `lastModified` (the most recent `Fact.createdAt` for a
+// car, the most recent `Story.lastUpdatedAt` for a topic) — `null` for a
+// car/topic with no Fact/Story yet, a real, valid state, so `undefined`
+// (Next's own MetadataRoute type omits the field entirely rather than
+// emitting an empty `<lastmod>`) is substituted for `null` below rather
+// than passing it through directly.
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [{ carModels }, { topics }, { articles }] = await Promise.all([getCarModelSlugs(), getTopicSlugs(), getArticleSlugs()]);
+
+  return [
+    { url: SITE_URL, changeFrequency: "hourly", priority: 1 },
+    // Real articles — the site's actual news content, and the highest
+    // real priority of anything here besides the homepage itself.
+    ...articles.map((article) => ({
+      url: `${SITE_URL}/articles/${article.locale}/${article.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+      lastModified: article.updatedAt,
+    })),
+    ...carModels.map((car) => ({
+      url: `${SITE_URL}/cars/${car.brandSlug}/${car.modelSlug}`,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+      lastModified: car.lastModified ?? undefined,
+    })),
+    ...topics.map((topic) => ({
+      url: `${SITE_URL}/topics/${topic.slug}`,
+      changeFrequency: "hourly" as const,
+      priority: 0.6,
+      lastModified: topic.lastModified ?? undefined,
+    })),
+    ...ABOUT_PATHS.map((path) => ({
+      url: `${SITE_URL}${path}`,
+      // /about/sources lists the real, currently-monitored source roster
+      // (a live DB read, changes as sources are added/removed) — the
+      // other 5 are static policy/mission text that rarely changes.
+      changeFrequency: (path === "/about/sources" ? "weekly" : "monthly") as "weekly" | "monthly",
+      priority: 0.4,
+    })),
+  ];
+}

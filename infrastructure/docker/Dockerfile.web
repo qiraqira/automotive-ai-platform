@@ -1,0 +1,81 @@
+# Builds apps/web (Next.js) against the npm-workspaces monorepo root.
+FROM node:20-slim AS build
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Real gap found and fixed 2026-09-08, during the first-ever real Docker
+# build of this project: every package's tsconfig.json extends the root
+# ../../tsconfig.base.json, but no Dockerfile ever copied that file in —
+# `tsc` failed immediately with "Cannot read file '/repo/tsconfig.base.json'"
+# on the very first real build attempt.
+COPY package.json package-lock.json* tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/web ./apps/web
+RUN npm install
+# Real gap found and fixed 2026-09-08: `.env` is never copied into this
+# build stage, so any page Next.js prerenders as static at build time
+# (confirmed live: the not-found/404 boundary, which Next prerenders
+# separately even in an otherwise-dynamic app) baked in `layout.tsx`'s
+# own fallback literals ("PROJECT_NAME"/"DOMAIN.COM") permanently into
+# the built output — visibly wrong on the real deployed site regardless
+# of what `.env` said at runtime, since only genuinely dynamic pages
+# (forced dynamic via a `cache: "no-store"` fetch, like the homepage)
+# ever read the real runtime value. Same class of bug as the sibling
+# ai-music-deconstructor project's NEXT_PUBLIC_API_URL fix (see that
+# project's own memory) — the general fix is real build ARGs, not
+# forcing every page dynamic just to dodge this.
+ARG PROJECT_NAME
+ARG PUBLIC_URL
+ARG PUBLIC_DOMAIN
+ENV PROJECT_NAME=$PROJECT_NAME
+ENV PUBLIC_URL=$PUBLIC_URL
+ENV PUBLIC_DOMAIN=$PUBLIC_DOMAIN
+# Real gap found and fixed 2026-09-08, before the first-ever real Docker
+# build of this project — same fix as Dockerfile.api/Dockerfile.worker,
+# see either for the full story: `prisma generate` was never run anywhere
+# in these 3 Dockerfiles, despite `.github/workflows/ci.yml` already
+# documenting (from a real CI failure) that plain `npm install` doesn't
+# reliably regenerate it in this monorepo.
+RUN npx prisma generate --schema packages/database/prisma/schema.prisma
+# Build order follows the real dependency graph — @automotive/web depends
+# on editorial, seo, and (added 2026-09-07, wiring the real locale-aware
+# unit formatting into the car page) utils. editorial depends on database,
+# so database must build first, which in turn now depends on types too —
+# the EntityRelation type-safety fix — so types builds before database.
+# seo and utils both have no internal deps. THREE real bugs found and
+# fixed here across the day this file was created (2026-09-07): this only
+# ever built database then web, silently missing editorial/seo (which
+# didn't exist yet when this file was first written); then, re-simulating
+# this exact chain locally after database gained its own dependency on
+# types, found types was missing here entirely; then utils was missing
+# after apps/web gained its first real dependency on it. A real Docker
+# build would fail resolving whichever package's dist/ output is missing
+# — re-verify this order by hand any time a packages/* dependency graph
+# changes, nothing enforces it automatically.
+RUN npm run build --workspace @automotive/types
+RUN npm run build --workspace @automotive/database
+RUN npm run build --workspace @automotive/seo
+RUN npm run build --workspace @automotive/utils
+RUN npm run build --workspace @automotive/editorial
+RUN npm run build --workspace @automotive/web
+
+FROM node:20-slim AS runtime
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=build /repo /repo
+EXPOSE 3000
+CMD ["npm", "run", "start", "--workspace", "@automotive/web"]

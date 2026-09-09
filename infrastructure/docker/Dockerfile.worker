@@ -1,0 +1,60 @@
+# Builds apps/worker against the npm-workspaces monorepo root.
+FROM node:20-slim AS build
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Real gap found and fixed 2026-09-08, during the first-ever real Docker
+# build of this project: every package's tsconfig.json extends the root
+# ../../tsconfig.base.json, but no Dockerfile ever copied that file in —
+# `tsc` failed immediately with "Cannot read file '/repo/tsconfig.base.json'"
+# on the very first real build attempt.
+COPY package.json package-lock.json* tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/worker ./apps/worker
+RUN npm install
+# Real gap found and fixed 2026-09-08, before the first-ever real Docker
+# build of this project — same fix as Dockerfile.api/Dockerfile.web, see
+# either for the full story: `prisma generate` was never run anywhere in
+# these 3 Dockerfiles, despite `.github/workflows/ci.yml` already
+# documenting (from a real CI failure) that plain `npm install` doesn't
+# reliably regenerate it in this monorepo.
+RUN npx prisma generate --schema packages/database/prisma/schema.prisma
+# Build order follows the real dependency graph — @automotive/worker
+# depends on database, ai, editorial, types, and (as of the BullMQ
+# migration, 2026-09-07) config; ai and editorial both depend on database,
+# and database itself now depends on types too (the EntityRelation
+# type-safety fix) — types must build before database, which must build
+# before ai/editorial. config has no internal deps. This file's build
+# steps have drifted out of sync with apps/worker's actual dependency
+# graph *three separate times* now (2026-09-07, all caught by literally
+# re-simulating this exact RUN sequence locally, never assumed correct):
+# missing ai/editorial/types entirely; missing config after the BullMQ
+# migration added it; database listed *before* types even though database
+# needs it. Nothing enforces this file staying in sync automatically —
+# re-verify it by hand any time a packages/* dependency graph changes.
+RUN npm run build --workspace @automotive/types
+RUN npm run build --workspace @automotive/database
+RUN npm run build --workspace @automotive/config
+RUN npm run build --workspace @automotive/ai
+RUN npm run build --workspace @automotive/editorial
+RUN npm run build --workspace @automotive/worker
+
+FROM node:20-slim AS runtime
+WORKDIR /repo
+# Real gap found and fixed 2026-09-08: Prisma's own generate step warned
+# "Prisma failed to detect the libssl/openssl version to use... may not
+# work as expected" on node:20-slim (no openssl installed by default) —
+# installing it explicitly in both stages (build needs it for generate,
+# runtime needs the matching library for the copied query-engine binary
+# to actually run against a real Postgres connection) rather than risk a
+# runtime crash from Prisma's own guessed-and-possibly-wrong fallback.
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=build /repo /repo
+CMD ["node", "apps/worker/dist/index.js"]

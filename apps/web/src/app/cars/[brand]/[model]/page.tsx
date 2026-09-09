@@ -1,0 +1,151 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
+import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
+import { getCarModel, type CarEngine } from "@/lib/api";
+
+const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
+
+// spec §22/§30: real hreflang + canonical, not just an English-only page
+// pretending to be locale-aware. The /es/ edition of this route doesn't
+// exist yet (see README.md status table) — the alternate link is still
+// correct to emit now, since it documents the intended URL for when it
+// does, and Google tolerates a not-yet-live alternate far better than a
+// page that never declares one at all.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ brand: string; model: string }>;
+}): Promise<Metadata> {
+  const { brand, model } = await params;
+  const path = `/cars/${brand}/${model}`;
+  const alternates = buildHreflangAlternates(SITE_URL, path);
+  return {
+    alternates: {
+      canonical: buildLocaleUrl(SITE_URL, "en", path),
+      languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
+    },
+  };
+}
+
+// Real gap found and fixed 2026-09-07: `packages/utils`'s real,
+// unit-tested locale-aware unit formatting (`formatPowerKw()`,
+// `formatDistanceKm()` — spec §93-94, "render one value per market, not
+// the raw stored number with a hardcoded unit") had zero callers
+// anywhere in `apps/web` or `apps/api`. This page was showing BOTH hp
+// and kW simultaneously with hardcoded literal suffixes instead of the
+// one real value the spec's own worked example calls for. Both of this
+// project's two real seeded markets (US, GB) are `unitSystem: "imperial"`
+// — no market-selection UI exists yet to pick a different one, so
+// "imperial" here reflects the only two real markets that exist today,
+// not an arbitrary guess. Falls back to whichever raw field IS present
+// when the canonical one (kW / km) is missing — both are optional in the
+// schema — rather than showing nothing for real data that only has the
+// non-canonical field recorded.
+function formatEnginePower(engine: CarEngine): string | null {
+  if (engine.powerKw != null) return formatPowerKw(engine.powerKw, "imperial");
+  if (engine.powerHp != null) return `${engine.powerHp} hp`;
+  return null;
+}
+
+function formatBatteryRange(battery: { rangeKm: number | null; rangeMiles: number | null }): string | null {
+  if (battery.rangeKm != null) return formatDistanceKm(battery.rangeKm, "imperial");
+  if (battery.rangeMiles != null) return `${Math.round(battery.rangeMiles)} miles`;
+  return null;
+}
+
+// spec §24 car page. MVP scope: overview/generations/trims/engines/facts —
+// pricing, photos, competitors, comparisons come once those data sources
+// exist (Image rights engine, Fact-derived pricing) rather than being
+// faked here.
+export default async function CarModelPage({
+  params,
+}: {
+  params: Promise<{ brand: string; model: string }>;
+}) {
+  const { brand, model } = await params;
+  const result = await getCarModel(brand, model);
+  if (!result) notFound();
+  const { carModel, relatedStories } = result;
+
+  // spec §29: real BreadcrumbList — only the pages that actually exist
+  // (no fabricated "/cars" or "/cars/{brand}" index page, since neither
+  // is a real route today). Article/NewsArticle/ImageObject JSON-LD
+  // stay deferred (see apps/web/src/app/layout.tsx) since this page has
+  // no real article or real photo to describe yet — a breadcrumb only
+  // needs real pages to link to, which this one has.
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", url: SITE_URL },
+    { name: `${carModel.brand.name} ${carModel.name}`, url: `${SITE_URL}/cars/${brand}/${model}` },
+  ]);
+
+  return (
+    <article>
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
+      />
+      <div className="story-meta">
+        {carModel.brand.name}
+        {carModel.brand.country ? ` · ${formatCountryName(carModel.brand.country)}` : ""}
+      </div>
+      <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{carModel.name}</h1>
+
+      {carModel.facts.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>Facts</h2>
+          <ul className="story-list">
+            {carModel.facts.map((fact) => (
+              <li key={fact.id} className="story-item">
+                <span className="badge">{fact.status}</span>
+                {fact.attribute}: <strong>{fact.value}{fact.unit ? ` ${fact.unit}` : ""}</strong>
+                {fact.market ? ` (${fact.market.code})` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {carModel.generations.map((gen) => (
+        <section key={gen.id} style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>
+            {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
+          </h2>
+          <ul className="story-list">
+            {gen.trims.map((trim) => (
+              <li key={trim.id} className="story-item">
+                <h3 style={{ fontSize: 18, margin: "0 0 6px" }}>{trim.name}</h3>
+                {trim.engines.map((engine) => (
+                  <div key={engine.id} className="story-meta">
+                    {engine.name}
+                    {formatEnginePower(engine) ? ` — ${formatEnginePower(engine)}` : ""}
+                  </div>
+                ))}
+                {trim.batteries.map((battery) => (
+                  <div key={battery.id} className="story-meta">
+                    {battery.capacityKwh != null ? `${battery.capacityKwh} kWh battery` : "Battery"}
+                    {formatBatteryRange(battery) ? ` — ${formatBatteryRange(battery)} range` : ""}
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+
+      {relatedStories.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>Related stories</h2>
+          <ul className="story-list">
+            {relatedStories.map((story) => (
+              <li key={story.id} className="story-item">
+                {story.title}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </article>
+  );
+}

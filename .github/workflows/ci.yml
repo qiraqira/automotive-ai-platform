@@ -1,0 +1,118 @@
+name: CI
+
+# Runs exactly what a contributor runs locally (docs/deployment.md
+# "CI/CD") — install, typecheck, test, build, E2E — against real Postgres
+# + Redis service containers, not mocked. Migrations run as an explicit
+# step here, never as a side effect of application boot
+# (docs/deployment.md). Redis added 2026-09-07 when apps/worker's
+# scheduler moved to BullMQ (needs Redis >=5; `redis:7-alpine` matches
+# the version `infrastructure/docker/docker-compose.yml` already runs in
+# production).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: automotive
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: automotive_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U automotive"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://automotive:ci_test_password@localhost:5432/automotive_platform
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm ci` does NOT reliably regenerate the Prisma client with this
+      # monorepo's custom schema — confirmed locally (2026-09-07): after a
+      # clean `npm ci`, every package importing enums/types from
+      # @automotive/database failed to typecheck (`ArticleStatus`,
+      # `ContentPurpose`, `PermissionKey`, etc. all "not exported") until
+      # `prisma generate` was run explicitly. Do not remove this step
+      # assuming @prisma/client's own postinstall handles it — it doesn't,
+      # reliably, in a monorepo with the schema outside the package root.
+      - name: Generate Prisma Client
+        run: npx prisma generate --schema packages/database/prisma/schema.prisma
+
+      - name: Run migrations against the real Postgres service
+        run: npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
+
+      - name: Seed (real sources/roles/permissions, needed by apps/api's integration tests)
+        run: npm run db:seed
+
+      - name: Typecheck
+        run: npm run typecheck --workspaces --if-present
+
+      # Static check, no Docker daemon needed (this project's dev machine
+      # has none either — see docs/deployment.md): confirms each of the 3
+      # Dockerfiles' RUN build steps still match packages/*/package.json's
+      # real dependency graph. Added 2026-09-08 after finding this exact
+      # drift had already happened 3 separate times across all three
+      # Dockerfiles, each time caught only by manually re-simulating the
+      # build order by hand — nothing enforced it automatically until now.
+      - name: Verify Docker build order matches the real dependency graph
+        run: npm run verify:docker-build-order
+
+      # Static check, no services needed: confirms every env var
+      # packages/config's real schema requires has a matching
+      # .env.example entry, so a deployer following the normal, documented
+      # "copy .env.example to .env" workflow never hits a startup crash
+      # from a var the template never mentioned. Added 2026-09-08 after
+      # this exact drift shape (a real required var silently missing from
+      # the template a deployer actually copies) was already the root
+      # cause of two prior real bugs this project's own history recorded.
+      - name: Verify .env.example matches packages/config's real schema
+        run: npm run verify:env-example
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build --workspaces --if-present
+
+      # Real browser E2E tier (spec §59's third test tier) — drives an
+      # actual Chromium against actual apps/api + apps/web dev servers,
+      # which apps/web/playwright.config.ts's webServer config starts
+      # itself (reuseExistingServer is false here since CI=true, so it
+      # always launches fresh, never assumes something's already running).
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run e2e
