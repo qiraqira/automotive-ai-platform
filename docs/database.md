@@ -241,6 +241,18 @@ declared — not just trusting Prisma's own tooling. Full regression
 sweep clean afterward: typecheck (all 10 workspaces), 282/282 unit/
 integration tests, 66/66 E2E.
 
+**Corrected 2026-09-09 — `Citation` is no longer 0%-built or dormant**:
+the user directly noticed real published Articles with no visible
+source link on the live site. Root cause: `apps/worker/src/
+write-article.ts` had the FK relations above since day one but never
+actually called `prisma.citation.createMany()` — confirmed live before
+fixing that all 142 real published Articles at the time had zero
+Citation rows. Now creates one real Citation per real `SourceArticle`
+actually used to write (or update) each Article, backfilled the
+existing 142 via a new `apps/worker/src/backfill-citations.ts`, and
+`apps/api`/`apps/web`'s article page now return/render them as real
+outbound links. See README's "AI Writer stage" row for the full story.
+
 ### 10. `SourceAuthor.sourceId` gained a real relation, same day — this one was LIVE, not dormant
 
 Found immediately after #9, continuing the same fresh review, but a

@@ -177,6 +177,29 @@ export default async function ArticlePage({
           Original coverage: {article.story.title}
         </p>
       )}
+
+      {article.citations.length > 0 && (
+        // Real gap found and fixed 2026-09-09, user's explicit request:
+        // this section didn't exist at all — apps/worker/src/
+        // write-article.ts now creates a real Citation per real
+        // SourceArticle used to write the piece (see that file's own
+        // comment), and this renders them as real outbound links, not a
+        // fabricated "sources" list. Deliberately `rel="nofollow"`: this
+        // isn't editorial endorsement of the linked outlet, just honest
+        // attribution.
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Sources</h2>
+          <ul>
+            {article.citations.map((citation) => (
+              <li key={citation.id}>
+                <a href={citation.url} target="_blank" rel="nofollow noopener noreferrer">
+                  {citation.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </article>
   );
 }

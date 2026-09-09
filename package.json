@@ -18,6 +18,7 @@
     "backfill:topics": "npm run backfill:topics --workspace @automotive/worker",
     "backfill:authors": "npm run backfill:authors --workspace @automotive/worker",
     "backfill:importance": "npm run backfill:importance --workspace @automotive/worker",
+    "backfill:citations": "npm run backfill:citations --workspace @automotive/worker",
     "db:generate": "npm run generate --workspace @automotive/database",
     "db:migrate": "npm run migrate:dev --workspace @automotive/database",
     "db:seed": "npm run seed --workspace @automotive/database",

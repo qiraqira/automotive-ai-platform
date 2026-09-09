@@ -316,6 +316,14 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
       // Wikimedia Commons) — `role: "HERO"` since ArticleImage also
       // supports INLINE/GALLERY/OG roles nothing writes yet.
       images: { where: { role: "HERO" }, include: { image: true }, take: 1 },
+      // Real gap found and fixed 2026-09-09, user's explicit request
+      // (they directly noticed published articles with no visible
+      // source link): apps/worker/src/write-article.ts now creates a
+      // real Citation row per SourceArticle actually used to write the
+      // piece — this endpoint never returned them to the frontend at
+      // all until now, so the article page had nothing real to render
+      // even once the writer started producing them.
+      citations: { select: { id: true, label: true, url: true } },
     },
   });
 

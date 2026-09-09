@@ -265,6 +265,12 @@ export interface ArticleHeroImage {
   image: { originalUrl: string; attribution: string | null; width: number | null; height: number | null };
 }
 
+export interface ArticleCitation {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface ArticleDetail {
   id: string;
   locale: string;
@@ -277,6 +283,7 @@ export interface ArticleDetail {
   blocks: ArticleBlock[];
   story: { id: string; title: string } | null;
   images: ArticleHeroImage[];
+  citations: ArticleCitation[];
 }
 
 // apps/worker/src/write-article.ts's real AI Writer stage output — the

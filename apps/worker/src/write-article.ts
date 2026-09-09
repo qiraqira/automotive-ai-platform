@@ -112,7 +112,7 @@ async function writeOne(story: {
   title: string;
   summary: string | null;
   primaryTopic: { slug: string } | null;
-  sourceArticles: { id: string; title: string; excerpt: string | null; embedding: number[]; source: { name: string } }[];
+  sourceArticles: { id: string; title: string; url: string; excerpt: string | null; embedding: number[]; source: { name: string } }[];
 }): Promise<void> {
   const job = await prisma.aIJob.create({
     data: { type: "WRITE_ARTICLE", status: "RUNNING", storyId: story.id, input: { storyTitle: story.title } },
@@ -224,6 +224,28 @@ Write a short, original automotive-news article synthesizing the above.`;
 
   await prisma.aIJob.update({ where: { id: job.id }, data: { status: "SUCCEEDED", finishedAt: new Date(), result: { articleId: article.id, slug } } });
 
+  // Real gap found and fixed 2026-09-09, user's explicit request (they
+  // directly noticed real published articles with no visible source
+  // link): the `Citation` model has existed since the initial schema
+  // scaffold, with real `sourceArticleId`/`url`/`label` fields exactly
+  // for this — but nothing anywhere in this file ever created one.
+  // Confirmed live before fixing: all 142 real published Articles at the
+  // time had ZERO Citation rows, and the article page itself never
+  // rendered any (see apps/web's article page + this row's own fix
+  // there). Not a per-article parsing failure — a wholly unbuilt
+  // feature. Creates one real Citation per real `SourceArticle` already
+  // fetched into `story.sourceArticles` above (the exact same rows the
+  // prompt was built from, real `url`/`title` already on hand) — zero
+  // extra AI cost, zero fabrication.
+  await prisma.citation.createMany({
+    data: story.sourceArticles.map((a) => ({
+      articleId: article.id,
+      sourceArticleId: a.id,
+      label: `${a.source.name}: ${a.title}`,
+      url: a.url,
+    })),
+  });
+
   // Real Fact Checker / Quality Gate pass (spec §36, apps/worker/src/
   // fact-check.ts) — the second AI call that actually scores the draft
   // against its own sources, closing the "auto-publish on nothing but the
@@ -258,6 +280,23 @@ Write a short, original automotive-news article synthesizing the above.`;
       } else {
         moderationNote = `passed quality gate (score ${fc.gate.overallScore.toFixed(1)}), ${moderationNote}`;
       }
+    }
+  }
+
+  // Defense in depth, same day as the Citation fix above: never let an
+  // Article reach PUBLISHED with zero real Citation rows, regardless of
+  // how this function's control flow changes in the future — the
+  // createMany() above should always have populated at least one (every
+  // candidate Story is queried with `sourceArticles: { some: {} } }`),
+  // but this is a hard invariant worth enforcing here directly rather
+  // than trusting that upstream guarantee alone, same "fail loud, never
+  // silently insecure" posture as this codebase's other real invariants
+  // (AUTH_JWT_SECRET, the seed script's NODE_ENV guard, etc.).
+  if (finalStatus === "PUBLISHED") {
+    const citationCount = await prisma.citation.count({ where: { articleId: article.id } });
+    if (citationCount === 0) {
+      finalStatus = "DRAFT";
+      moderationNote = `held back: zero real Citation rows exist, refusing to publish without real sources (${moderationNote})`;
     }
   }
 
@@ -329,7 +368,7 @@ interface UpdateOutput {
 async function updateOne(
   story: { id: string; primaryTopic: { slug: string } | null },
   article: { id: string; headline: string; existingParagraphs: string[]; nextPosition: number },
-  newSourceArticles: { title: string; excerpt: string | null; source: { name: string } }[],
+  newSourceArticles: { id: string; title: string; url: string; excerpt: string | null; source: { name: string } }[],
 ): Promise<void> {
   const job = await prisma.aIJob.create({
     data: { type: "WRITE_ARTICLE", status: "RUNNING", storyId: story.id, input: { purpose: "update_article", articleId: article.id } },
@@ -399,6 +438,15 @@ async function updateOne(
   await prisma.articleBlock.create({
     data: { articleId: article.id, type: "TEXT", position: article.nextPosition, data: { text: result.paragraph } },
   });
+  // Same real-Citation fix as writeOne() above, for the update path.
+  await prisma.citation.createMany({
+    data: newSourceArticles.map((a) => ({
+      articleId: article.id,
+      sourceArticleId: a.id,
+      label: `${a.source.name}: ${a.title}`,
+      url: a.url,
+    })),
+  });
   await prisma.articleRevision.create({
     data: {
       articleId: article.id,
@@ -441,7 +489,7 @@ export async function runWriteArticleBatch(batchSize: number = DEFAULT_BATCH_SIZ
       sourceArticles: {
         take: 5,
         orderBy: { fetchedAt: "desc" },
-        select: { id: true, title: true, excerpt: true, embedding: true, source: { select: { name: true } } },
+        select: { id: true, title: true, url: true, excerpt: true, embedding: true, source: { select: { name: true } } },
       },
     },
   });
@@ -474,7 +522,7 @@ export async function runWriteArticleBatch(batchSize: number = DEFAULT_BATCH_SIZ
         where: { locale: "en" },
         select: { id: true, headline: true, contentPurpose: true, status: true, updatedAt: true, blocks: { where: { type: "TEXT" }, orderBy: { position: "asc" } } },
       },
-      sourceArticles: { orderBy: { fetchedAt: "desc" }, take: 10, select: { title: true, excerpt: true, fetchedAt: true, source: { select: { name: true } } } },
+      sourceArticles: { orderBy: { fetchedAt: "desc" }, take: 10, select: { id: true, title: true, url: true, excerpt: true, fetchedAt: true, source: { select: { name: true } } } },
     },
   });
 

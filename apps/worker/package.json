@@ -12,6 +12,7 @@
     "write:articles": "tsx src/write-article.ts",
     "backfill:images": "tsx src/backfill-images.ts",
     "backfill:entities": "tsx src/backfill-entities.ts",
+    "backfill:citations": "tsx src/backfill-citations.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

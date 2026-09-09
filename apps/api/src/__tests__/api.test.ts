@@ -1780,6 +1780,54 @@ describe("GET /v1/articles/:locale/:slug", () => {
     await prisma.article.delete({ where: { id: published.id } });
     await prisma.story.delete({ where: { id: story.id } });
   });
+
+  it("returns each article's real Citations — the real fix for a gap where 142 real published Articles had zero (user directly noticed source-less articles live on the site)", async () => {
+    const source = await prisma.source.findFirstOrThrow({ where: { name: "Electrek" } });
+    const story = await prisma.story.create({ data: { title: "Zzqxfixture story for citation test" } });
+    const sourceArticle = await prisma.sourceArticle.create({
+      data: {
+        sourceId: source.id,
+        storyId: story.id,
+        url: "https://test.invalid/zzqxfixture-citation-source",
+        urlHash: "zzqxfixture-citation-source-hash",
+        title: "Zzqxfixture real source headline",
+      },
+    });
+    const article = await prisma.article.create({
+      data: {
+        storyId: story.id,
+        locale: "en",
+        type: "NEWS",
+        contentPurpose: "BACKGROUND",
+        status: "PUBLISHED",
+        slug: "zzqxfixture-citation-article",
+        headline: "Zzqxfixture Citation Article",
+        authorType: "AI_AGENT",
+        publishedAt: new Date(),
+      },
+    });
+    await prisma.citation.create({
+      data: {
+        articleId: article.id,
+        sourceArticleId: sourceArticle.id,
+        label: "Electrek: Zzqxfixture real source headline",
+        url: sourceArticle.url,
+      },
+    });
+
+    try {
+      const res = await request(app).get("/v1/articles/en/zzqxfixture-citation-article");
+      expect(res.status).toBe(200);
+      expect(res.body.article.citations).toEqual([
+        { id: expect.any(String), label: "Electrek: Zzqxfixture real source headline", url: sourceArticle.url },
+      ]);
+    } finally {
+      await prisma.citation.deleteMany({ where: { articleId: article.id } });
+      await prisma.article.delete({ where: { id: article.id } });
+      await prisma.sourceArticle.delete({ where: { id: sourceArticle.id } });
+      await prisma.story.delete({ where: { id: story.id } });
+    }
+  });
 });
 
 describe("GET /v1/admin/articles + PATCH .../publish|reject", () => {
