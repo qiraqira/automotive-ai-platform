@@ -191,6 +191,40 @@ async function main() {
     }
   }
 
+  // Real gap found and fixed 2026-09-09 (this repo's first real GitHub
+  // Actions run — see docs/deployment.md's own "written and reasoned
+  // through by hand, not run-and-verified" note for why this was never
+  // caught before): the homepage's "Latest" feed and per-Topic sections,
+  // `/topics/:slug`, and `/admin/stories` only ever showed real content
+  // in this session's own long-lived local dev DB, already full of real
+  // Stories from days of real RSS ingestion. A genuinely fresh
+  // environment (this seed script's exact job) had none — the
+  // `bmwRecallStory` block above only creates real Story links when
+  // ingestion already produced that exact headline, so on a fresh DB
+  // nothing here created any Story at all. Same dev-only posture as the
+  // rest of this file: idempotent (checks each topic's real count
+  // first, never duplicates on a repeat run), still refused entirely in
+  // production by the guard at the top of this function.
+  const demoTopicMinStories: Record<string, number> = {
+    "safety-recalls": 1,
+    // apps/web/src/app/page.tsx only renders a "See all" link once a
+    // topic's real story count exceeds the 5 it slices for display.
+    "electric-vehicles": 6,
+    // Deliberately <= 5 so this section renders WITHOUT a "See all"
+    // link — proves that threshold both ways, not just the "has one".
+    "market-business": 3,
+  };
+  for (const [slug, minCount] of Object.entries(demoTopicMinStories)) {
+    const topic = await prisma.topic.findUnique({ where: { slug } });
+    if (!topic) continue;
+    const existing = await prisma.story.count({ where: { primaryTopicId: topic.id } });
+    for (let i = existing; i < minCount; i++) {
+      await prisma.story.create({
+        data: { title: `Dev seed: ${topic.name} story ${i + 1}`, status: "DISCOVERED", primaryTopicId: topic.id },
+      });
+    }
+  }
+
   console.log(`Dev admin login: admin@dev.local / dev-admin-password`);
 }
 

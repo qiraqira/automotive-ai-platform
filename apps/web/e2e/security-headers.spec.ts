@@ -64,12 +64,27 @@ test("homepage carries the real cross-origin isolation and legacy-hardening head
 // so it asserts the dev-mode value (`'unsafe-eval'` + `ws:` — both
 // removed in the real production build, verified separately by hand
 // since `npm run e2e` doesn't build/start production).
-test("homepage carries a real Content-Security-Policy with no external origins allowed anywhere", async ({ request }) => {
+test("homepage carries a real Content-Security-Policy with no external origins allowed beyond the one deliberate img-src exception", async ({ request }) => {
+  // Real gap found and fixed 2026-09-09, this repo's first real GitHub
+  // Actions run: this test's own title/assertion said "no external
+  // origins allowed anywhere" — true when it was written, but
+  // next.config.mjs's `img-src` was deliberately widened 2026-09-08 to
+  // `'self' data: https://*.wikimedia.org` for real Wikimedia Commons
+  // hero images (the live homepage really does load them — see that
+  // file's own comment). The blanket regex went stale the same day it
+  // was invalidated and nothing caught it until a real header was
+  // actually asserted against in CI. Now asserts the one deliberate
+  // exception is present and that it's still the ONLY external origin
+  // anywhere in the header, rather than re-asserting a blanket "none".
   const res = await request.get("/");
   const csp = res.headers()["content-security-policy"];
   expect(csp).toBeDefined();
   expect(csp).toContain("default-src 'self'");
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
-  expect(csp).not.toMatch(/https?:\/\/(?!localhost)/); // no external origin allowed anywhere
+  expect(csp).toContain("img-src 'self' data: https://*.wikimedia.org");
+  const externalOrigins = csp!.match(/https?:\/\/(?!localhost)\S*/g) ?? [];
+  for (const origin of externalOrigins) {
+    expect(origin).toMatch(/^https:\/\/\*\.wikimedia\.org;?$/);
+  }
 });
