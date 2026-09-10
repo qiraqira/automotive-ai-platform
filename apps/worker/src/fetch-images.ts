@@ -304,10 +304,31 @@ function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "C
  * tries multiple, shorter candidate queries (full text, then its first 4
  * words, then its first 2 words) in order until one finds a real usable
  * result, rather than a single long query that usually won't. */
+// Real gap found live 2026-09-10, same backfill run that exercised the
+// new Openverse/verify-image.ts additions: "Corvette E-Ray's Legacy
+// Shapes Future Electrified Performance Cars" found ZERO usable images
+// from either provider. Root cause isn't the providers — it's this
+// function handing them (and isRelevantTitle() below) the literal word
+// "E-Ray's". A real Commons/Openverse file is titled "... Corvette E-Ray
+// ...", never "E-Ray's" — no real photo file is ever named with a
+// prose possessive — so isRelevantTitle()'s word-boundary match for
+// "E-Ray's" can never succeed against a genuine, on-topic result;
+// confirmed live by re-running the same query manually with the
+// possessive stripped, which immediately found real Commons matches.
+// Any headline built around a possessive (car names ending in an
+// owner's-name-style suffix, "Tesla's", "Waymo's", etc.) hits the exact
+// same failure. Stripped once here, at query-construction time, so
+// every downstream consumer (the request sent to each provider, and
+// isRelevantTitle()'s own word-splitting of the query) sees the
+// corrected word.
+function stripPossessive(word: string): string {
+  return word.replace(/['’]s$/i, "").replace(/['’]$/, "");
+}
+
 export function buildSearchQueries(texts: string[]): string[] {
   const queries: string[] = [];
   for (const text of texts) {
-    const words = text.split(/\s+/).filter(Boolean);
+    const words = text.split(/\s+/).filter(Boolean).map(stripPossessive);
     for (const n of [words.length, 4, 2]) {
       const q = words.slice(0, n).join(" ");
       if (q && !queries.includes(q)) queries.push(q);
