@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@automotive/database";
+import { verifyImageMatch } from "./verify-image.js";
 
 // Real image sourcing for Article hero images (spec's Image rights engine,
 // packages/database/prisma/schema.prisma's Image/ImageLicense/ArticleImage
@@ -31,7 +32,12 @@ const FETCH_TIMEOUT_MS = 20_000;
 // and excludes anything Commons didn't machine-classify at all.
 const ALLOWED_LICENSE_PREFIXES = ["cc0", "cc-by-sa", "cc-by", "pd"];
 
-interface CommonsCandidate {
+// Provider-agnostic shape — both searchCommonsImage() and
+// searchOpenverseImage() below produce this, so getOrCreateLicense()/
+// attachHeroImage()'s Image.create() call don't need to know which
+// provider a candidate came from except for the `provider` label itself.
+interface ImageCandidate {
+  provider: string;
   title: string;
   thumbUrl: string;
   width: number;
@@ -119,7 +125,7 @@ interface CommonsPage {
   imageinfo?: CommonsImageInfo[];
 }
 
-async function searchCommonsImage(query: string): Promise<CommonsCandidate | null> {
+async function searchCommonsImage(query: string): Promise<ImageCandidate | null> {
   const url = new URL(COMMONS_API);
   url.search = new URLSearchParams({
     action: "query",
@@ -151,6 +157,7 @@ async function searchCommonsImage(query: string): Promise<CommonsCandidate | nul
     if (!ALLOWED_LICENSE_PREFIXES.some((p) => licenseSlug.startsWith(p))) continue;
 
     return {
+      provider: "Wikimedia Commons",
       title: page.title,
       thumbUrl: info.thumburl ?? info.url,
       width: info.thumbwidth ?? info.width,
@@ -166,21 +173,99 @@ async function searchCommonsImage(query: string): Promise<CommonsCandidate | nul
   return null;
 }
 
+// Second free-stock source, tried when Commons finds nothing — user's
+// explicit instruction to search as many stock sources as practical.
+// Openverse (api.openverse.org, no API key needed at this volume) is a
+// real multiplier rather than one more one-off integration: it's itself
+// an aggregator over ~800M CC-licensed images from Flickr, museum/
+// archive collections, Europeana, etc. — one HTTP call reaches many real
+// sources at once, which is a better fit for "as many stocks as
+// possible" than hand-wiring each one individually. `license` (not
+// `license_type`) is the exact-match param — passing the precise slugs
+// we allow avoids relying on unverified assumptions about how
+// `license_type`'s AND/OR grouping works. `category=photograph` filters
+// out illustrations/digitized artwork at the API level, for free.
+const OPENVERSE_API = "https://api.openverse.org/v1/images/";
+// Same commercial-use + modification-allowed bar as Commons'
+// ALLOWED_LICENSE_PREFIXES above, expressed in Openverse's own license
+// vocabulary (lowercase, no "cc-" prefix) — excludes every NC/ND variant.
+const OPENVERSE_ALLOWED_LICENSES = ["cc0", "pdm", "by", "by-sa"];
+
+interface OpenverseResult {
+  title?: string;
+  creator?: string;
+  url?: string;
+  license?: string;
+  license_url?: string;
+  width?: number;
+  height?: number;
+}
+
+// Normalizes Openverse's license vocabulary to Commons' own
+// (cc0/pd/cc-by/cc-by-sa prefixes) so the shared rightsStatusFor() below
+// doesn't need to know which provider a candidate came from.
+function normalizeOpenverseLicense(slug: string): string {
+  if (slug === "pdm") return "pd";
+  if (slug === "by-sa") return "cc-by-sa";
+  if (slug === "by") return "cc-by";
+  return slug;
+}
+
+async function searchOpenverseImage(query: string): Promise<ImageCandidate | null> {
+  const url = new URL(OPENVERSE_API);
+  url.search = new URLSearchParams({
+    q: query,
+    license: OPENVERSE_ALLOWED_LICENSES.join(","),
+    category: "photograph",
+    page_size: "10",
+  }).toString();
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { results?: OpenverseResult[] };
+
+  for (const item of data.results ?? []) {
+    if (!item.url || !item.width || item.width < MIN_SOURCE_WIDTH) continue;
+    const title = item.title ?? "";
+    if (/logo|diagram|badge|emblem|icon|map\b/i.test(title)) continue;
+    if (!isRelevantTitle(query, title)) continue;
+
+    const rawLicense = (item.license ?? "").toLowerCase();
+    if (!OPENVERSE_ALLOWED_LICENSES.includes(rawLicense)) continue;
+    const licenseSlug = normalizeOpenverseLicense(rawLicense);
+
+    return {
+      provider: "Openverse",
+      title,
+      thumbUrl: item.url,
+      width: item.width,
+      height: item.height ?? item.width,
+      mime: /\.png(\?|$)/i.test(item.url) ? "image/png" : "image/jpeg",
+      artist: item.creator || "Unknown",
+      licenseShortName: rawLicense.toUpperCase(),
+      licenseSlug,
+      licenseUrl: item.license_url ?? "https://creativecommons.org/licenses/",
+      attributionRequired: licenseSlug !== "cc0" && licenseSlug !== "pd",
+    };
+  }
+  return null;
+}
+
 async function hashRemoteImage(url: string): Promise<{ sha256: string; byteLength: number }> {
   const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": USER_AGENT } });
   const buf = Buffer.from(await res.arrayBuffer());
   return { sha256: createHash("sha256").update(buf).digest("hex"), byteLength: buf.length };
 }
 
-async function getOrCreateLicense(candidate: CommonsCandidate): Promise<string> {
+async function getOrCreateLicense(candidate: ImageCandidate): Promise<string> {
   const existing = await prisma.imageLicense.findFirst({
-    where: { provider: "Wikimedia Commons", licenseType: candidate.licenseSlug },
+    where: { provider: candidate.provider, licenseType: candidate.licenseSlug },
   });
   if (existing) return existing.id;
 
   const created = await prisma.imageLicense.create({
     data: {
-      provider: "Wikimedia Commons",
+      provider: candidate.provider,
       licenseType: candidate.licenseSlug,
       licenseUrl: candidate.licenseUrl,
       attributionRequired: candidate.attributionRequired,
@@ -201,10 +286,10 @@ function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "C
 }
 
 /** Finds/attaches a real HERO image for one Article. Returns true if an
- * image was attached, false if no usable Commons result was found (the
- * honest "free stock search came up empty" case — AI-generation fallback
- * is a real, separate follow-up needing an image-gen provider key, not
- * built here).
+ * image was attached, false if no usable, AI-verified result was found
+ * across every provider (the honest "free stock search came up empty"
+ * case — generate-image.ts's AI-generation fallback is the real,
+ * separate next step a caller takes when this returns false).
  *
  * Real gap found and fixed live 2026-09-08, first real backfill run
  * against production: passing a full AI-written headline (10+ words,
@@ -231,42 +316,70 @@ export function buildSearchQueries(texts: string[]): string[] {
   return queries;
 }
 
+// Providers tried in order per query — Commons first (best hit rate for
+// an actual named car/brand, per this file's own 2026-09-08 findings),
+// Openverse second (broader aggregated coverage, better for generic/
+// non-model-specific subjects).
+const IMAGE_PROVIDERS = [searchCommonsImage, searchOpenverseImage];
+
 export async function attachHeroImage(articleId: string, searchTexts: string[]): Promise<boolean> {
-  let candidate: CommonsCandidate | null = null;
+  // The fullest real text (a full headline/story title, not the
+  // truncated 2-4-word search queries below) is what the AI vision check
+  // needs to judge "does this photo match the subject" — a search query
+  // is optimized for finding candidates, not for describing what they
+  // should show.
+  const context = searchTexts[0] ?? "";
+
+  // Real gap found and fixed 2026-09-10 (user's explicit instruction,
+  // after a live "Labor Day Green Deals hub" article was found live with
+  // an unrelated 19th-century parade engraving as its hero image): the
+  // isRelevantTitle() text check inside each provider's own search
+  // function only rejects candidates whose title doesn't share enough
+  // words with the query — it can't tell that a photo, whatever its
+  // title says, isn't actually a car/automotive-relevant image. Every
+  // candidate from every provider now has to also pass a real vision
+  // check (verify-image.ts) before being accepted; a rejected candidate
+  // is skipped in favor of the next one, not treated as a hard failure.
   for (const query of buildSearchQueries(searchTexts)) {
-    candidate = await searchCommonsImage(query);
-    if (candidate) break;
+    for (const searchProvider of IMAGE_PROVIDERS) {
+      const candidate = await searchProvider(query);
+      if (!candidate) continue;
+
+      const verified = await verifyImageMatch(candidate.thumbUrl, context);
+      if (!verified) continue;
+
+      // A different Article may have already picked the exact same file
+      // (two Stories about the same car model, or the same Openverse/
+      // Commons photo) — Image.sha256 is unique, so reuse the existing
+      // row instead of a duplicate-key error.
+      const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
+      const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+
+      const imageId = existingImage
+        ? existingImage.id
+        : (
+            await prisma.image.create({
+              data: {
+                originalUrl: candidate.thumbUrl,
+                sourceType: "CREATIVE_COMMONS",
+                rightsStatus: rightsStatusFor(candidate.licenseSlug),
+                author: candidate.artist,
+                attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
+                licenseId: await getOrCreateLicense(candidate),
+                width: candidate.width,
+                height: candidate.height,
+                mimeType: candidate.mime,
+                sha256,
+                generatedByAi: false,
+              },
+            })
+          ).id;
+
+      await prisma.articleImage.create({
+        data: { articleId, imageId, role: "HERO", position: 0, altText: candidate.title.replace(/^File:/, "").replace(/\.\w+$/, "") },
+      });
+      return true;
+    }
   }
-  if (!candidate) return false;
-
-  // A different Article may have already picked the exact same Commons
-  // file (two Stories about the same car model) — Image.sha256 is
-  // unique, so reuse the existing row instead of a duplicate-key error.
-  const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
-  const existingImage = await prisma.image.findUnique({ where: { sha256 } });
-
-  const imageId = existingImage
-    ? existingImage.id
-    : (
-        await prisma.image.create({
-          data: {
-            originalUrl: candidate.thumbUrl,
-            sourceType: "CREATIVE_COMMONS",
-            rightsStatus: rightsStatusFor(candidate.licenseSlug),
-            author: candidate.artist,
-            attribution: `${candidate.artist} — ${candidate.licenseShortName}, via Wikimedia Commons`,
-            licenseId: await getOrCreateLicense(candidate),
-            width: candidate.width,
-            height: candidate.height,
-            mimeType: candidate.mime,
-            sha256,
-            generatedByAi: false,
-          },
-        })
-      ).id;
-
-  await prisma.articleImage.create({
-    data: { articleId, imageId, role: "HERO", position: 0, altText: candidate.title.replace(/^File:/, "").replace(/\.\w+$/, "") },
-  });
-  return true;
+  return false;
 }

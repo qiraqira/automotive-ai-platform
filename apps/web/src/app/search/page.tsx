@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { search } from "@/lib/api";
 
 export const metadata: Metadata = {
@@ -39,7 +40,7 @@ export default async function SearchPage({
               <ul className="story-list">
                 {results.stories.map((s) => (
                   <li key={s.id} className="story-item">
-                    {s.title}
+                    {s.articleSlug ? <Link href={`/articles/en/${s.articleSlug}`}>{s.title}</Link> : s.title}
                   </li>
                 ))}
               </ul>

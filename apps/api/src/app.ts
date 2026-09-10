@@ -560,8 +560,29 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
   const resultsCount = stories.length + carModels.length;
   await prisma.searchQuery.create({ data: { query: q, locale, resultsCount } });
 
+  // Real gap found and fixed 2026-09-10: this endpoint returned only
+  // {id, title} per story, with no way for apps/web to link to the
+  // article — every real search result rendered as unclickable plain
+  // text (apps/web/src/app/search/page.tsx only wrapped carModels in an
+  // <a>). Same "first PUBLISHED en Article" lookup already used by
+  // GET /v1/stories and GET /v1/topics/:slug, just applied to this
+  // endpoint's own raw-SQL result set (word_similarity() ordering is
+  // preserved by mapping over `stories`, not the follow-up query's own
+  // unordered result).
+  const storyIds = stories.map((s) => s.id);
+  const articlesByStoryId = new Map<string, string>();
+  if (storyIds.length > 0) {
+    const storiesWithArticles = await prisma.story.findMany({
+      where: { id: { in: storyIds } },
+      select: { id: true, articles: { where: { status: "PUBLISHED", locale: "en" }, select: { slug: true }, take: 1 } },
+    });
+    for (const s of storiesWithArticles) {
+      if (s.articles[0]) articlesByStoryId.set(s.id, s.articles[0].slug);
+    }
+  }
+
   res.json({
-    stories: stories.map((s) => ({ id: s.id, title: s.title })),
+    stories: stories.map((s) => ({ id: s.id, title: s.title, articleSlug: articlesByStoryId.get(s.id) ?? null })),
     carModels: carModels.map((c) => ({ brandSlug: c.brand.slug, modelSlug: c.slug, name: `${c.brand.name} ${c.name}` })),
   });
 });

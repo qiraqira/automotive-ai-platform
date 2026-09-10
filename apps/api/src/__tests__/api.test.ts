@@ -1581,6 +1581,45 @@ describe("GET /v1/search", () => {
     expect(res.body.stories.some((s: { id: string }) => s.id === testStoryId)).toBe(true);
   });
 
+  // Real gap found and fixed 2026-09-10: this endpoint returned only
+  // {id, title} per story — apps/web/src/app/search/page.tsx had no slug
+  // to link to, so every real search result rendered as unclickable
+  // plain text (confirmed live: 0 of 13 <a> tags on a real /search?q=Tesla
+  // page pointed at a story). Locks in both real states: a story with no
+  // PUBLISHED en Article genuinely has nothing to link to (articleSlug:
+  // null, same fallback the homepage/topic page already use), a story
+  // with one gets the real slug.
+  it("returns articleSlug: null for a story with no published English article", async () => {
+    const res = await request(app).get("/v1/search").query({ q: uniqueKeyword });
+    expect(res.status).toBe(200);
+    const match = res.body.stories.find((s: { id: string }) => s.id === testStoryId);
+    expect(match).toMatchObject({ articleSlug: null });
+  });
+
+  it("returns the real slug of a story's published English article", async () => {
+    const article = await prisma.article.create({
+      data: {
+        storyId: testStoryId,
+        locale: "en",
+        type: "NEWS",
+        contentPurpose: "BACKGROUND",
+        status: "PUBLISHED",
+        slug: "zzqxfixture-search-article-slug",
+        headline: testTitle,
+        authorType: "AI_AGENT",
+        publishedAt: new Date(),
+      },
+    });
+    try {
+      const res = await request(app).get("/v1/search").query({ q: uniqueKeyword });
+      expect(res.status).toBe(200);
+      const match = res.body.stories.find((s: { id: string }) => s.id === testStoryId);
+      expect(match).toMatchObject({ articleSlug: "zzqxfixture-search-article-slug" });
+    } finally {
+      await prisma.article.delete({ where: { id: article.id } });
+    }
+  });
+
   it("finds the real seeded BMW 3 Series car by name", async () => {
     const res = await request(app).get("/v1/search").query({ q: "3 Series" });
     expect(res.status).toBe(200);

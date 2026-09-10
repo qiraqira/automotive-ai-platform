@@ -167,7 +167,7 @@ export interface CarModelDetail {
 }
 
 export interface SearchResults {
-  stories: { id: string; title: string }[];
+  stories: { id: string; title: string; articleSlug: string | null }[];
   carModels: { brandSlug: string; modelSlug: string; name: string }[];
 }
 
