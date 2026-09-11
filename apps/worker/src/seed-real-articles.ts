@@ -111,6 +111,24 @@ async function main() {
   for (const spec of ARTICLES) {
     const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } } });
     if (existing) {
+      // Real gap found and fixed the same tick topicSlug was added: this
+      // idempotency check correctly avoids duplicating content, but it
+      // also skipped syncing a field added to the spec *after* the
+      // article already existed — the ANALYSIS article below got a real
+      // topicSlug added post-creation, and this branch would have
+      // silently left its topicId null forever, exactly the gap this
+      // whole feature exists to close. Syncs topicId (only) on an
+      // existing row when the spec's now says something different, never
+      // touches content that's already real and published.
+      if (spec.topicSlug) {
+        const topic = await prisma.topic.findUnique({ where: { slug: spec.topicSlug } });
+        if (!topic) throw new Error(`Topic "${spec.topicSlug}" not found — check packages/database/src/bootstrap.ts's real topic list.`);
+        if (existing.topicId !== topic.id) {
+          await prisma.article.update({ where: { id: existing.id }, data: { topicId: topic.id } });
+          console.log(`Article "${spec.slug}" already exists (${existing.id}) — synced topicId to "${spec.topicSlug}".`);
+          continue;
+        }
+      }
       console.log(`Article "${spec.slug}" already exists (${existing.id}) — not creating a duplicate.`);
       continue;
     }
