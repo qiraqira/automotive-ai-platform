@@ -38,6 +38,13 @@ const PICKS: UnsplashPick[] = [
   { headlineContains: "Battery EVs surpass petrol sales in Australia", photoId: "1615829386703-e2bb66a7cb7d", altText: "An electric car charging on a city street, generic photo" },
   { headlineContains: "UK Electric Vehicles Capture Market Lead", photoId: "1639302610362-4c86747e8680", altText: "An electric car plugged into a charging station, generic photo" },
   { headlineContains: "US battery storage hits record quarterly growth", photoId: "1589276534126-adef63a95e05", altText: "Solar panels under a clear sky, generic energy photo" },
+  // Second real batch, added the same tick after the first confirmed
+  // working live (user's own reaction: "ура блять... используй Unsplash
+  // везде где можно").
+  { headlineContains: "Minnesota Secures $41M for 40 New EV Fast-Charging Stations", photoId: "1619913387719-a43ee8859d9c", altText: "An EV charging stand, generic photo" },
+  { headlineContains: "Jackery Power Station Discounted", photoId: "1650785652040-5a2fc88ce902", altText: "A portable power station, generic photo" },
+  { headlineContains: "Bluetti marks 6th anniversary", photoId: "1650785652627-c53ea4fe5b29", altText: "A portable power station used outdoors, generic photo" },
+  { headlineContains: "Bluetti, Anker, and Tenways Launch Labor Day Promotions", photoId: "1597260491619-bab87197869f", altText: "An e-scooter parked on a city street, generic photo" },
 ];
 
 async function main() {
