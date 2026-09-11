@@ -121,6 +121,10 @@ export default async function ArticlePage({
     url: pageUrl,
     authorName: SITE_NAME,
     publisherName: SITE_NAME,
+    // See buildArticleJsonLd's own comment: only genuinely time-sensitive
+    // news content claims NewsArticle; GUIDE/COMPARISON/ANALYSIS/etc. are
+    // evergreen and get plain Article.
+    schemaType: article.type === "NEWS" || article.type === "BREAKING_NEWS" ? "NewsArticle" : "Article",
   });
 
   return (

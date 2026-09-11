@@ -20,8 +20,19 @@ const SITE_DESCRIPTION = "Global automotive news, research, and knowledge graph.
 // route's returned object over the parent's, not by replacing whole
 // fields wholesale — an article's own `openGraph` object fully replaces
 // this one for that route, it doesn't need to spread these defaults in).
+// SEO pass (2026-09-11): a `title` template, not a flat string — every
+// page below that sets its own string `title` (guides/brands/search's
+// literal "Guides"/"Brands"/"Search", topics' "{name} — Latest
+// Stories", articles' real headline, and the new per-page titles added
+// this pass on the homepage/car/brand pages) is now automatically
+// suffixed with the site name by Next's own title-template mechanism,
+// so no page has to remember to append it — and neither does whatever
+// page type gets added next. `default` only applies where a page sets
+// no title at all (there shouldn't be any left after this pass, but it
+// stays as the honest fallback rather than an empty tab title). See
+// SEO.md for the full title/description convention this documents.
 export const metadata: Metadata = {
-  title: `${SITE_NAME} — Automotive Intelligence`,
+  title: { default: `${SITE_NAME} — Automotive Intelligence`, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
   metadataBase: new URL(SITE_URL),
   openGraph: {

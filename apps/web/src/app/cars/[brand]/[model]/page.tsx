@@ -14,6 +14,28 @@ const CATEGORY_SCORE_LABEL: Record<string, string> = {
 };
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
+const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
+
+// Builds a title/description suffix from whatever this specific car
+// page actually has — SEO pass (2026-09-11), real gap: this page had no
+// title/description of its own at all, so every car page (BMW X5,
+// Mercedes GLE, ...) shared the exact same site-wide default title, a
+// real duplicate-title issue across every model page on the site.
+// Deliberately built from the real sections this render actually has
+// data for (crash tests / generations) rather than a fixed phrase, per
+// the brief's own "do not invent specifications" rule — a model with no
+// crash-test row yet doesn't claim "Safety" in its own title.
+function buildCarPageCopy(carModel: { brand: { name: string }; name: string; generations: unknown[]; crashTests: unknown[] }) {
+  const fullName = `${carModel.brand.name} ${carModel.name}`;
+  const parts = ["Specs"];
+  if (carModel.generations.length > 0) parts.push("Generations");
+  if (carModel.crashTests.length > 0) parts.push("Safety Ratings");
+  const title = `${fullName}: ${parts.join(", ").replace(/, ([^,]*)$/, " & $1")}`;
+  const description = `${fullName} specifications${
+    carModel.generations.length > 0 ? ", generation history" : ""
+  }${carModel.crashTests.length > 0 ? ", crash-test ratings" : ""} and real photos — sourced and checked on ${SITE_NAME}.`;
+  return { title, description };
+}
 
 // spec §22/§30: real hreflang + canonical, not just an English-only page
 // pretending to be locale-aware. The /es/ edition of this route doesn't
@@ -29,10 +51,37 @@ export async function generateMetadata({
   const { brand, model } = await params;
   const path = `/cars/${brand}/${model}`;
   const alternates = buildHreflangAlternates(SITE_URL, path);
-  return {
+  const canonicalUrl = buildLocaleUrl(SITE_URL, "en", path);
+  const base: Metadata = {
     alternates: {
-      canonical: buildLocaleUrl(SITE_URL, "en", path),
+      canonical: canonicalUrl,
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
+    },
+  };
+
+  const result = await getCarModel(brand, model);
+  if (!result) return base;
+  const { carModel } = result;
+  const { title, description } = buildCarPageCopy(carModel);
+  const heroImage = carModel.images.find((img) => img.role === "HERO");
+
+  return {
+    ...base,
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: canonicalUrl,
+      siteName: SITE_NAME,
+      images: heroImage ? [{ url: heroImage.image.originalUrl }] : undefined,
+    },
+    twitter: {
+      card: heroImage ? "summary_large_image" : "summary",
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      images: heroImage ? [heroImage.image.originalUrl] : undefined,
     },
   };
 }
@@ -101,7 +150,15 @@ export default async function CarModelPage({
         <Link href={`/brands/${brand}`}>{carModel.brand.name}</Link>
         {carModel.brand.country ? ` · ${formatCountryName(carModel.brand.country)}` : ""}
       </div>
-      <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{carModel.name}</h1>
+      {/* SEO pass (2026-09-11): H1 now names the brand too ("BMW X5", not
+          just "X5") — the brand was already shown above as a small link,
+          but a bare model name left the page's single most important
+          heading generic/ambiguous (several brands could plausibly have
+          a model called "X5"-adjacent names) and duplicated across
+          brands. No visual/design change: same size, same position. */}
+      <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>
+        {carModel.brand.name} {carModel.name}
+      </h1>
 
       {heroImage && (
         <figure style={{ margin: "0 0 32px" }}>

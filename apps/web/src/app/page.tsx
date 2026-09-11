@@ -13,14 +13,39 @@ import {
 } from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
+const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
-// spec §22/§30: the homepage needs the same real hreflang/canonical as
-// the car page (packages/seo) — previously only the car page had it,
-// which was an inconsistency, not a deliberate scope cut.
+// SEO pass (2026-09-11): the homepage never set its own title/
+// description before, silently inheriting layout.tsx's generic
+// site-wide default on every page that didn't override it — a real,
+// meaningful gap once the homepage itself became a page with real,
+// specific content (car specs, comparisons, guides) worth describing
+// on its own rather than falling back to the site-wide tagline. The
+// copy below accurately describes the sections actually rendered
+// further down this file (Explore models -> real specs, Comparisons &
+// analysis -> real comparisons) — see SEO.md's homepage rule.
+const HOME_TITLE = "Car Specs, Models & Comparisons";
+const HOME_DESCRIPTION =
+  "Explore car specifications, generations, safety ratings and comparisons. Research models by brand, compare engines and powertrains, and follow the latest automotive news.";
+
 export const metadata: Metadata = {
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
   alternates: {
     canonical: buildLocaleUrl(SITE_URL, "en", ""),
     languages: Object.fromEntries(buildHreflangAlternates(SITE_URL, "").map((a) => [a.hreflang, a.href])),
+  },
+  openGraph: {
+    type: "website",
+    title: `${HOME_TITLE} | ${SITE_NAME}`,
+    description: HOME_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: "summary",
+    title: `${HOME_TITLE} | ${SITE_NAME}`,
+    description: HOME_DESCRIPTION,
   },
 };
 

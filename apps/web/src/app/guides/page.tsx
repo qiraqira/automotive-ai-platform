@@ -40,10 +40,13 @@ export default async function GuidesIndexPage() {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      <h1 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      {/* SEO pass (2026-09-11): same H1/H2 swap as topics/brands pages —
+          one real H1, the specific descriptive heading, not the generic
+          eyebrow label. Same styles, same visual result. */}
+      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
         Guides
-      </h1>
-      <h2 style={{ fontSize: 28, margin: "4px 0 8px" }}>Explainers, not news</h2>
+      </h2>
+      <h1 style={{ fontSize: 28, margin: "4px 0 8px" }}>Explainers, not news</h1>
       <p style={{ color: "var(--ink-dim)", margin: "0 0 24px", maxWidth: "65ch" }}>
         Background you only need to read once — what an EV range number actually means, how crash-test ratings work,
         what to weigh when cross-shopping two models. No breaking news here, just the plain-language context.

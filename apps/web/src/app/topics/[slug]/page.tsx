@@ -17,6 +17,11 @@ export async function generateMetadata({
   const alternates = buildHreflangAlternates(SITE_URL, path);
   return {
     title: result ? `${result.topic.name} — Latest Stories` : undefined,
+    // SEO pass (2026-09-11): real gap — this page had a title but no
+    // description at all, so every topic page's search snippet fell
+    // back to the site-wide default, identical regardless of which
+    // topic it was.
+    description: result ? `The latest ${result.topic.name.toLowerCase()} news and analysis, updated as new stories are verified and published.` : undefined,
     alternates: {
       canonical: buildLocaleUrl(SITE_URL, "en", path),
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
@@ -50,10 +55,16 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      <h1 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      {/* SEO pass (2026-09-11): swapped which of these two is the real H1
+          — a page should have exactly one H1, and it should be the
+          specific, descriptive heading ("E-Bikes & Scooters"), not the
+          generic eyebrow label ("Topic") every topic page shared. Same
+          two lines, same styles, same visual result — only the tag
+          names moved. */}
+      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
         Topic
-      </h1>
-      <h2 style={{ fontSize: 28, margin: "4px 0 20px" }}>{topic.name}</h2>
+      </h2>
+      <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>{topic.name}</h1>
       <ul className="story-list">
         {stories.map((story) => {
           const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;

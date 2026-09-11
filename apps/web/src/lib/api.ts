@@ -444,6 +444,7 @@ export interface ArticleDetail {
   id: string;
   locale: string;
   slug: string;
+  type: "BREAKING_NEWS" | "NEWS" | "ANALYSIS" | "EXPLAINER" | "COMPARISON" | "REVIEW" | "GUIDE" | "MARKET";
   headline: string;
   subtitle: string | null;
   keyTakeaway: string | null;

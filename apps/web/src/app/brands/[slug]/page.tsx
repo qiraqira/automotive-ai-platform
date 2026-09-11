@@ -6,6 +6,7 @@ import { formatCountryName } from "@automotive/utils";
 import { getBrand } from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
+const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
 // Real brand hub page (vertical-slice plan, 2026-09-11, spec's "Brand
 // Pages" section): a person searching "BMW" should land somewhere that
@@ -18,11 +19,36 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const path = `/brands/${slug}`;
   const alternates = buildHreflangAlternates(SITE_URL, path);
-  return {
+  const canonicalUrl = buildLocaleUrl(SITE_URL, "en", path);
+  const base: Metadata = {
     alternates: {
-      canonical: buildLocaleUrl(SITE_URL, "en", path),
+      canonical: canonicalUrl,
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
     },
+  };
+
+  // SEO pass (2026-09-11): real gap, same shape as the car page's own —
+  // every brand page shared the site-wide default title with no way to
+  // tell BMW's page from Toyota's in a search result. Built only from
+  // sections this page actually renders (models / news), per the
+  // brief's "only mention information that actually exists" rule.
+  const result = await getBrand(slug);
+  if (!result) return base;
+  const { brand, relatedStories } = result;
+  const parts = ["Models"];
+  if (brand.models.some((m) => m.generationCount > 0)) parts.push("Generations");
+  if (relatedStories.length > 0) parts.push("News");
+  const title = `${brand.name} Cars: ${parts.join(", ").replace(/, ([^,]*)$/, " & $1")}`;
+  const description = `${brand.name} car specifications and generations${
+    relatedStories.length > 0 ? ", plus the latest " + brand.name + " news" : ""
+  } — sourced and checked on ${SITE_NAME}.`;
+
+  return {
+    ...base,
+    title,
+    description,
+    openGraph: { type: "website", title: `${title} | ${SITE_NAME}`, description, url: canonicalUrl, siteName: SITE_NAME },
+    twitter: { card: "summary", title: `${title} | ${SITE_NAME}`, description },
   };
 }
 

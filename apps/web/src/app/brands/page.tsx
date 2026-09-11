@@ -41,10 +41,13 @@ export default async function BrandsIndexPage() {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      <h1 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      {/* SEO pass (2026-09-11): same H1/H2 swap as topics/guides pages —
+          one real H1, the specific descriptive heading, not the generic
+          eyebrow label. Same styles, same visual result. */}
+      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
         Brands
-      </h1>
-      <h2 style={{ fontSize: 28, margin: "4px 0 20px" }}>Every manufacturer on this site</h2>
+      </h2>
+      <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>Every manufacturer on this site</h1>
       <ul className="story-list">
         {brands.map((brand) => (
           <li key={brand.slug} className="story-item">

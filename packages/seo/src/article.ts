@@ -22,12 +22,21 @@ export interface ArticleJsonLdInput {
   authorName: string;
   publisherName: string;
   publisherLogoUrl?: string;
+  /** SEO pass (2026-09-11): real gap — this was hardcoded to
+   * "NewsArticle" for every Article regardless of type, including the
+   * evergreen GUIDE/COMPARISON/ANALYSIS pieces this site also
+   * publishes. Google's own structured-data guidance scopes
+   * NewsArticle to actual news reporting; a comparison or how-to guide
+   * is more accurately plain "Article". Defaults to "Article" — a
+   * caller must opt into "NewsArticle" for genuinely time-sensitive
+   * news content. */
+  schemaType?: "NewsArticle" | "Article";
 }
 
 export function buildArticleJsonLd(input: ArticleJsonLdInput) {
   return {
     "@context": "https://schema.org",
-    "@type": "NewsArticle",
+    "@type": input.schemaType ?? "Article",
     headline: input.headline,
     ...(input.description ? { description: input.description } : {}),
     ...(input.imageUrl ? { image: [input.imageUrl] } : {}),
