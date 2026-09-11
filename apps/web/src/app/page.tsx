@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { computeRankingScore } from "@automotive/editorial";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getStories, getTopic, getTopicSlugs, getGuides, getBrands, type StorySummary, type TopicWithStories } from "@/lib/api";
+import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, type FeaturedArticleSummary } from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -16,216 +15,87 @@ export const metadata: Metadata = {
   },
 };
 
-// Homepage: a "Latest" feed ordered by the real computeRankingScore()
-// (spec §95), plus one section per real Topic underneath (spec §33/§66's
-// Breaking/Top Stories/EV/Market/... layout, in the one honest form it can
-// take today). Only sections with at least one real classified Story
-// render — a topic with zero stories would be an empty box, which is
-// exactly the "fake structure with no real data behind it" spec §85 rules
-// out just as much as a fake button. Full section variety (Cars/Tech/
-// Trending) still waits on more topic rules / entities existing; this is
-// everything that's honestly supportable right now, not a placeholder.
-// Real gap found and fixed 2026-09-08: this used Promise.all, so a
-// single topic's fetch failing (a real, plausible transient issue — a
-// slow query, a brief apps/api hiccup — not exotic; getTopic() throws for
-// any non-404 failure) took down the ENTIRE homepage, including the
-// "Latest" feed above, which is otherwise completely independent and had
-// already succeeded via the other half of the outer Promise.all below.
-// This function already treats an ABSENT topic the same as an empty one
-// (filtered out, no fake empty box) — extending that same tolerance to a
-// topic whose fetch failed is the same posture, not a new one: readers
-// still get every section that actually loaded instead of a blank/broken
-// page over one transient failure elsewhere. Logged server-side (not
-// silently swallowed) so a genuinely persistent failure is still visible
-// in the same structured stdout logs every other real error in this app
-// already uses.
-async function getTopicSections() {
-  const { topics } = await getTopicSlugs();
-  const results = await Promise.allSettled(topics.map((t) => getTopic(t.slug)));
-  const sections: TopicWithStories[] = [];
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error(JSON.stringify({ timestamp: new Date().toISOString(), error: "homepage_topic_section_failed", reason: String(result.reason) }));
-      continue;
-    }
-    if (result.value !== null && result.value.stories.length > 0) {
-      sections.push(result.value);
-    }
-  }
-  return sections;
-}
-
-function averageSourceTrust(story: StorySummary): number {
-  if (story.sources.length === 0) return 50;
-  const total = story.sources.reduce((sum, s) => sum + s.source.trustScore, 0);
-  return total / story.sources.length;
-}
-
-function rankStories(stories: StorySummary[]): StorySummary[] {
-  const now = new Date();
-  return [...stories].sort((a, b) => {
-    const scoreA = computeRankingScore({
-      importanceScore: a.importanceScore,
-      sourceQualityScore: averageSourceTrust(a),
-      publishedAt: new Date(a.lastUpdatedAt),
-      now,
-    });
-    const scoreB = computeRankingScore({
-      importanceScore: b.importanceScore,
-      sourceQualityScore: averageSourceTrust(b),
-      publishedAt: new Date(b.lastUpdatedAt),
-      now,
-    });
-    return scoreB - scoreA;
-  });
+// Portal homepage (2026-09-11), replacing the old news-feed layout, per
+// the user's own explicit, repeated instruction: "не как новостная
+// лента была, а ... портал" / "Статьи на главной месте, новости нет. Но
+// дизайн легкий?" The old "Latest" Story feed and per-Topic news
+// sections are gone entirely — a news feed is exactly what this is no
+// longer meant to be. What's left is everything on the site that's
+// real, evergreen, and worth a reader's first look: real car models
+// with real photos, real comparisons/analysis, real guides, real
+// brands. "Light" design: plain type, generous whitespace, no cards/
+// shadows/gradients — this is still the same undecorated visual
+// language the rest of the site uses, just organized as a portal's
+// front page instead of a chronological feed.
+function isLogoImage(images: FeaturedArticleSummary["images"]): boolean {
+  const img = images[0]?.image;
+  if (!img) return false;
+  return img.rightsStatus === "EDITORIAL_ONLY" || img.originalUrl.toLowerCase().includes("logo");
 }
 
 export default async function HomePage() {
-  // Real gap found and fixed 2026-09-09, user's explicit request: this
-  // used to fetch ANY Story regardless of whether the Writer stage had
-  // produced a real Article for it yet — confirmed live that 19 of the
-  // real top 20 (by lastUpdatedAt) were raw, just-ingested stubs with
-  // nothing real to read, prominently listed on the homepage anyway
-  // (unlinked, per the `story.articles[0] ? Link : plain text` guard
-  // below, but still occupying the "Latest" feed's real estate). The
-  // reader's actual workflow should be ingest -> write -> quality gate
-  // -> publish, in that order, before anything shows up here — not
-  // ingest -> immediately show. `hasArticle: true` is the real fix.
-  const [{ stories: unranked }, topicSections, { guides }, { brands }] = await Promise.all([
-    getStories({ limit: 20, hasArticle: true }),
-    getTopicSections(),
+  const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands }] = await Promise.all([
+    getFeaturedCars(),
+    getFeaturedArticles(),
     getGuides(),
     getBrands(),
   ]);
-  const stories = rankStories(unranked);
 
   return (
     <>
-      <section>
-        <h1 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
-          Latest
-        </h1>
-        <ul className="story-list">
-          {stories.map((story) => {
-            const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-            // A brand-logo fallback (see fetch-images.ts's EDITORIAL_ONLY path) is
-            // usually square/circular with padding baked in — objectFit: "cover"
-            // in this landscape 96x64 box crops its edges off. Show it whole
-            // instead, on a neutral ground since many logo files have a
-            // transparent background. Checked live 2026-09-11: most of these
-            // logo fallbacks on production actually have rightsStatus other
-            // than EDITORIAL_ONLY (they came through the generic Commons/
-            // Openverse photo search matching a "*logo*" file by title, not
-            // through attachHeroImage's deliberate brand-logo path) — so the
-            // rightsStatus check alone misses ~75% of the real cases. The
-            // filename itself reliably says "logo" either way (Commons' own
-            // naming convention), so match on that too.
-            const isLogo =
-              story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
-            return (
-              <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                {heroUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                  <img
-                    src={heroUrl}
-                    alt=""
-                    style={{
-                      width: 96,
-                      height: 64,
-                      objectFit: isLogo ? "contain" : "cover",
-                      background: isLogo ? "#fff" : undefined,
-                      padding: isLogo ? 8 : undefined,
-                      flexShrink: 0,
-                      borderRadius: 4,
-                    }}
-                  />
-                )}
-                <div>
-                  <div className="story-meta">
-                    {story.status} · {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                    {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                    {story.primaryTopic ? (
-                      <>
-                        {" · "}
-                        <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
-                      </>
-                    ) : null}
-                  </div>
-                  <h2>{story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}</h2>
-                </div>
-              </li>
-            );
-          })}
-          {stories.length === 0 && <p>No stories ingested yet — run the worker's ingestion job.</p>}
-        </ul>
+      <section style={{ marginBottom: 40 }}>
+        <h1 style={{ fontSize: 32, margin: "0 0 12px" }}>Real cars, real numbers, no filler</h1>
+        <p style={{ fontSize: 17, color: "var(--ink-dim)", maxWidth: 640, lineHeight: 1.5 }}>
+          Specs, generations, crash-test ratings and side-by-side comparisons — every figure sourced and checked, every
+          photo the real car.
+        </p>
       </section>
 
-      {guides.length > 0 && (
-        // Real gap found and fixed 2026-09-11: the /guides section itself
-        // shipped this same tick, but nothing on the homepage ever
-        // pointed to it — only the footer link and other articles'
-        // internal cross-links did. Same list styling as the Topic
-        // sections below, capped at the 3 most recent since a guide
-        // rarely needs "latest first" the way news does, but 3 recent
-        // ones is still a fair representative sample.
-        <section style={{ marginTop: 32 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
-            <Link href="/guides">Guides</Link>
+      {featuredCars.length > 0 && (
+        // Real gap found and fixed 2026-09-11: four (now five) fully-built
+        // model pages existed with zero visual entry point anywhere on the
+        // site — only reachable via an article's own cross-link or a
+        // brand page. Only models with a real HERO CarModelImage are ever
+        // returned by GET /v1/featured-cars, so this grid never shows an
+        // empty/placeholder tile.
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            Explore models
           </h2>
-          <ul className="story-list">
-            {guides.slice(0, 3).map((guide) => (
-              <li key={guide.slug} className="story-item">
-                <h3 style={{ fontSize: 18, margin: 0 }}>
-                  <Link href={`/articles/${guide.locale}/${guide.slug}`}>{guide.headline}</Link>
-                </h3>
-                {guide.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{guide.subtitle}</p>}
-              </li>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+            {featuredCars.map((car) => (
+              <Link key={`${car.brandSlug}-${car.modelSlug}`} href={`/cars/${car.brandSlug}/${car.modelSlug}`} style={{ display: "block" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                <img
+                  src={car.imageUrl}
+                  alt={`${car.brandName} ${car.modelName}`}
+                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
+                />
+                <div style={{ fontWeight: 600 }}>
+                  {car.brandName} {car.modelName}
+                </div>
+              </Link>
             ))}
-          </ul>
-          {guides.length > 3 && (
-            <p className="story-meta">
-              <Link href="/guides">See all {guides.length} →</Link>
-            </p>
-          )}
+          </div>
         </section>
       )}
 
-      {brands.length > 0 && (
-        // Real gap found and fixed 2026-09-11: four fully-built model
-        // pages (BMW X5, Mercedes-Benz GLE, Tesla Model Y, Toyota RAV4 —
-        // real specs, generations, crash tests, curated videos) existed
-        // with zero links from the homepage or site-wide nav — only
-        // reachable via an article's own "Related cars" section or a
-        // topic feed's EntityRelation match. Same section pattern as
-        // Guides above, one level up (brand, not model, since GET
-        // /v1/brands is the list this site already exposes — each
-        // brand's own page lists its models).
-        <section style={{ marginTop: 32 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
-            <Link href="/brands">Brands</Link>
-          </h2>
-          <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", listStyle: "none", padding: 0, margin: 0 }}>
-            {brands.map((brand) => (
-              <li key={brand.slug} style={{ fontSize: 16 }}>
-                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {topicSections.map(({ topic, stories: topicStories }) => (
-        <section key={topic.id} style={{ marginTop: 32 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
-            <Link href={`/topics/${topic.slug}`}>{topic.name}</Link>
+      {featuredArticles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
+        // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
+        // section at all (see GET /v1/featured-articles's own comment) —
+        // exactly the kind of evergreen content a portal's front page
+        // should lead with, unlike the news feed this replaces.
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            Comparisons &amp; analysis
           </h2>
           <ul className="story-list">
-            {topicStories.slice(0, 5).map((story) => {
-              const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-              const isLogo =
-                story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
+            {featuredArticles.map((article) => {
+              const heroUrl = article.images[0]?.image.originalUrl;
+              const isLogo = isLogoImage(article.images);
               return (
-                <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   {heroUrl && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                     <img
@@ -243,25 +113,56 @@ export default async function HomePage() {
                     />
                   )}
                   <div>
-                    <div className="story-meta">
-                      {story.status} · {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                      {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                    </div>
+                    <div className="story-meta">{article.type}</div>
                     <h3 style={{ fontSize: 18, margin: 0 }}>
-                      {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
+                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
                     </h3>
+                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
                   </div>
                 </li>
               );
             })}
           </ul>
-          {topicStories.length > 5 && (
+        </section>
+      )}
+
+      {guides.length > 0 && (
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            <Link href="/guides">Guides</Link>
+          </h2>
+          <ul className="story-list">
+            {guides.slice(0, 6).map((guide) => (
+              <li key={guide.slug} className="story-item">
+                <h3 style={{ fontSize: 18, margin: 0 }}>
+                  <Link href={`/articles/${guide.locale}/${guide.slug}`}>{guide.headline}</Link>
+                </h3>
+                {guide.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{guide.subtitle}</p>}
+              </li>
+            ))}
+          </ul>
+          {guides.length > 6 && (
             <p className="story-meta">
-              <Link href={`/topics/${topic.slug}`}>See all {topicStories.length} →</Link>
+              <Link href="/guides">See all {guides.length} →</Link>
             </p>
           )}
         </section>
-      ))}
+      )}
+
+      {brands.length > 0 && (
+        <section>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            <Link href="/brands">Brands</Link>
+          </h2>
+          <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", listStyle: "none", padding: 0, margin: 0 }}>
+            {brands.map((brand) => (
+              <li key={brand.slug} style={{ fontSize: 16 }}>
+                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

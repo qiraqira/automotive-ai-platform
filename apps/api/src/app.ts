@@ -435,6 +435,42 @@ app.get("/v1/guides", async (_req, res) => {
   res.json({ guides });
 });
 
+// Real gap found and fixed 2026-09-11 (user's own explicit request to
+// restructure the homepage around real articles/models rather than a
+// news feed): the 5 hand-authored COMPARISON/ANALYSIS pieces had no
+// dedicated listing endpoint at all — same shape as GET /v1/guides
+// (same quality-gate filter every reader-facing feed uses), just
+// covering the other two evergreen types. Includes the hero image now
+// that every evergreen article actually has a real one, since these are
+// meant to be shown visually on the homepage, not just as bare text
+// links the way the old "Latest" news feed was.
+app.get("/v1/featured-articles", async (_req, res) => {
+  const rows = await prisma.article.findMany({
+    where: { status: "PUBLISHED", type: { in: ["COMPARISON", "ANALYSIS"] } },
+    select: {
+      locale: true,
+      slug: true,
+      headline: true,
+      subtitle: true,
+      type: true,
+      publishedAt: true,
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+      factualScore: true,
+      sourceScore: true,
+      qualityScore: true,
+      originalityScore: true,
+      valueScore: true,
+      readabilityScore: true,
+    },
+    orderBy: { publishedAt: "desc" },
+    take: 200,
+  });
+  const articles = rows
+    .filter((a) => !isRejectedByQualityGate(a))
+    .map(({ locale, slug, headline, subtitle, type, publishedAt, images }) => ({ locale, slug, headline, subtitle, type, publishedAt, images }));
+  res.json({ articles });
+});
+
 app.get("/v1/articles/:locale/:slug", async (req, res) => {
   const locale = req.params.locale;
   if (locale !== "en" && locale !== "es") {
@@ -841,6 +877,37 @@ app.get("/v1/cars", async (_req, res) => {
       brandSlug: c.brand.slug,
       modelSlug: c.slug,
       lastModified: c.facts[0]?.createdAt ?? null,
+    })),
+  });
+});
+
+// Added 2026-09-11 for the homepage's new "Explore models" grid (part of
+// the user's own "не новостная лента, а портал" restructuring) — a
+// separate endpoint from GET /v1/cars above rather than widening that
+// one's response shape, since /v1/cars is a real, already-relied-on
+// sitemap contract (bare slugs + lastModified only). Only returns models
+// that actually have a real HERO CarModelImage — seed-real-cars.ts has
+// only given a handful of models a real photo so far, and a grid tile
+// with no image is exactly the "fake structure over no real data" this
+// whole redesign is meant to avoid.
+app.get("/v1/featured-cars", async (_req, res) => {
+  const carModels = await prisma.carModel.findMany({
+    where: { images: { some: { role: "HERO" } } },
+    select: {
+      slug: true,
+      name: true,
+      brand: { select: { slug: true, name: true } },
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 },
+    },
+    orderBy: { name: "asc" },
+  });
+  res.json({
+    carModels: carModels.map((c) => ({
+      brandSlug: c.brand.slug,
+      brandName: c.brand.name,
+      modelSlug: c.slug,
+      modelName: c.name,
+      imageUrl: c.images[0]?.image.originalUrl ?? null,
     })),
   });
 });

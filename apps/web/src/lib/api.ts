@@ -254,6 +254,41 @@ export function getGuides(): Promise<{ guides: GuideSummary[] }> {
   return apiGet("/v1/guides");
 }
 
+// Homepage portal restructuring (2026-09-11) — user's own explicit
+// request: "не как новостная лента, а ... портал". Backs the "Comparisons
+// & Analysis" section, mirroring GET /v1/guides's own shape/pattern —
+// see GET /v1/featured-articles's own comment in apps/api for why this
+// is a separate endpoint from /v1/guides rather than widening it.
+export interface FeaturedArticleSummary {
+  locale: string;
+  slug: string;
+  headline: string;
+  subtitle: string | null;
+  type: "COMPARISON" | "ANALYSIS";
+  publishedAt: string | null;
+  images: { image: { originalUrl: string; rightsStatus: string } }[];
+}
+
+export function getFeaturedArticles(): Promise<{ articles: FeaturedArticleSummary[] }> {
+  return apiGet("/v1/featured-articles");
+}
+
+// Backs the homepage's "Explore models" visual grid — see GET
+// /v1/featured-cars's own comment for why only models with a real HERO
+// photo are ever returned (no placeholder tiles for a model with no
+// photo yet).
+export interface FeaturedCar {
+  brandSlug: string;
+  brandName: string;
+  modelSlug: string;
+  modelName: string;
+  imageUrl: string;
+}
+
+export function getFeaturedCars(): Promise<{ carModels: FeaturedCar[] }> {
+  return apiGet("/v1/featured-cars");
+}
+
 export interface Market {
   id: string;
   code: string;
