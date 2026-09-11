@@ -601,6 +601,33 @@ async function main() {
     });
   }
 
+  // Real IIHS assessment (Juniper, 2025 model year) — added 2026-09-11
+  // specifically so the RAV4-vs-Model-Y COMPARISON article can cite two
+  // IIHS results side by side (same organization/protocol as the RAV4's
+  // own IIHS result above), rather than comparing an IIHS result against
+  // a Euro NCAP one the way this site's own Euro-NCAP-years guide
+  // warns against doing across different protocols.
+  const existingJuniperIihs = await prisma.crashTestResult.findFirst({
+    where: { carModelId: modelY.id, generationId: juniper.id, organization: "IIHS", testYear: 2025 },
+  });
+  if (!existingJuniperIihs) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: modelY.id,
+        generationId: juniper.id,
+        organization: "IIHS",
+        overallRating: "Top Safety Pick+",
+        categoryScores: {
+          small_overlap_front: "Good",
+          moderate_overlap_front: "Good",
+          side: "Good",
+        },
+        testYear: 2025,
+        sourceUrl: "https://www.iihs.org/ratings/vehicle/tesla/model-y/2025",
+      },
+    });
+  }
+
   await attachVerifiedCommonsPhoto(modelY.id, "Tesla Model Y", "Tesla Model Y", "Tesla Model Y, a compact electric crossover SUV");
 
   // Real curated videos. Official: Tesla's own unveil event recording
@@ -622,7 +649,7 @@ async function main() {
   console.log(`Seeded real data: Brand ${tesla.name} (${tesla.id}), CarModel ${modelY.name} (${modelY.id})`);
   console.log(`  Generations: 2020-2024 (${gen1.id}, 2 trims), Juniper (${juniper.id}, 4 trims)`);
   console.log(`  Fact: ${existingSalesFact ? "already present (checked for corrections)" : "created"} world's-best-selling-vehicle fact`);
-  console.log(`  Crash tests: ${existingGen1CrashTest ? "already present" : "created"} Euro NCAP 2022 (gen1), ${existingJuniperCrashTest ? "already present" : "created"} Euro NCAP 2025 (Juniper)`);
+  console.log(`  Crash tests: ${existingGen1CrashTest ? "already present" : "created"} Euro NCAP 2022 (gen1), ${existingJuniperCrashTest ? "already present" : "created"} Euro NCAP 2025 (Juniper), ${existingJuniperIihs ? "already present" : "created"} IIHS 2025 (Juniper)`);
 
   // ============================================================
   // Toyota RAV4 — fourth vertical slice, added 2026-09-11. Picked

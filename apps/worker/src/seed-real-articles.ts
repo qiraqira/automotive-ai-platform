@@ -248,6 +248,45 @@ const ARTICLES: ArticleSpec[] = [
     },
     scores: { qualityScore: 87, originalityScore: 85, factualScore: 90, sourceScore: 86, valueScore: 90, readabilityScore: 88 },
   },
+  {
+    slug: "toyota-rav4-vs-tesla-model-y",
+    type: "COMPARISON",
+    contentPurpose: "COMPARISON",
+    headline: "Toyota RAV4 vs Tesla Model Y: The Two Cars Actually Fighting for World's Best-Seller",
+    subtitle: "Real dimensions, powertrains and IIHS crash-test results for the compact SUV that's outsold almost everything on Earth two years running, and the one still nipping at its heels.",
+    keyTakeaway:
+      "The RAV4 is roomier with seats up (37.8 vs 30.2 cubic feet of cargo) and never needs to be plugged in; the Model Y is longer, wider, and — on the newer, all-electric Juniper generation — actually scores a full tier higher on the same IIHS crash test (Top Safety Pick+ vs the RAV4's Top Safety Pick). Neither wins outright: it's genuinely a hybrid-efficiency-and-space case against an electric-range-and-safety-margin case, which is exactly why these two keep trading the world's-best-seller title back and forth (see this site's own analysis of that race).",
+    paragraphs: [
+      "These aren't two SUVs picked for a comparison because they're similarly priced — they're two SUVs that are, as of the most recent full sales years, literally the two best-selling vehicles on the planet, of any kind, gas or electric (see this site's own analysis of the Model Y/RAV4 sales race). Cross-shopping them isn't a hypothetical exercise; it's what's actually happening in showrooms.",
+      "On size, the two split in different directions rather than one being simply bigger. The current Tesla Model Y (Juniper) runs about 188.6 inches long and 77.9 inches wide; the current Toyota RAV4 (XA60) is a more compact 180.9 inches long and 73.0 inches wide — the Model Y has roughly 7-8 inches of extra length and width. The RAV4, though, is the taller of the two and actually offers more usable cargo space with the rear seats up: 37.8 cubic feet versus the Model Y's 30.2. Fold the rear seats in either car and the gap disappears entirely — both max out at 76.0 cubic feet.",
+      "The powertrain difference is the real fork in the road, and it's covered in full in this site's own hybrid/PHEV/EV explainer: the RAV4 is offered exclusively as a hybrid or plug-in hybrid as of its all-new 2026 generation (226-236 hp Hybrid, or a 324 hp GR Sport plug-in hybrid with about 50 miles of electric-only range), while the Model Y has no gas engine in any trim, running purely on battery power with an EPA range from 321 to 357 miles depending on trim. A RAV4 buyer never has to think about charging; a Model Y buyer never has to think about a gas station, but does have to think about charging access.",
+      "Safety is where this comparison gets genuinely interesting, because both cars have been tested by the same organization under the same protocol — IIHS — which makes the comparison a fair one, unlike stacking an IIHS result against a Euro NCAP result from a different testing body entirely (see this site's own Euro NCAP explainer for why that specific mismatch matters). The 2024 RAV4 earned IIHS's \"Top Safety Pick,\" not the higher \"Top Safety Pick+,\" specifically because it scored only Marginal on IIHS's newer, updated moderate-overlap-front test (Good on the original version of that same test). The 2025 Model Y, by contrast, scored Good across small-overlap-front, moderate-overlap-front and side tests, earning the full Top Safety Pick+ — a real, one-tier difference on the same real test.",
+      "Price still favors the RAV4 at the entry level: its 2026 Hybrid LE FWD starts at $31,900, well under the Model Y Standard RWD's $39,990 starting point. That gap narrows a lot once electric tax incentives (where still available) and fuel-cost differences are factored in over ownership, but as a sticker-price comparison, the RAV4 undercuts the Model Y at every equivalent trim tier.",
+      "Neither car is the objectively correct choice — they're optimized for different priorities. The RAV4 wins on up-front price, cargo room with seats up, and zero dependence on charging infrastructure. The Model Y wins on interior length/width, electric-only running costs, and — on the current generation specifically — a real, verified edge in IIHS crash-test performance. That genuine, close trade-off is exactly why sales data has these two essentially tied at the top of the global charts rather than one running away with it.",
+    ],
+    citations: [
+      { label: "Dimensions: Tesla Model Y 2025-present vs. Toyota RAV4 2019-2025 — carsized.com", url: "https://www.carsized.com/en/cars/compare/tesla-model-y-2025-suv-vs-toyota-rav4-2019-suv-swb/" },
+      { label: "Toyota RAV4 Dimensions 2026 — CarsGuide", url: "https://www.carsguide.com.au/toyota/rav4/car-dimensions/2026" },
+      { label: "2026 Tesla Model Y earns IIHS Top Safety Pick+ — driveteslacanada.ca", url: "https://driveteslacanada.ca/news/2026-tesla-model-y-iihs-top-safety-pick-plus/" },
+      { label: "2024 Toyota RAV4 — IIHS", url: "https://www.iihs.org/ratings/vehicle/toyota/rav4-4-door-suv/2024" },
+    ],
+    carModelSlugs: [
+      { brandSlug: "toyota", modelSlug: "rav4" },
+      { brandSlug: "tesla", modelSlug: "model-y" },
+    ],
+    specTable: {
+      headers: ["Toyota RAV4 (XA60)", "Tesla Model Y (Juniper)"],
+      rows: [
+        { label: "Length", values: ["180.9 in", "188.6 in"] },
+        { label: "Width", values: ["73.0 in", "77.9 in"] },
+        { label: "Cargo (seats up / folded)", values: ["37.8 / 76.0 ft³", "30.2 / 76.0 ft³"] },
+        { label: "Powertrain", values: ["Hybrid or plug-in hybrid only", "Full electric only"] },
+        { label: "Starting price", values: ["$31,900 (Hybrid LE FWD)", "$39,990 (Standard RWD)"] },
+        { label: "IIHS rating", values: ["Top Safety Pick", "Top Safety Pick+"] },
+      ],
+    },
+    scores: { qualityScore: 88, originalityScore: 87, factualScore: 90, sourceScore: 89, valueScore: 91, readabilityScore: 87 },
+  },
 ];
 
 async function main() {
