@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildArticleJsonLd, safeJsonLdString, type Locale } from "@automotive/seo";
 import { getArticle } from "@/lib/api";
+import EditorialDisclosure from "@/components/EditorialDisclosure";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -140,10 +141,8 @@ export default async function ArticlePage({
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(articleJsonLd) }}
       />
       <div className="story-meta">
-        {article.authorType === "AI_AGENT" ? (
-          <>
-            <span className="badge">AI-written</span> — see <Link href="/about/how-we-use-ai">how we use AI</Link>
-          </>
+        {article.authorType === "AI_AGENT" || article.authorType === "HYBRID" ? (
+          <EditorialDisclosure />
         ) : (
           article.authorType
         )}

@@ -62,10 +62,11 @@ export default function AboutPage() {
       </p>
       <p>
         We are early. Real source monitoring, duplicate/story detection, and
-        a small real automotive database are running, and AI (Anthropic&rsquo;s
-        Claude) drafts and publishes every article directly from that
-        pipeline. See <a href="/about/how-we-use-ai">how we use AI</a> for
-        the exact, current state — including what we haven&rsquo;t built yet.
+        a small real automotive database are running. Our content is created
+        by people with the assistance of AI (Anthropic&rsquo;s Claude) and
+        reviewed by people before publication — see{" "}
+        <a href="/about/how-we-use-ai">how we use AI</a> for the exact,
+        current state, including what we haven&rsquo;t built yet.
       </p>
       <h2 style={{ fontSize: 18 }}>More</h2>
       <ul>
