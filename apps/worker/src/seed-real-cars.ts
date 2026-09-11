@@ -188,10 +188,16 @@ async function main() {
       data: { trimId: g05xDrive45e.id, name: "3.0L I6 Turbo (B58) + electric motor, combined", powerKw: 290, powerHp: 389, fuel: "phev" },
     });
   }
-  if ((await prisma.battery.count({ where: { trimId: g05xDrive45e.id } })) === 0) {
+  const existingG05xDrive45eBattery = await prisma.battery.findFirst({ where: { trimId: g05xDrive45e.id } });
+  if (!existingG05xDrive45eBattery) {
+    // rangeMiles added 2026-09-11 (real gap: this row only ever had
+    // capacityKwh) — 30 mi EPA-estimated, insideevs.com's own coverage of
+    // BMW's official launch figures for the US-spec car.
     await prisma.battery.create({
-      data: { trimId: g05xDrive45e.id, capacityKwh: 24 },
+      data: { trimId: g05xDrive45e.id, capacityKwh: 24, rangeMiles: 30 },
     });
+  } else if (existingG05xDrive45eBattery.rangeMiles === null) {
+    await prisma.battery.update({ where: { id: existingG05xDrive45eBattery.id }, data: { rangeMiles: 30 } });
   }
 
   // --- Facts: the documented F15 xDrive35i EU-vs-US power discrepancy ---

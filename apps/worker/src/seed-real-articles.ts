@@ -211,6 +211,43 @@ const ARTICLES: ArticleSpec[] = [
     carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
     scores: { qualityScore: 87, originalityScore: 86, factualScore: 91, sourceScore: 88, valueScore: 90, readabilityScore: 87 },
   },
+  {
+    slug: "hybrid-vs-plug-in-hybrid-vs-ev-explained",
+    type: "GUIDE",
+    contentPurpose: "GUIDE",
+    topicSlug: "electric-vehicles",
+    headline: "Hybrid, Plug-in Hybrid, or Full Electric: What Actually Changes Between Them",
+    subtitle: "The three letters (HEV, PHEV, EV) sound like a spectrum, but they're really three different battery sizes serving three different jobs — and this site already has a real example of each.",
+    keyTakeaway:
+      "A regular hybrid's battery (1-2 kWh) exists purely to make the gas engine more efficient and never gets plugged in. A plug-in hybrid's battery (roughly 8-18 kWh) is big enough to drive 25-50 miles on electricity alone before quietly switching to normal hybrid operation. A full EV's battery (typically 60-100+ kWh) is the only source of propulsion, full stop — there's no gas engine to fall back on. Bigger battery, more capability, but also more it depends on external charging to deliver on.",
+    paragraphs: [
+      "\"Hybrid,\" \"plug-in hybrid,\" and \"electric\" get used almost interchangeably in casual conversation, but they describe three meaningfully different pieces of hardware, not three points on a smooth spectrum of \"more electric.\" The clearest way to tell them apart is by what the battery is actually for, not by how green the badge on the back looks.",
+      "A regular hybrid (HEV) — this site's Toyota RAV4 Hybrid is a real example — carries a small battery, typically only 1-2 kWh, recharged entirely by regenerative braking and the gas engine itself. It never plugs in, and it's not really designed to drive any meaningful distance on electricity alone; the battery's job is to smooth out the gas engine's workload (assisting on acceleration, letting the engine shut off at a stop) so it burns less fuel overall. Zero owner behavior changes versus a normal gas car: no cable, no charging routine, nothing.",
+      "A plug-in hybrid (PHEV) — the RAV4 Prime and the BMW X5 xDrive45e on this site are both real examples — keeps the same gas engine but swaps in a much larger battery, generally 8-18 kWh (the X5 xDrive45e's is 24 kWh, the RAV4 Prime's 18.1 kWh), sized specifically to be charged from a wall outlet or public charger like an EV. That battery is big enough to drive a genuine 25-50 miles on electricity alone before the gas engine ever needs to turn on. A PHEV owner who plugs in every night and mostly drives short distances might burn very little gasoline in practice; the same PHEV never plugged in just behaves like a heavier, slightly less efficient regular hybrid — the gas engine is always there as a real fallback either way.",
+      "A full EV — the Tesla Model Y on this site — has no gas engine at all, so the comparison stops being about \"how much electric range\" and becomes \"the entire range, period.\" That requires a much bigger battery still (60-100+ kWh is typical across the market; Model Y's own trims run 69.5-79 kWh), and it means external charging isn't an optional efficiency boost, it's the only way the car moves. That's the real tradeoff: an EV never burns a drop of gasoline and typically costs far less per mile to run, but it's also the one of the three genuinely dependent on charging access — a PHEV or HEV owner with no home charger loses an efficiency feature, an EV owner with no charging access loses the car.",
+      "None of this makes one category strictly better than another — it makes them different tools for different situations. A regular hybrid suits a driver who wants better fuel economy with zero behavior change and no charger anywhere in the picture. A plug-in hybrid suits a driver who could charge at home most nights but occasionally needs to drive further than any charging network could keep up with, without planning around it. A full EV suits a driver whose charging access (home, work, or reliable public fast-charging) is already solid, in exchange for the lowest running cost and zero gasoline of the three.",
+    ],
+    citations: [
+      { label: "Hybrid vs. Plug-In Hybrid vs. Electric: What's the Difference? — U.S. News", url: "https://cars.usnews.com/cars-trucks/advice/hybrid-vs-phev-vs-ev" },
+      { label: "Plug-in Hybrid vs. Hybrid Cars — Progressive", url: "https://www.progressive.com/answers/plug-in-hybrid-vs-hybrid/" },
+    ],
+    carModelSlugs: [
+      { brandSlug: "toyota", modelSlug: "rav4" },
+      { brandSlug: "bmw", modelSlug: "x5" },
+      { brandSlug: "tesla", modelSlug: "model-y" },
+    ],
+    specTable: {
+      headers: ["Hybrid (HEV)", "Plug-in Hybrid (PHEV)", "Full Electric (EV)"],
+      rows: [
+        { label: "Real example on this site", values: ["Toyota RAV4 Hybrid", "BMW X5 xDrive45e / RAV4 Prime", "Tesla Model Y"] },
+        { label: "Typical battery size", values: ["1-2 kWh", "8-18 kWh", "60-100+ kWh"] },
+        { label: "Plugs in?", values: ["No", "Yes (optional)", "Yes (required)"] },
+        { label: "Electric-only range", values: ["None", "30-42 mi (this site's examples)", "300+ mi"] },
+        { label: "Gas engine as fallback", values: ["Always", "Always", "None — no gas engine"] },
+      ],
+    },
+    scores: { qualityScore: 87, originalityScore: 85, factualScore: 90, sourceScore: 86, valueScore: 90, readabilityScore: 88 },
+  },
 ];
 
 async function main() {
