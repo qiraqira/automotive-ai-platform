@@ -58,6 +58,39 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Real gap found live 2026-09-11: the "brand = headline's first word"
+// convention used elsewhere in this file only holds when the headline
+// actually leads with the brand — plenty of real, published headlines
+// don't ("Second Tesla driver killed...", "Only One Ferrari Enzo...").
+// packages/database has no populated Brand table to query live (real,
+// confirmed empty — this project's CarModel/Brand catalog was never
+// seeded with real rows despite the schema existing), so this list is
+// hand-built from every brand actually seen across this site's real
+// published headlines during the 2026-09-11 image-quality pass, not
+// guessed from a generic "top car brands" list. Ordered longest-first
+// so a multi-word name (e.g. "Land Rover") matches before a shorter
+// substring of it could.
+const KNOWN_BRANDS = [
+  "Land Rover", "Range Rover", "Rolls-Royce", "Aston Martin", "Alfa Romeo",
+  "Mercedes-Benz", "Volkswagen", "Mitsubishi", "Lamborghini", "Chevrolet",
+  "Cadillac", "Chrysler", "Genesis", "Hyundai", "Polestar", "Infiniti",
+  "Mercedes", "Porsche", "Bugatti", "McLaren", "Bentley", "Lincoln",
+  "Xiaomi", "Segway", "Engwe", "Tenways", "Macfox", "SONDORS", "Windrose",
+  "Jackery", "Bluetti", "EcoFlow", "Velotric", "Juiced", "Rivian", "Nissan",
+  "Toyota", "Subaru", "Renault", "Peugeot", "Citroen", "Maserati", "Ferrari",
+  "Skoda", "Denza", "Geely", "Waymo", "Tesla", "Honda", "Mazda", "Rimac",
+  "Lucid", "Fisker", "Volvo", "Kia", "Audi", "BMW", "Ford", "Jeep", "Ram",
+  "Dodge", "Buick", "Acura", "Mini", "Smart", "Fiat", "BYD", "GM", "Uber",
+  "SANY", "Evoke", "Slate",
+];
+
+function detectBrand(text: string): string | null {
+  for (const brand of KNOWN_BRANDS) {
+    if (new RegExp(`\\b${escapeRegExp(brand)}\\b`, "i").test(text)) return brand;
+  }
+  return null;
+}
+
 // Real, severe quality gap found live 2026-09-08, first real production
 // backfill run: Commons' own search is plain full-text, not semantic —
 // a short, generic fallback query (needed because a full AI headline
@@ -487,8 +520,15 @@ export async function attachHeroImage(articleId: string, searchTexts: string[]):
   // vision-matched photo of the specific event, but a real, honest
   // placeholder. Brand is the headline's own first word by construction
   // (buildSearchQueries()' own anchor-word convention, confirmed live
-  // against this file's real isRelevantTitle() logic).
-  const brand = context.split(/\s+/)[0];
+  // against this file's real isRelevantTitle() logic). Real gap found
+  // live 2026-09-11: that convention only holds for a headline that
+  // actually LEADS with the brand — "Second Tesla driver killed after
+  // vehicle stopped..." has "Second" as its first word, so the naive
+  // first-word extraction missed a real, findable Tesla logo entirely.
+  // detectBrand() below checks for any of this site's actual covered
+  // brands appearing anywhere in the text, falling back to the
+  // first-word convention only when none matches.
+  const brand = detectBrand(context) ?? context.split(/\s+/)[0];
   if (brand) {
     const logo = await searchBrandLogo(brand);
     if (logo) {
