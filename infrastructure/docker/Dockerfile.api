@@ -44,9 +44,21 @@ RUN npx prisma generate --schema packages/database/prisma/schema.prisma
 # which would fail for the same "missing dist/ output" reason but in the
 # other direction. Neither was ever automatically enforced — re-verify
 # this order any time a packages/* dependency graph changes.
+# Third real gap found and fixed 2026-09-11, same class of bug: adding
+# extractYoutubeId() for the new CarVideo feature made @automotive/api
+# depend on @automotive/utils for the first time (package.json updated),
+# but this list was never updated to build it first — `tsc` failed with
+# "Cannot find module '@automotive/utils'" on the very next real deploy,
+# caught live rather than by any local check (no local Postgres to run
+# a full build+migrate dry run against before pushing). Dockerfile.web
+# already builds this same package (apps/web has depended on it since
+# the unit-formatting work) — this Dockerfile just never needed to,
+# until now. No internal workspace deps of its own, so it can build any
+# time before the api line below.
 RUN npm run build --workspace @automotive/types
 RUN npm run build --workspace @automotive/database
 RUN npm run build --workspace @automotive/config
+RUN npm run build --workspace @automotive/utils
 RUN npm run build --workspace @automotive/editorial
 RUN npm run build --workspace @automotive/api
 
