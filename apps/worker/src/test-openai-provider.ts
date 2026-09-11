@@ -23,7 +23,7 @@ async function main() {
       additionalProperties: false,
     },
     webSearch: { maxUses: 1 },
-    maxTokens: 2048,
+    maxTokens: 16384,
   });
   console.log("RESULT TEXT:", result.text);
   console.log("WEB SEARCH COUNT:", result.webSearchCount);
