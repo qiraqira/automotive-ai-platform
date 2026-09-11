@@ -243,6 +243,30 @@ export default async function CarModelPage({
         );
       })}
 
+      {carModel.featuredArticles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: ArticleCarModel has real
+        // rows for every COMPARISON/ANALYSIS/GUIDE piece that explicitly
+        // names this model, but nothing on this page ever surfaced them
+        // — confirmed live that this page had zero link to the real
+        // comparison/analysis articles written specifically about it,
+        // even though the reverse direction (an article's own "Related
+        // cars" section) has linked back here since 2026-09-11 earlier
+        // the same day. Shown ahead of "Related stories" since these
+        // are substantial, evergreen pieces rather than transient news.
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>Featured articles</h2>
+          <ul className="story-list">
+            {carModel.featuredArticles.map((article) => (
+              <li key={article.slug} className="story-item">
+                <span className="story-meta">{article.type}</span>
+                <br />
+                <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {relatedStories.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 16 }}>Related stories</h2>

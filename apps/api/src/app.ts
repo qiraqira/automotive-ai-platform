@@ -890,6 +890,37 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
       // selected it, so a linked video had no way to reach the page even
       // once one existed.
       crashTests: { orderBy: { testYear: "desc" }, include: { video: true } },
+      // Real gap found and fixed 2026-09-11: ArticleCarModel has real
+      // rows for every COMPARISON/ANALYSIS piece that explicitly names
+      // this model (bmw-x5-vs-mercedes-benz-gle, toyota-rav4-vs-
+      // tesla-model-y, the F-150 sales-dominance analysis...), but
+      // nothing here ever fetched them — confirmed live that
+      // /cars/bmw/x5 had zero link to the real comparison article
+      // written specifically about it. `locale: "en"` matches every
+      // other real-content filter in this file; the quality-gate score
+      // fields are selected so this endpoint can apply the same
+      // isRejectedByQualityGate() filter every other reader-facing
+      // surface already uses, not just a bare PUBLISHED check.
+      articles: {
+        where: { article: { status: "PUBLISHED", locale: "en" } },
+        include: {
+          article: {
+            select: {
+              slug: true,
+              locale: true,
+              headline: true,
+              type: true,
+              publishedAt: true,
+              factualScore: true,
+              sourceScore: true,
+              qualityScore: true,
+              originalityScore: true,
+              valueScore: true,
+              readabilityScore: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -897,6 +928,16 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
     res.status(404).json({ error: "not_found" });
     return;
   }
+
+  // See this include's own comment above — same isRejectedByQualityGate()
+  // filter as every other reader-facing article surface, applied here
+  // since Prisma's `where` can't express the quality-gate's own
+  // business logic directly.
+  const featuredArticles = carModel.articles
+    .map((ac) => ac.article)
+    .filter((a) => !isRejectedByQualityGate(a))
+    .sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0))
+    .map(({ slug, locale, headline, type, publishedAt }) => ({ slug, locale, headline, type, publishedAt }));
 
   // spec §25 Knowledge Graph: real Story<->Car edges via EntityRelation
   // (packages/database/prisma/schema.prisma — deliberately no FK on
@@ -940,8 +981,14 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
         })
       : [];
 
+  // Strips the raw ArticleCarModel join rows (already reshaped into
+  // featuredArticles above, plus they carry internal quality-gate score
+  // fields that shouldn't leak into the public response) before
+  // spreading the rest of carModel's real fields through unchanged.
+  const { articles: _rawArticleLinks, ...carModelPublicFields } = carModel;
+
   res.json({
-    carModel,
+    carModel: { ...carModelPublicFields, featuredArticles },
     // Real regression found and fixed 2026-09-11 (user reported it live,
     // with a screenshot, the same day) — see GET /v1/stories' own
     // updated comment for the full story: nulling `articleSlug` but

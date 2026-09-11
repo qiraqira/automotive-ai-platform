@@ -181,6 +181,19 @@ export interface CrashTestResult {
   video: { id: string; youtubeId: string; title: string } | null;
 }
 
+// Real gap found and fixed 2026-09-11: ArticleCarModel has real rows
+// for every COMPARISON/ANALYSIS piece that explicitly names this
+// model, but nothing on the car page ever surfaced them — confirmed
+// live that /cars/bmw/x5 had zero link to the real comparison article
+// written specifically about it.
+export interface FeaturedArticle {
+  slug: string;
+  locale: string;
+  headline: string;
+  type: string;
+  publishedAt: string | null;
+}
+
 export interface CarModelDetail {
   id: string;
   slug: string;
@@ -191,6 +204,7 @@ export interface CarModelDetail {
   videos: CarVideo[];
   images: CarModelImage[];
   crashTests: CrashTestResult[];
+  featuredArticles: FeaturedArticle[];
 }
 
 export interface SearchResults {
