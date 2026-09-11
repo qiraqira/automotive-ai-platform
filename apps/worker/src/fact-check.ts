@@ -31,7 +31,13 @@ import { evaluateQualityGate, type QualityScores, type QualityGateResult, type Q
 // that's wrong even though it matches the sources (a stale spec, a
 // renamed trim), not just a claim that contradicts them.
 const FACT_CHECK_MODEL = "claude-sonnet-5";
-const WEB_SEARCH_MAX_USES = 3;
+// Lowered from 3 to 2, 2026-09-12: real data from the first full
+// corpus audit (136 real calls) showed the model averages 1.55
+// searches and used all 3 in only 6 cases (~4%) — the third search
+// almost never changes anything, so this trims the worst-case cost
+// ceiling and the token overhead of an extra search round-trip with
+// negligible real effect on what the check actually catches.
+const WEB_SEARCH_MAX_USES = 2;
 // Verified against platform.claude.com/docs/en/about-claude/pricing
 // before hardcoding: Sonnet 5 is $2/1M input tokens, $10/1M output —
 // exactly 2x Haiku 4.5's own $1/$5 rate already used elsewhere in this
