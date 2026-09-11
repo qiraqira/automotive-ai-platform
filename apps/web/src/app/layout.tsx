@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { safeJsonLdString } from "@automotive/seo";
+import HeaderNav from "@/components/HeaderNav";
 import "./globals.css";
 
 // PROJECT_NAME/DOMAIN.COM are placeholders (see .env.example) — swapping
@@ -104,13 +105,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: safeJsonLdString(websiteJsonLd()) }}
         />
         <header className="site">
-          <div className="wrap">
+          <div className="wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <a href="/" className="wordmark">
               {SITE_NAME}
             </a>
-            <a href="/search" style={{ float: "right", fontFamily: "Arial, sans-serif", fontSize: 13 }}>
-              Search
-            </a>
+            <HeaderNav />
           </div>
         </header>
         <main className="wrap" style={{ paddingTop: 24, paddingBottom: 60 }}>
@@ -135,6 +134,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/topics/safety-recalls">Safety &amp; Recalls</a>
             </div>
             <div className="footer-links">
+              <a href="/news">News</a>
               <a href="/brands">Brands</a>
               <a href="/guides">Guides</a>
             </div>

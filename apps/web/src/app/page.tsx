@@ -1,16 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { computeRankingScore } from "@automotive/editorial";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import {
-  getGuides,
-  getBrands,
-  getFeaturedArticles,
-  getFeaturedCars,
-  getStories,
-  type FeaturedArticleSummary,
-  type StorySummary,
-} from "@/lib/api";
+import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories, type FeaturedArticleSummary } from "@/lib/api";
+import { rankStories } from "@/lib/ranking";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -70,31 +62,6 @@ function isLogoImage(images: FeaturedArticleSummary["images"]): boolean {
   const img = images[0]?.image;
   if (!img) return false;
   return img.rightsStatus === "EDITORIAL_ONLY" || img.originalUrl.toLowerCase().includes("logo");
-}
-
-function averageSourceTrust(story: StorySummary): number {
-  if (story.sources.length === 0) return 50;
-  const total = story.sources.reduce((sum, s) => sum + s.source.trustScore, 0);
-  return total / story.sources.length;
-}
-
-function rankStories(stories: StorySummary[]): StorySummary[] {
-  const now = new Date();
-  return [...stories].sort((a, b) => {
-    const scoreA = computeRankingScore({
-      importanceScore: a.importanceScore,
-      sourceQualityScore: averageSourceTrust(a),
-      publishedAt: new Date(a.lastUpdatedAt),
-      now,
-    });
-    const scoreB = computeRankingScore({
-      importanceScore: b.importanceScore,
-      sourceQualityScore: averageSourceTrust(b),
-      publishedAt: new Date(b.lastUpdatedAt),
-      now,
-    });
-    return scoreB - scoreA;
-  });
 }
 
 export default async function HomePage() {
@@ -158,12 +125,70 @@ export default async function HomePage() {
         </section>
       )}
 
+      {featuredArticles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
+        // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
+        // section at all (see GET /v1/featured-articles's own comment) —
+        // exactly the kind of evergreen content a portal's front page
+        // should lead with, unlike the news feed this replaces.
+        //
+        // Moved above "Latest news" 2026-09-11, user's own explicit
+        // request — the portal's own evergreen flagship content
+        // (comparisons/analysis) belongs higher than timely news on a
+        // page whose whole point is not being a news feed.
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            Comparisons &amp; analysis
+          </h2>
+          <ul className="story-list">
+            {featuredArticles.map((article) => {
+              const heroUrl = article.images[0]?.image.originalUrl;
+              const isLogo = isLogoImage(article.images);
+              return (
+                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {heroUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                    <img
+                      src={heroUrl}
+                      alt=""
+                      style={{
+                        width: 96,
+                        height: 64,
+                        objectFit: isLogo ? "contain" : "cover",
+                        background: isLogo ? "#fff" : undefined,
+                        padding: isLogo ? 8 : undefined,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                  <div>
+                    <div className="story-meta">{article.type}</div>
+                    <h3 style={{ fontSize: 18, margin: 0 }}>
+                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
+                    </h3>
+                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {news.length > 0 && (
         // Restored 2026-09-11 (same day as the portal rewrite, per the
         // user's own follow-up): real news the pipeline actually wrote
         // still needs a home on the homepage — just as one section here,
         // not the page-topping feed it used to be. Same heroUrl/isLogo
         // rendering as the old "Latest" section and the per-Topic pages.
+        //
+        // "See all" link added 2026-09-11, user's own explicit request:
+        // this sliced to 8 with no way to reach the other 130+ real
+        // published news articles — the exact same real gap /guides
+        // already avoided (its own "See all N" pattern below). /news is
+        // a new, real paginated archive (apps/web/src/app/news/page.tsx),
+        // not a dead link.
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
             Latest news
@@ -211,52 +236,9 @@ export default async function HomePage() {
               );
             })}
           </ul>
-        </section>
-      )}
-
-      {featuredArticles.length > 0 && (
-        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
-        // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
-        // section at all (see GET /v1/featured-articles's own comment) —
-        // exactly the kind of evergreen content a portal's front page
-        // should lead with, unlike the news feed this replaces.
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            Comparisons &amp; analysis
-          </h2>
-          <ul className="story-list">
-            {featuredArticles.map((article) => {
-              const heroUrl = article.images[0]?.image.originalUrl;
-              const isLogo = isLogoImage(article.images);
-              return (
-                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {heroUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img
-                      src={heroUrl}
-                      alt=""
-                      style={{
-                        width: 96,
-                        height: 64,
-                        objectFit: isLogo ? "contain" : "cover",
-                        background: isLogo ? "#fff" : undefined,
-                        padding: isLogo ? 8 : undefined,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                      }}
-                    />
-                  )}
-                  <div>
-                    <div className="story-meta">{article.type}</div>
-                    <h3 style={{ fontSize: 18, margin: 0 }}>
-                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-                    </h3>
-                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <p className="story-meta">
+            <Link href="/news">See all news →</Link>
+          </p>
         </section>
       )}
 

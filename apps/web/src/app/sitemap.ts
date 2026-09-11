@@ -53,6 +53,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: SITE_URL, changeFrequency: "hourly", priority: 1 },
+    // /news index page (2026-09-11) — a real, paginated archive of every
+    // published news Story; each individual article is already listed
+    // via `articles` below, this only adds the index page's first page
+    // (page 2+ isn't itself worth a separate sitemap entry — it's a
+    // navigation aid over content already indexed elsewhere, same
+    // reasoning as omitting /search below).
+    { url: `${SITE_URL}/news`, changeFrequency: "hourly", priority: 0.6 },
     // /guides index page (2026-09-11) — each individual guide is still a
     // published Article, already listed via `articles` below; this only
     // adds the index page itself.
