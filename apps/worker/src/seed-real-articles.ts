@@ -370,6 +370,38 @@ const ARTICLES: ArticleSpec[] = [
     },
     scores: { qualityScore: 87, originalityScore: 88, factualScore: 89, sourceScore: 87, valueScore: 90, readabilityScore: 87 },
   },
+  {
+    slug: "towing-capacity-payload-gvwr-explained",
+    type: "GUIDE",
+    contentPurpose: "GUIDE",
+    headline: "Towing Capacity, Payload, and GVWR: What the Numbers on a Truck's Door Sticker Mean",
+    subtitle: "And why an electric truck losing a big percentage of its range while towing isn't as different from a gas truck's own towing penalty as it first sounds — the real difference is what happens when you need to refuel.",
+    keyTakeaway:
+      "Towing capacity (how much a trailer can weigh) and payload capacity (how much can go in the cabin/bed) are two different numbers derived from the same base measurements — curb weight and GVWR — and neither one alone tells the whole story. A gas truck's fuel economy commonly drops 20-50% while towing; a real-world electric truck's range commonly drops 40-65% while towing. Those percentages overlap more than the online reputation of \"EVs can't tow\" suggests — the real practical gap is refueling in minutes at any gas station versus recharging for much longer at a fraction as many locations.",
+    paragraphs: [
+      "A truck's door-jamb sticker and spec sheet throw around several different weight numbers, and mixing them up is an easy, real mistake. Curb weight is simply the truck itself, empty, with fluids topped off — no passengers, no cargo. GVWR (Gross Vehicle Weight Rating) is the maximum the truck itself is allowed to weigh once loaded — subtract curb weight from GVWR and the result is payload capacity, the real limit on people plus cargo riding in or on the truck itself, nothing being towed.",
+      "Towing capacity is a separate number entirely: the maximum weight of a trailer the truck can safely pull, found on the same door sticker or in the owner's manual. It's derived from GCWR (Gross Combined Weight Rating) — the truck-plus-trailer combined maximum — minus the truck's own actual weight. A trailer's tongue weight (typically 10-15% of the trailer's own total weight, pressing down on the hitch) counts against payload, not towing capacity, which is why a truck loaded near its payload limit can find its true safe towing capacity lower than the number on the sticker suggests.",
+      "This site's own Ford F-150 is a real, current illustration of how much these numbers vary by powertrain, not just by trim level. The base 2.7L EcoBoost XLT is rated for up to 8,200 lbs of towing; the 3.5L PowerBoost hybrid Platinum — a heavier truck on paper — actually tows more, up to 12,700 lbs, because its added low-end torque outweighs the extra weight of the hybrid hardware. The all-electric F-150 Lightning splits by trim in the opposite direction: the base Pro is rated around 5,000 lbs, while the Platinum (which comes standard with the Max Trailer Tow Package) reaches roughly 8,500 lbs — genuinely more than the gas truck's own base trim, if less than the hybrid's ceiling.",
+      "The real, well-documented catch with towing on any electric truck is range, not capability. Independent real-world tests of the F-150 Lightning towing a trailer have measured 40-65% range loss depending on trailer shape, speed and conditions — enough to take an Extended Range Lightning's 320-mile EPA rating down to roughly 100-180 real miles before needing to stop and charge. That sounds dramatically worse than a gas truck until it's compared honestly: real-world reports on gas F-150s towing a similar load show a 20-50% drop in fuel economy, sometimes cutting mileage in half as well (22 mpg empty falling to 11-13 mpg towing is a documented real example). The percentage ranges genuinely overlap — an electric truck isn't losing some uniquely EV-specific multiple of what a gas truck loses, it's often in the same ballpark.",
+      "The real, practical difference isn't the percentage — it's what happens next. A gas truck at 20% of its tank can refuel to full in under 5 minutes at any of tens of thousands of stations. An electric truck at 20% range while towing needs a DC fast charger (a real minority of chargers can handle a truck-and-trailer rig at all, since many stalls simply aren't shaped for it) and meaningfully longer, even at the fastest available rate. Towing genuinely narrows an EV truck's practical range advantage over a gas one — not because the EV's own percentage loss is uniquely severe, but because the refueling side of the equation stays just as fast for gas while the recharging side gets slower and less convenient exactly when range is most needed.",
+    ],
+    citations: [
+      { label: "Payload Towing Capacity Measurement Guide: GVWR, GCWR — eFleets", url: "https://www.efleets.com/en/proof-and-insights/white-papers/payload-towing-capacity-measurement-guide.html" },
+      { label: "Ford F-150 Lightning real-world towing stats reveals 50% range loss — Drive Tesla", url: "https://driveteslacanada.ca/news/ford-f-150-lightning-towing-stats/" },
+      { label: "Ford F-150 Lightning Towing Capacity & Range Loss Guide — Recharged", url: "https://recharged.com/articles/ford-f-150-lightning-towing-capacity-range-loss" },
+    ],
+    carModelSlugs: [{ brandSlug: "ford", modelSlug: "f-150" }],
+    specTable: {
+      headers: ["Towing capacity", "Real-world efficiency hit while towing"],
+      rows: [
+        { label: "F-150 XLT (2.7L EcoBoost)", values: ["8,200 lbs", "20-50% MPG drop (e.g. 22 → 11-13 mpg)"] },
+        { label: "F-150 Platinum (3.5L PowerBoost hybrid)", values: ["12,700 lbs", "Same real-world range as other gas/hybrid trims"] },
+        { label: "F-150 Lightning Pro", values: ["~5,000 lbs", "40-65% range drop (e.g. 320 → 100-180 mi)"] },
+        { label: "F-150 Lightning Platinum", values: ["~8,500 lbs", "40-65% range drop (e.g. 320 → 100-180 mi)"] },
+      ],
+    },
+    scores: { qualityScore: 87, originalityScore: 86, factualScore: 88, sourceScore: 86, valueScore: 89, readabilityScore: 87 },
+  },
 ];
 
 async function main() {
