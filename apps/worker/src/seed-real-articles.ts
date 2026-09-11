@@ -146,7 +146,13 @@ const ARTICLES: ArticleSpec[] = [
       { label: "Tesla Model Y no longer the world's best selling car... with a possible asterisk — Electrek", url: "https://electrek.co/2025/07/03/tesla-model-y-no-longer-the-worlds-best-selling-car-with-a-possible-asterisk/" },
       { label: "Best-selling car models worldwide 2025 — Statista", url: "https://www.statista.com/statistics/239229/most-sold-car-models-worldwide/" },
     ],
-    carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    // RAV4 added 2026-09-11, same tick it became a real CarModel via
+    // seed-real-cars.ts — this article named it as the real rival all
+    // along, but had nothing to link to until now.
+    carModelSlugs: [
+      { brandSlug: "tesla", modelSlug: "model-y" },
+      { brandSlug: "toyota", modelSlug: "rav4" },
+    ],
     specTable: {
       headers: ["2023", "2024", "2025"],
       rows: [
@@ -209,7 +215,10 @@ const ARTICLES: ArticleSpec[] = [
 
 async function main() {
   for (const spec of ARTICLES) {
-    const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } }, include: { blocks: true } });
+    const existing = await prisma.article.findUnique({
+      where: { locale_slug: { locale: "en", slug: spec.slug } },
+      include: { blocks: true, carModels: { select: { carModel: { select: { slug: true, brand: { select: { slug: true } } } } } } },
+    });
     if (existing) {
       // Real gap found and fixed the tick topicSlug was added, generalized
       // the tick specTable was added: this idempotency check correctly
@@ -236,6 +245,22 @@ async function main() {
           data: { articleId: existing.id, type: "SPEC_TABLE", position: nextPosition, data: spec.specTable },
         });
         syncedNotes.push("added missing SPEC_TABLE block");
+      }
+
+      // Same pattern as topicId/specTable above: a carModelSlugs entry
+      // added to the spec after the article already existed (e.g. a
+      // competitor named in the prose that only became a real CarModel
+      // in a later tick) needs to be linked in, not silently skipped.
+      const existingCarModelKeys = new Set(existing.carModels.map((cm) => `${cm.carModel.brand.slug}/${cm.carModel.slug}`));
+      const missingCarModelSlugs = spec.carModelSlugs.filter(({ brandSlug, modelSlug }) => !existingCarModelKeys.has(`${brandSlug}/${modelSlug}`));
+      if (missingCarModelSlugs.length > 0) {
+        for (const { brandSlug, modelSlug } of missingCarModelSlugs) {
+          const brand = await prisma.brand.findUnique({ where: { slug: brandSlug } });
+          const carModel = brand ? await prisma.carModel.findUnique({ where: { brandId_slug: { brandId: brand.id, slug: modelSlug } } }) : null;
+          if (!carModel) throw new Error(`CarModel ${brandSlug}/${modelSlug} not found — run \`npm run seed:real-cars\` first.`);
+          await prisma.articleCarModel.create({ data: { articleId: existing.id, carModelId: carModel.id } });
+        }
+        syncedNotes.push(`linked ${missingCarModelSlugs.length} missing CarModel(s): ${missingCarModelSlugs.map((c) => `${c.brandSlug}/${c.modelSlug}`).join(", ")}`);
       }
 
       console.log(

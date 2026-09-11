@@ -617,6 +617,158 @@ async function main() {
   console.log(`  Generations: 2020-2024 (${gen1.id}, 2 trims), Juniper (${juniper.id}, 4 trims)`);
   console.log(`  Fact: ${existingSalesFact ? "already present (checked for corrections)" : "created"} world's-best-selling-vehicle fact`);
   console.log(`  Crash tests: ${existingGen1CrashTest ? "already present" : "created"} Euro NCAP 2022 (gen1), ${existingJuniperCrashTest ? "already present" : "created"} Euro NCAP 2025 (Juniper)`);
+
+  // ============================================================
+  // Toyota RAV4 — fourth vertical slice, added 2026-09-11. Picked
+  // deliberately as a mainstream, gas/hybrid-first counterpart to the
+  // three luxury/EV models already seeded: it's the actual vehicle that
+  // narrowly out-sold the Model Y worldwide in 2024 and 2025 (see the
+  // tesla-model-y-worlds-best-selling-car-toyota-rav4 ANALYSIS article,
+  // which references this exact rivalry) — until now that article
+  // pointed at a real competitor with no CarModel page of its own to
+  // link to.
+  //
+  // Sources (fetched 2026-09-11):
+  // - https://en.wikipedia.org/wiki/Toyota_RAV4 (generation timeline)
+  // - XA50 (2018-2025) Hybrid LE: cartimeline.com (219 hp, A25A-FXS 2.5L
+  //   Dynamic Force + e-CVT, FWD-based hybrid)
+  // - XA50 RAV4 Prime XSE (PHEV): edmunds.com/kbb.com 2024 model-year
+  //   pages (302 hp combined, 2.5L + two motors, 18.1 kWh pack, 42-mile
+  //   EPA electric range, $43,690 base)
+  // - XA60 (2026-present, all-electrified, drops gas-only entirely):
+  //   pressroom.toyota.com's own "Five Things To Know" release + several
+  //   independent outlets (autoblog.com, cargurus.com) for pricing —
+  //   Hybrid LE FWD 226 hp/$31,900, Hybrid AWD 236 hp, PHEV GR Sport
+  //   324 hp/50-mile estimated electric range
+  // - IIHS 2024 assessment (XA50, checked directly against iihs.org
+  //   rather than secondary coverage): Good on both small-overlap-front
+  //   tests, Good on the original moderate-overlap-front test but only
+  //   Marginal on IIHS's newer, updated version of that same test (which
+  //   also scores rear-seat-occupant protection), Acceptable on side —
+  //   "Top Safety Pick", not the higher "Top Safety Pick+", because of
+  //   that Marginal updated-moderate-overlap result. A real, genuinely
+  //   interesting nuance kept rather than flattened into a single
+  //   "5-star" headline the way Euro NCAP's scale would summarize it.
+  // ============================================================
+  const toyota = await prisma.brand.upsert({
+    where: { slug: "toyota" },
+    update: {},
+    create: { slug: "toyota", name: "Toyota", country: "JP" },
+  });
+  const rav4 = await prisma.carModel.upsert({
+    where: { brandId_slug: { brandId: toyota.id, slug: "rav4" } },
+    update: {},
+    create: { brandId: toyota.id, slug: "rav4", name: "RAV4" },
+  });
+
+  // --- XA50 (2018-2025, incl. 2022 mid-cycle refresh) ---
+  const xa50 = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: rav4.id, slug: "xa50" } },
+    update: {},
+    create: { carModelId: rav4.id, slug: "xa50", name: "XA50", startYear: 2018, endYear: 2025 },
+  });
+
+  const xa50Hybrid = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: xa50.id, slug: "hybrid-le" } },
+    update: {},
+    create: { generationId: xa50.id, slug: "hybrid-le", name: "Hybrid LE" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: xa50Hybrid.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: xa50Hybrid.id, name: "2.5L Dynamic Force (A25A-FXS) + electric motor, combined", powerHp: 219, fuel: "hybrid" },
+    });
+  }
+
+  const xa50Prime = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: xa50.id, slug: "prime-xse" } },
+    update: {},
+    create: { generationId: xa50.id, slug: "prime-xse", name: "Prime XSE" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: xa50Prime.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: xa50Prime.id, name: "2.5L Dynamic Force + two electric motors, combined", powerHp: 302, fuel: "phev" },
+    });
+  }
+  if ((await prisma.battery.count({ where: { trimId: xa50Prime.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: xa50Prime.id, capacityKwh: 18.1, rangeMiles: 42 } });
+  }
+
+  // --- XA60 (2026-present) — all-electrified, no gas-only trim at all ---
+  const xa60 = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: rav4.id, slug: "xa60" } },
+    update: {},
+    create: { carModelId: rav4.id, slug: "xa60", name: "XA60", startYear: 2026, endYear: null },
+  });
+
+  const xa60HybridLe = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: xa60.id, slug: "hybrid-le-fwd" } },
+    update: {},
+    create: { generationId: xa60.id, slug: "hybrid-le-fwd", name: "Hybrid LE FWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: xa60HybridLe.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: xa60HybridLe.id, name: "Dynamic Force hybrid, combined", powerHp: 226, fuel: "hybrid" } });
+  }
+
+  const xa60HybridAwd = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: xa60.id, slug: "hybrid-awd" } },
+    update: {},
+    create: { generationId: xa60.id, slug: "hybrid-awd", name: "Hybrid AWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: xa60HybridAwd.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: xa60HybridAwd.id, name: "Dynamic Force hybrid, combined", powerHp: 236, fuel: "hybrid" } });
+  }
+
+  const xa60GrSport = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: xa60.id, slug: "gr-sport-phev" } },
+    update: {},
+    create: { generationId: xa60.id, slug: "gr-sport-phev", name: "GR Sport PHEV" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: xa60GrSport.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: xa60GrSport.id, name: "Dynamic Force plug-in hybrid, combined", powerHp: 324, fuel: "phev" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: xa60GrSport.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: xa60GrSport.id, rangeMiles: 50 } });
+  }
+
+  // --- Real IIHS assessment (XA50, 2024 model year) ---
+  const existingRav4CrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: rav4.id, generationId: xa50.id, organization: "IIHS", testYear: 2024 },
+  });
+  if (!existingRav4CrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: rav4.id,
+        generationId: xa50.id,
+        organization: "IIHS",
+        overallRating: "Top Safety Pick",
+        categoryScores: {
+          small_overlap_front_driver: "Good",
+          small_overlap_front_passenger: "Good",
+          moderate_overlap_front_original: "Good",
+          moderate_overlap_front_updated: "Marginal",
+          side: "Acceptable",
+        },
+        testYear: 2024,
+        sourceUrl: "https://www.iihs.org/ratings/vehicle/toyota/rav4-4-door-suv/2024",
+      },
+    });
+  }
+
+  await attachVerifiedCommonsPhoto(rav4.id, "Toyota RAV4", "Toyota RAV4", "Toyota RAV4, a compact crossover SUV");
+
+  // Real curated videos: Toyota's own reveal for the all-new XA60, IIHS's
+  // own channel for the XA50's updated moderate-overlap test (the one
+  // responsible for the Marginal result above).
+  await attachCurated(rav4.id, "https://www.youtube.com/watch?v=vCniiK7BSNQ", "2026 Toyota RAV4 Reveal: Ready for Every Road!", "OFFICIAL");
+  const rav4CrashVideoId = await attachCurated(rav4.id, "https://www.youtube.com/watch?v=O4_5umcmmzc", "Toyota RAV4 Updated Moderate Overlap Front IIHS Crash Test", "CRASH_TEST");
+  const rav4CrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: rav4.id, generationId: xa50.id, organization: "IIHS", testYear: 2024 } });
+  if (rav4CrashTestRow && !rav4CrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: rav4CrashTestRow.id }, data: { videoId: rav4CrashVideoId } });
+  }
+
+  console.log(`Seeded real data: Brand ${toyota.name} (${toyota.id}), CarModel ${rav4.name} (${rav4.id})`);
+  console.log(`  Generations: XA50 (${xa50.id}, 2 trims), XA60 (${xa60.id}, 3 trims)`);
+  console.log(`  Crash test: ${existingRav4CrashTest ? "already present" : "created"} IIHS 2024 (XA50)`);
 }
 
 main()
