@@ -719,10 +719,21 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
   if (storyIds.length > 0) {
     const storiesWithArticles = await prisma.story.findMany({
       where: { id: { in: storyIds } },
-      select: { id: true, articles: { where: { status: "PUBLISHED", locale: "en" }, select: { slug: true }, take: 1 } },
+      select: {
+        id: true,
+        articles: {
+          where: { status: "PUBLISHED", locale: "en" },
+          select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+          take: 1,
+        },
+      },
     });
     for (const s of storiesWithArticles) {
-      if (s.articles[0]) articlesByStoryId.set(s.id, s.articles[0].slug);
+      // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
+      // own comment: same fix as GET /v1/stories/GET /v1/topics/:slug/
+      // GET /v1/brands/:slug, independently needed here since search
+      // results are a fourth, separate reader-facing surface.
+      if (s.articles[0] && !isRejectedByQualityGate(s.articles[0])) articlesByStoryId.set(s.id, s.articles[0].slug);
     }
   }
 
@@ -863,13 +874,27 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
       ? await prisma.story.findMany({
           where: { id: { in: relations.map((r) => r.fromId) } },
           orderBy: { lastUpdatedAt: "desc" },
-          include: { articles: { where: { locale: "en", status: "PUBLISHED" }, select: { slug: true }, take: 1 } },
+          include: {
+            articles: {
+              where: { locale: "en", status: "PUBLISHED" },
+              select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+              take: 1,
+            },
+          },
         })
       : [];
 
   res.json({
     carModel,
-    relatedStories: relatedStories.map((s) => ({ id: s.id, title: s.title, articleSlug: s.articles[0]?.slug ?? null })),
+    // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
+    // own comment: same fix as every other reader-facing feed in this
+    // file, independently needed here (a 5th call site) since a car's
+    // own model page has its own separate relatedStories query.
+    relatedStories: relatedStories.map((s) => ({
+      id: s.id,
+      title: s.title,
+      articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+    })),
   });
 });
 
