@@ -18,6 +18,29 @@ import { evaluateQualityGate, type QualityScores, type QualityGateResult, type Q
 // same "reuses an existing AIJobType" posture as generate-image.ts, except
 // this one has a real dedicated type (QUALITY_CHECK) already in the
 // schema rather than needing to borrow WRITE_ARTICLE's.
+//
+// Upgraded 2026-09-12, user's own explicit request ("проверяем потом
+// хорошей мощной моделью" — verify with a good, powerful model; "Каждый
+// раз гугли" — search every time): before this, the "second opinion"
+// was the exact same cheap model (Haiku 4.5) that wrote the draft in
+// the first place, checking only against the same static source
+// excerpts already in the prompt — real, but not an independent check.
+// Now runs on Sonnet 5 with real web search enabled (verified working
+// live before this was wired up — see the removed test-websearch-combo.ts
+// commit) so a genuinely different, stronger model can catch a claim
+// that's wrong even though it matches the sources (a stale spec, a
+// renamed trim), not just a claim that contradicts them.
+const FACT_CHECK_MODEL = "claude-sonnet-5";
+const WEB_SEARCH_MAX_USES = 3;
+// Verified against platform.claude.com/docs/en/about-claude/pricing
+// before hardcoding: Sonnet 5 is $2/1M input tokens, $10/1M output —
+// exactly 2x Haiku 4.5's own $1/$5 rate already used elsewhere in this
+// codebase. Web search is billed separately, $10 per 1,000 real
+// searches ($0.01 each), on top of the tokens a search result itself
+// adds to the conversation.
+const SONNET_INPUT_COST_PER_M = 2;
+const SONNET_OUTPUT_COST_PER_M = 10;
+const WEB_SEARCH_COST_PER_CALL = 0.01;
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -65,7 +88,12 @@ export async function factCheckArticle(
     data: { type: "QUALITY_CHECK", status: "RUNNING", input: { purpose: "fact_check", articleId, headline } },
   });
 
-  const estimatedCostUsd = 0.01;
+  // Pre-flight estimate, deliberately generous (same posture as every
+  // other real budget guard in this codebase): Sonnet's own per-token
+  // rate plus the worst case of every allowed web search actually
+  // firing (WEB_SEARCH_MAX_USES x $0.01) — the real, final cost
+  // recorded below is almost always lower than this ceiling.
+  const estimatedCostUsd = 0.05 + WEB_SEARCH_MAX_USES * WEB_SEARCH_COST_PER_CALL;
   try {
     await assertWithinBudget(estimatedCostUsd, budgetLimits);
   } catch (err) {
@@ -78,19 +106,29 @@ export async function factCheckArticle(
   }
 
   const draftText = `Headline: ${headline}\n${subtitle ? `Subtitle: ${subtitle}\n` : ""}\n${paragraphs.join("\n\n")}`;
-  const prompt = `Draft article:\n${draftText}\n\nSource headlines/excerpts this was supposed to be based on (this is the ONLY ground truth — anything in the draft not traceable to these is a factual problem):\n${sourcesBlock}\n\nScore this draft honestly against its own sources.`;
+  const prompt = `Draft article:\n${draftText}\n\nSource headlines/excerpts this was supposed to be based on (real ground truth from this platform's own ingestion — anything in the draft not traceable to these OR to a real, current web search result is a factual problem):\n${sourcesBlock}\n\nScore this draft honestly against its own sources. If a specific, checkable claim (a spec, a price, a trim name, a date) seems plausible but you aren't certain it's still current or correctly stated, use web search to verify it against a real, current source before scoring factualScore — don't guess either way.`;
   const system =
-    "You are a skeptical fact-checking editor for an automotive news platform. Your job is to catch a draft that invented, exaggerated, or misattributed anything relative to its sources — not to judge whether the story itself is interesting. Score strictly: a well-written article built on an unsupported claim must still score low on factualScore. Respond with JSON matching the given schema, and nothing else.";
+    "You are a skeptical, senior fact-checking editor for an automotive news platform, with real web search available. Your job is to catch a draft that invented, exaggerated, or misattributed anything relative to its sources, AND to catch a claim that's simply wrong or outdated even though it matches what the sources said (a renamed trim, a stale spec) — not to judge whether the story itself is interesting. Use web search when it would actually change your confidence in a specific claim; don't search reflexively for things the sources already settle. Score strictly: a well-written article built on an unsupported or now-incorrect claim must still score low on factualScore. Respond with JSON matching the given schema, and nothing else.";
 
   const provider = createTextProvider();
   const start = Date.now();
   let output: FactCheckOutput;
   try {
-    const completion = await provider.complete({ system, prompt, responseSchema: RESPONSE_SCHEMA, maxTokens: 1024 });
+    const completion = await provider.complete({
+      system,
+      prompt,
+      responseSchema: RESPONSE_SCHEMA,
+      maxTokens: 1024,
+      model: FACT_CHECK_MODEL,
+      webSearch: { maxUses: WEB_SEARCH_MAX_USES },
+    });
     const latencyMs = Date.now() - start;
     output = JSON.parse(completion.text) as FactCheckOutput;
 
-    const realCostUsd = (completion.tokensIn / 1_000_000) * 1 + (completion.tokensOut / 1_000_000) * 5;
+    const realCostUsd =
+      (completion.tokensIn / 1_000_000) * SONNET_INPUT_COST_PER_M +
+      (completion.tokensOut / 1_000_000) * SONNET_OUTPUT_COST_PER_M +
+      (completion.webSearchCount ?? 0) * WEB_SEARCH_COST_PER_CALL;
     await recordExecution({
       jobId: job.id,
       provider: provider.name,
@@ -101,6 +139,9 @@ export async function factCheckArticle(
       latencyMs,
       success: true,
     });
+    if (completion.webSearchCount) {
+      console.log(`Article ${articleId}: fact-check performed ${completion.webSearchCount} real web search(es).`);
+    }
   } catch (err) {
     const latencyMs = Date.now() - start;
     await recordExecution({

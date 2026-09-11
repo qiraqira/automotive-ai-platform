@@ -488,21 +488,47 @@ async function main() {
       }
 
       // Same real, deliberate correction as SPEC_TABLE above, applied to
-      // TEXT paragraphs — position-matched, since ArticleBlock has no
-      // other stable identity. Only ever updates a paragraph whose
-      // content actually changed; never adds/removes a paragraph (a
-      // real length change would need a human editorial decision about
-      // where it fits, not an automatic append).
+      // TEXT paragraphs. Two real shapes of edit turned out to need two
+      // different strategies here — found live 2026-09-11/12 rewriting
+      // this same file's own BMW X5 vs GLE comparison twice, each time
+      // needing a disposable one-off script because this function
+      // originally only ever updated paragraphs 1:1 by position and
+      // never added/removed one:
+      //  - Same paragraph COUNT: still position-matched content-diff
+      //    (cheap, and preserves any position-independent identity a
+      //    future feature might hang off ArticleBlock.id).
+      //  - Different paragraph COUNT (a real editorial rewrite that
+      //    inserts/removes a section, not just corrects a sentence):
+      //    replace the WHOLE TEXT run and shift every later block
+      //    (SPEC_TABLE) by the resulting position delta — the one-off
+      //    scripts' own logic, now permanent so no future comparison
+      //    rewrite needs a bespoke script again.
       const existingTextBlocks = existing.blocks.filter((b) => b.type === "TEXT").sort((a, b) => a.position - b.position);
-      const textBlockPairCount = Math.min(existingTextBlocks.length, spec.paragraphs.length);
-      for (let i = 0; i < textBlockPairCount; i++) {
-        const block = existingTextBlocks[i]!;
-        const specText = spec.paragraphs[i]!;
-        const existingText = (block.data as { text?: string }).text;
-        if (existingText !== specText) {
-          await prisma.articleBlock.update({ where: { id: block.id }, data: { data: { text: specText } } });
-          syncedNotes.push(`corrected TEXT paragraph ${i}`);
+      if (existingTextBlocks.length === spec.paragraphs.length) {
+        for (let i = 0; i < existingTextBlocks.length; i++) {
+          const block = existingTextBlocks[i]!;
+          const specText = spec.paragraphs[i]!;
+          const existingText = (block.data as { text?: string }).text;
+          if (existingText !== specText) {
+            await prisma.articleBlock.update({ where: { id: block.id }, data: { data: { text: specText } } });
+            syncedNotes.push(`corrected TEXT paragraph ${i}`);
+          }
         }
+      } else if (existingTextBlocks.length > 0) {
+        const otherBlocks = existing.blocks.filter((b) => b.type !== "TEXT").sort((a, b) => a.position - b.position);
+        const textBasePosition = Math.min(...existingTextBlocks.map((b) => b.position));
+        const positionDelta = spec.paragraphs.length - existingTextBlocks.length;
+
+        await prisma.articleBlock.deleteMany({ where: { id: { in: existingTextBlocks.map((b) => b.id) } } });
+        await prisma.articleBlock.createMany({
+          data: spec.paragraphs.map((text, i) => ({ articleId: existing.id, type: "TEXT" as const, position: textBasePosition + i, data: { text } })),
+        });
+        for (const block of otherBlocks) {
+          if (block.position >= textBasePosition) {
+            await prisma.articleBlock.update({ where: { id: block.id }, data: { position: block.position + positionDelta } });
+          }
+        }
+        syncedNotes.push(`replaced ${existingTextBlocks.length} TEXT paragraph(s) with ${spec.paragraphs.length} (count changed)`);
       }
 
       // Same pattern as topicId/specTable above: a carModelSlugs entry

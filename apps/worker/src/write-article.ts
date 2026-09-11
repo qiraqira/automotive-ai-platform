@@ -69,6 +69,18 @@ function countIndependentOriginsByEmbedding(articles: { id: string; embedding: n
 
 const DEFAULT_BATCH_SIZE = Number(process.env.WRITE_ARTICLE_BATCH_SIZE ?? 5);
 
+// Added 2026-09-12, user's own explicit request ("мы берем отовсюду все
+// данные... Каждый раз гугли" — pull data from everywhere, search every
+// time): kept deliberately small (2, not fact-check.ts's 3) — this runs
+// at real per-story volume (every new Story with no article yet, not
+// once per already-published article like the fact-check pass), so its
+// per-call cost matters more at scale. Verified against
+// platform.claude.com/docs/en/about-claude/pricing before hardcoding:
+// $10 per 1,000 real searches ($0.01 each), billed separately from
+// token cost.
+const WRITE_WEB_SEARCH_MAX_USES = 2;
+const WEB_SEARCH_COST_PER_CALL = 0.01;
+
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -81,9 +93,14 @@ const RESPONSE_SCHEMA = {
       // The Anthropic structured-output schema only accepts `minItems`/
       // `maxItems` of 0 or 1 for an array (confirmed live via a real 400:
       // "For 'array' type, 'minItems' values other than 0 or 1 are not
-      // supported") — the desired 3-6 range is expressed in the
-      // description text instead, which the model reliably follows.
-      description: "The article body, as exactly 3 to 6 original paragraphs of plain prose (no markdown).",
+      // supported") — the desired range is expressed in the description
+      // text instead, which the model reliably follows. Widened from
+      // "3 to 6" 2026-09-12, user's own explicit request for more
+      // thorough news writing ("Каждая новость должна быть интересна") —
+      // still a real news brief, not padded, but with room for the
+      // extra real context a web search now actually finds (see this
+      // function's own prompt/webSearch below).
+      description: "The article body, as 4 to 8 original paragraphs of plain prose (no markdown) — long enough to actually use whatever real additional context was found, never padded just to hit a count.",
     },
   },
   required: ["headline", "subtitle", "keyTakeaway", "paragraphs"],
@@ -125,15 +142,19 @@ async function writeOne(story: {
 
   const prompt = `Story title: ${story.title}
 ${story.summary ? `Known summary: ${story.summary}\n` : ""}
-Source headlines/excerpts (for factual grounding only — do not copy any sentence verbatim, do not fabricate facts beyond what's stated here):
+Source headlines/excerpts (real ground truth from this platform's own ingestion):
 ${sourcesBlock}
 
-Write a short, original automotive-news article synthesizing the above.`;
+Before writing, use web search to find genuinely new, real, current context beyond what's in the sources above — other outlets' coverage of the same story, the real current spec/price/date if the story turns on one, or real relevant background. Only search for something that would actually change or enrich what you write; skip it if the sources above already fully cover the story. Never copy any source's wording verbatim, and never fabricate a fact beyond what the sources or a real search result actually state. Write a real, original automotive-news article synthesizing all of it.`;
 
   const system =
-    "You are a factual automotive news writer for an editorial platform whose core rule is: never reproduce a source's wording, only synthesize the facts into original prose. Stay strictly within the facts given — never invent a spec, date, price, or quote that isn't stated in the sources. Neutral, concise, journalistic tone. Respond with JSON matching the given schema, and nothing else.";
+    "You are a factual automotive news writer for an editorial platform with real web search available, whose core rule is: never reproduce a source's wording, only synthesize real facts into original prose. Stay strictly within the facts given or found via a real search — never invent a spec, date, price, or quote. Neutral, concise, journalistic tone, but genuinely informative rather than a bare rewrite of the shortest possible summary. Respond with JSON matching the given schema, and nothing else.";
 
-  const estimatedCostUsd = 0.01;
+  // Deliberately generous (same posture as fact-check.ts's own estimate):
+  // Haiku's own token rate is cheap, but the worst case of every allowed
+  // web search actually firing (WRITE_WEB_SEARCH_MAX_USES x $0.01) needs
+  // to be covered by the pre-flight guard too, not just the token cost.
+  const estimatedCostUsd = 0.01 + WRITE_WEB_SEARCH_MAX_USES * WEB_SEARCH_COST_PER_CALL;
   try {
     await assertWithinBudget(estimatedCostUsd, budgetLimits);
   } catch (err) {
@@ -150,11 +171,18 @@ Write a short, original automotive-news article synthesizing the above.`;
   let result: WriterOutput;
   try {
     if (process.env.WRITE_ARTICLE_DEBUG_SCHEMA) console.error("DEBUG RESPONSE_SCHEMA:", JSON.stringify(RESPONSE_SCHEMA));
-    const completion = await provider.complete({ system, prompt, responseSchema: RESPONSE_SCHEMA, maxTokens: 2048 });
+    const completion = await provider.complete({
+      system,
+      prompt,
+      responseSchema: RESPONSE_SCHEMA,
+      maxTokens: 2048,
+      webSearch: { maxUses: WRITE_WEB_SEARCH_MAX_USES },
+    });
     const latencyMs = Date.now() - start;
     result = JSON.parse(completion.text) as WriterOutput;
 
-    const realCostUsd = (completion.tokensIn / 1_000_000) * 1 + (completion.tokensOut / 1_000_000) * 5;
+    const realCostUsd =
+      (completion.tokensIn / 1_000_000) * 1 + (completion.tokensOut / 1_000_000) * 5 + (completion.webSearchCount ?? 0) * WEB_SEARCH_COST_PER_CALL;
     await recordExecution({
       jobId: job.id,
       provider: provider.name,
@@ -165,6 +193,9 @@ Write a short, original automotive-news article synthesizing the above.`;
       latencyMs,
       success: true,
     });
+    if (completion.webSearchCount) {
+      console.log(`Story ${story.id}: writer performed ${completion.webSearchCount} real web search(es).`);
+    }
   } catch (err) {
     const latencyMs = Date.now() - start;
     await recordExecution({
