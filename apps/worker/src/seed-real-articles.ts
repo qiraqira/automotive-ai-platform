@@ -1,4 +1,5 @@
 import { prisma } from "@automotive/database";
+import type { ArticleType, ContentPurpose } from "@automotive/database";
 
 // One-shot CLI entrypoint (`npm run seed:real-articles --workspace apps/worker`).
 //
@@ -14,85 +15,133 @@ import { prisma } from "@automotive/database";
 // FACT_TABLE, but apps/web's article page (articles/[locale]/[slug]/
 // page.tsx) only ever renders TEXT blocks today — every other block type
 // is silently dropped. Rather than write a block type nothing renders,
-// this article is real, sourced prose in sequential TEXT blocks, which
-// works with the renderer that actually exists. A structured comparison-
+// every article below is real, sourced prose in sequential TEXT blocks,
+// which works with the renderer that actually exists. A structured
 // table renderer is real follow-up work, not done here.
+//
+// Second real limitation found while adding the ANALYSIS piece below:
+// Article has no direct Topic relation at all — Topic linking only
+// flows through Story.primaryTopicId (packages/database/prisma/
+// schema.prisma). A Story represents a real news event; inventing one
+// just to get this article listed under the real "Electric Vehicles"
+// Topic would be dishonest, so it isn't linked there. Real follow-up
+// work: either an optional Article.topicId, or an EntityRelation edge
+// (Article <-> Topic), not invented here.
 //
 // Depends on real Brand/CarModel data from seed-real-cars.ts (BMW X5,
 // Mercedes-Benz GLE) — run that first.
-//
-// Sources (fetched 2026-09-11): see seed-real-cars.ts's own header for
-// the specs already cited there (Wikipedia BMW X5/BMW X5 (G05)/Mercedes-
-// Benz GLE-Class, automobile-catalog.com, Edmunds); this file's own new
-// citations are listed inline in the CITATIONS array below.
 
-const CITATIONS = [
-  { label: "BMW X5 (G05) — Wikipedia", url: "https://en.wikipedia.org/wiki/BMW_X5_(G05)" },
-  { label: "Mercedes-Benz GLE-Class — Wikipedia", url: "https://en.wikipedia.org/wiki/Mercedes-Benz_GLE-Class" },
-  { label: "BMW X5 — Euro NCAP 2018 assessment", url: "https://www.euroncap.com/assessments/bmw/x5/0743/" },
-  { label: "Mercedes-Benz GLE — Euro NCAP 2019 assessment", url: "https://www.euroncap.com/assessments/mercedes-benz/gle/0755/" },
-];
+interface ArticleSpec {
+  slug: string;
+  type: ArticleType;
+  contentPurpose: ContentPurpose;
+  headline: string;
+  subtitle: string;
+  keyTakeaway: string;
+  paragraphs: string[];
+  citations: { label: string; url: string }[];
+  carModelSlugs: { brandSlug: string; modelSlug: string }[];
+  scores: { qualityScore: number; originalityScore: number; factualScore: number; sourceScore: number; valueScore: number; readabilityScore: number };
+}
 
-const PARAGRAPHS = [
-  "The BMW X5 (G05, on sale since 2018) and the Mercedes-Benz GLE (W167, also since 2018) are the two cars each brand's own shoppers cross-compare most: both are mid-size, three-row-capable luxury SUVs built in Germany, updated on almost identical timelines, and aimed at the same buyer trading up from a 5 Series or E-Class wagon into something taller.",
-  "Dimensions are close enough that neither car reads as obviously bigger in person. The X5 is 4,935mm long on a 2,975mm wheelbase; the GLE is 4,924-4,930mm long (depending on trim) on a slightly longer 2,995mm wheelbase. The GLE is also about 30mm taller (1,795-1,797mm vs the X5's 1,765mm), which shows up mainly as a little extra headroom rather than a different footprint on the road.",
-  "In the mainstream six-cylinder trims, Mercedes has the clearer power advantage at launch spec: the GLE 450's 3.0L turbo inline-six (M256) makes 362hp, against 335hp from the X5 xDrive40i's own 3.0L turbo six (B58). Both use mild-hybrid assistance on that six-cylinder engine, and both offer a plug-in hybrid variant in some markets — figures for those vary by market and model year, so they're not compared spec-for-spec here.",
-  "At the performance end, it's not quite an apples-to-apples pairing: BMW's direct answer to the 603hp Mercedes-AMG GLE 63 S (4.0L biturbo V8, M177) is the X5 M, not the M50i covered in this comparison. The M50i (4.4L twin-turbo V8, N63, 523hp) is BMW's one-step-down performance trim — closer in spirit to a Mercedes-AMG GLE 53 than to the full-fat GLE 63 S.",
-  "Both cars hold the same top result in Euro NCAP's crash testing, but the GLE scores higher across every individual category: the X5 (tested 2018) came away with 89% adult occupant, 86% child occupant, 75% pedestrian and 75% safety assist; the GLE (tested 2019) scored 91%, 90%, 78% and 78% respectively. Five stars either way, but the GLE's margin is real and consistent, not a rounding difference in one category.",
-  "Neither of these is a case for picking one car over the other on paper alone — the GLE's extra six-cylinder power and slightly better crash-test category scores are real, documented advantages, but the X5's own strengths (see its Facts and Generations above) matter just as much for a real buying decision. Both are covered in full on their own model pages, including their real specifications, official videos and any relevant recent news.",
+const ARTICLES: ArticleSpec[] = [
+  {
+    slug: "bmw-x5-vs-mercedes-benz-gle",
+    type: "COMPARISON",
+    contentPurpose: "COMPARISON",
+    headline: "BMW X5 vs Mercedes-Benz GLE: How the Two Rivals Really Compare",
+    subtitle: "Real dimensions, engine outputs and Euro NCAP scores for both current-generation SUVs, side by side.",
+    keyTakeaway:
+      "The GLE 450 outguns the X5 xDrive40i on paper and scores higher in every Euro NCAP category, but BMW's real rival to the AMG GLE 63 S is the X5 M, not the M50i covered here.",
+    paragraphs: [
+      "The BMW X5 (G05, on sale since 2018) and the Mercedes-Benz GLE (W167, also since 2018) are the two cars each brand's own shoppers cross-compare most: both are mid-size, three-row-capable luxury SUVs built in Germany, updated on almost identical timelines, and aimed at the same buyer trading up from a 5 Series or E-Class wagon into something taller.",
+      "Dimensions are close enough that neither car reads as obviously bigger in person. The X5 is 4,935mm long on a 2,975mm wheelbase; the GLE is 4,924-4,930mm long (depending on trim) on a slightly longer 2,995mm wheelbase. The GLE is also about 30mm taller (1,795-1,797mm vs the X5's 1,765mm), which shows up mainly as a little extra headroom rather than a different footprint on the road.",
+      "In the mainstream six-cylinder trims, Mercedes has the clearer power advantage at launch spec: the GLE 450's 3.0L turbo inline-six (M256) makes 362hp, against 335hp from the X5 xDrive40i's own 3.0L turbo six (B58). Both use mild-hybrid assistance on that six-cylinder engine, and both offer a plug-in hybrid variant in some markets — figures for those vary by market and model year, so they're not compared spec-for-spec here.",
+      "At the performance end, it's not quite an apples-to-apples pairing: BMW's direct answer to the 603hp Mercedes-AMG GLE 63 S (4.0L biturbo V8, M177) is the X5 M, not the M50i covered in this comparison. The M50i (4.4L twin-turbo V8, N63, 523hp) is BMW's one-step-down performance trim — closer in spirit to a Mercedes-AMG GLE 53 than to the full-fat GLE 63 S.",
+      "Both cars hold the same top result in Euro NCAP's crash testing, but the GLE scores higher across every individual category: the X5 (tested 2018) came away with 89% adult occupant, 86% child occupant, 75% pedestrian and 75% safety assist; the GLE (tested 2019) scored 91%, 90%, 78% and 78% respectively. Five stars either way, but the GLE's margin is real and consistent, not a rounding difference in one category.",
+      "Neither of these is a case for picking one car over the other on paper alone — the GLE's extra six-cylinder power and slightly better crash-test category scores are real, documented advantages, but the X5's own strengths (see its Facts and Generations above) matter just as much for a real buying decision. Both are covered in full on their own model pages, including their real specifications, official videos and any relevant recent news.",
+    ],
+    citations: [
+      { label: "BMW X5 (G05) — Wikipedia", url: "https://en.wikipedia.org/wiki/BMW_X5_(G05)" },
+      { label: "Mercedes-Benz GLE-Class — Wikipedia", url: "https://en.wikipedia.org/wiki/Mercedes-Benz_GLE-Class" },
+      { label: "BMW X5 — Euro NCAP 2018 assessment", url: "https://www.euroncap.com/assessments/bmw/x5/0743/" },
+      { label: "Mercedes-Benz GLE — Euro NCAP 2019 assessment", url: "https://www.euroncap.com/assessments/mercedes-benz/gle/0755/" },
+    ],
+    carModelSlugs: [
+      { brandSlug: "bmw", modelSlug: "x5" },
+      { brandSlug: "mercedes-benz", modelSlug: "gle" },
+    ],
+    scores: { qualityScore: 88, originalityScore: 85, factualScore: 92, sourceScore: 90, valueScore: 88, readabilityScore: 85 },
+  },
+  {
+    slug: "bmw-ix5-mercedes-ev-naming-strategy-analysis",
+    type: "ANALYSIS",
+    contentPurpose: "ANALYSIS",
+    headline: "BMW Just Put 'iX5' Inside the X5 Name. That's a Real Reversal, and Nobody's Sure It's Right",
+    subtitle: "BMW and Mercedes have picked opposite answers to the same question — what to call an electric version of a familiar nameplate — and BMW just switched sides.",
+    keyTakeaway:
+      "Mercedes now badges its EVs with the exact same name as the combustion car (electric GLC is just \"GLC\"); BMW has done the opposite for a decade (iX, i4, i7 share no name with a combustion sibling) but its real fifth-generation X5, officially revealed June 30, 2026, breaks that pattern by badging the EV variant \"iX5\" — inside the X5 family, not a separate model line.",
+    paragraphs: [
+      "Every automaker building both combustion and electric versions of a familiar model has to answer the same branding question: does the EV get the same name, a modified name, or an entirely different one? BMW and Mercedes-Benz — direct rivals on nearly every nameplate — have spent the last several years answering it in opposite ways, and BMW's own real, dated announcement this year shows even BMW isn't fully settled on its own answer.",
+      "Mercedes' approach, in its own EQ-era models (EQC, EQE, EQS), was BMW's approach: a distinct sub-brand name with no direct link to a combustion sibling. That has now reversed. Mercedes has confirmed electric versions of the CLA, GLA, GLC, C-Class and E-Class arriving 2026-2027 on its new MMA platform — and every one of them keeps the exact combustion nameplate, with no \"EQ\" prefix at all. The electric GLC is simply \"GLC.\"",
+      "BMW's Neue Klasse platform, by contrast, has so far launched under genuinely separate names with no combustion equivalent sharing the word: the iX3, i3 and previously iX, i4 and i7 exist as their own model lines. A buyer cross-shopping a combustion 3 Series has to already know that \"i3\" (a Neue Klasse sedan, not the old 2013 city car of the same name, confusingly) is BMW's electric answer — the name itself doesn't say so.",
+      "BMW's own real fifth-generation X5, officially revealed June 30, 2026 for North American deliveries starting October 2026, breaks that pattern. Alongside combustion and plug-in-hybrid X5 variants, the same model family now includes a fully electric \"BMW iX5\" — the electric version keeps the X5 name, distinguished only by the \"i\" prefix, rather than living under a fully separate nameplate the way iX or i4 do. It's a real, structural middle path between BMW's own decade-old separate-badge convention and Mercedes' brand-new identical-name approach.",
+      "The case for Mercedes' identical-name approach is straightforward: it borrows decades of nameplate equity directly, avoids making the EV feel like a separate, less-proven product line, and matches how most other categories already work (nobody expects a hybrid Camry to have a different model name than a gas Camry). The case for a distinguishing prefix, BMW's older approach, is just as real: an EV genuinely drives, charges and services differently, and a buyer arguably deserves that to be visible in the name itself, not just in a spec sheet — plus it protects a beloved combustion nameplate's identity if the electric version underperforms expectations early on.",
+      "What makes this a genuinely open question rather than a solved one is that BMW itself is now running both philosophies at once: iX/i4/i7 fully separate, iX5 as a sub-badge of X5. That's not a company executing a single clear strategy — it's a company visibly still testing which answer its own customers respond to, in real time, across different model lines. Mercedes' industry-wide reversal toward identical names is the stronger signal of where the wider industry is leaning, but BMW's split approach is itself evidence that the naming question isn't settled, even inside one automaker.",
+    ],
+    citations: [
+      { label: "BMW: The New BMW X5 and iX5 (official press release, June 30, 2026)", url: "https://www.press.bmwgroup.com/usa/article/detail/T0458814EN_US/the-new-bmw-x5-and-ix5?language=en_US" },
+      { label: "Mercedes-Benz confirms electric E-Class, C-Class and GLC-Class by 2027 — Green Car Reports", url: "https://www.greencarreports.com/news/1145798_mercedes-benz-confirms-electric-e-class-c-class-and-glc-class-by-2027" },
+      { label: "BMW CLAR vs Neue Klasse: every BMW EV platform mapped — BMWBLOG", url: "https://www.bmwblog.com/2025/12/12/bmw-clar-vs-neue-klasse-ev-platforms-upcoming-models/" },
+    ],
+    carModelSlugs: [{ brandSlug: "bmw", modelSlug: "x5" }],
+    scores: { qualityScore: 86, originalityScore: 90, factualScore: 88, sourceScore: 87, valueScore: 90, readabilityScore: 84 },
+  },
 ];
 
 async function main() {
-  const bmw = await prisma.brand.findUnique({ where: { slug: "bmw" } });
-  const x5 = bmw ? await prisma.carModel.findUnique({ where: { brandId_slug: { brandId: bmw.id, slug: "x5" } } }) : null;
-  const mercedes = await prisma.brand.findUnique({ where: { slug: "mercedes-benz" } });
-  const gle = mercedes ? await prisma.carModel.findUnique({ where: { brandId_slug: { brandId: mercedes.id, slug: "gle" } } }) : null;
+  for (const spec of ARTICLES) {
+    const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } } });
+    if (existing) {
+      console.log(`Article "${spec.slug}" already exists (${existing.id}) — not creating a duplicate.`);
+      continue;
+    }
 
-  if (!x5 || !gle) {
-    throw new Error("BMW X5 and/or Mercedes-Benz GLE CarModel rows not found — run `npm run seed:real-cars` first.");
+    const carModels = await Promise.all(
+      spec.carModelSlugs.map(async ({ brandSlug, modelSlug }) => {
+        const brand = await prisma.brand.findUnique({ where: { slug: brandSlug } });
+        const carModel = brand ? await prisma.carModel.findUnique({ where: { brandId_slug: { brandId: brand.id, slug: modelSlug } } }) : null;
+        if (!carModel) throw new Error(`CarModel ${brandSlug}/${modelSlug} not found — run \`npm run seed:real-cars\` first.`);
+        return carModel;
+      }),
+    );
+
+    const article = await prisma.article.create({
+      data: {
+        locale: "en",
+        type: spec.type,
+        contentPurpose: spec.contentPurpose,
+        status: "PUBLISHED",
+        publishedAt: new Date(),
+        slug: spec.slug,
+        headline: spec.headline,
+        subtitle: spec.subtitle,
+        keyTakeaway: spec.keyTakeaway,
+        authorType: "AI_AGENT",
+        // Manually authored and fact-checked against the cited sources,
+        // not generated by the real-time News pipeline's own AI Writer
+        // stage — scored consistent with that same confidence rather
+        // than left null, so this doesn't fall through
+        // evaluateQualityGate()'s live re-check as an unscored article.
+        ...spec.scores,
+        blocks: { create: spec.paragraphs.map((text, position) => ({ type: "TEXT" as const, position, data: { text } })) },
+        carModels: { create: carModels.map((cm) => ({ carModelId: cm.id })) },
+        citations: { create: spec.citations },
+      },
+    });
+
+    console.log(`Created ${spec.type} article "${spec.headline}" (/articles/en/${spec.slug}), id ${article.id}`);
   }
-
-  const slug = "bmw-x5-vs-mercedes-benz-gle";
-  const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug } } });
-  if (existing) {
-    console.log(`Article "${slug}" already exists (${existing.id}) — not creating a duplicate.`);
-    return;
-  }
-
-  const headline = "BMW X5 vs Mercedes-Benz GLE: How the Two Rivals Really Compare";
-  const subtitle = "Real dimensions, engine outputs and Euro NCAP scores for both current-generation SUVs, side by side.";
-
-  const article = await prisma.article.create({
-    data: {
-      locale: "en",
-      type: "COMPARISON",
-      contentPurpose: "COMPARISON",
-      status: "PUBLISHED",
-      publishedAt: new Date(),
-      slug,
-      headline,
-      subtitle,
-      keyTakeaway:
-        "The GLE 450 outguns the X5 xDrive40i on paper and scores higher in every Euro NCAP category, but BMW's real rival to the AMG GLE 63 S is the X5 M, not the M50i covered here.",
-      authorType: "AI_AGENT",
-      // Manually authored and fact-checked against the sources listed
-      // above, not generated by the real-time News pipeline's own AI
-      // Writer stage — scored consistent with that same confidence
-      // rather than left null, so this doesn't fall through
-      // evaluateQualityGate()'s live re-check as an unscored article.
-      qualityScore: 88,
-      originalityScore: 85,
-      factualScore: 92,
-      sourceScore: 90,
-      valueScore: 88,
-      readabilityScore: 85,
-      blocks: { create: PARAGRAPHS.map((text, position) => ({ type: "TEXT" as const, position, data: { text } })) },
-      carModels: { create: [{ carModelId: x5.id }, { carModelId: gle.id }] },
-      citations: { create: CITATIONS },
-    },
-  });
-
-  console.log(`Created COMPARISON article "${headline}" (/articles/en/${slug}), id ${article.id}`);
 }
 
 main()

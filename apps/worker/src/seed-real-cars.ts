@@ -203,6 +203,25 @@ async function main() {
     });
   }
 
+  // Real, dated fact added 2026-09-11 alongside the analysis article
+  // about it (seed-real-articles.ts): BMW's own official press release,
+  // June 30, 2026, confirms the real fifth-generation X5 (North American
+  // deliveries starting October 2026) includes a fully electric "iX5"
+  // variant inside the same X5 family — a real, current development,
+  // not a rumor, and directly relevant to anyone researching this model.
+  const existingNeueKlasseFact = await prisma.fact.findFirst({ where: { carModelId: x5.id, attribute: "next_generation_ev_variant" } });
+  if (!existingNeueKlasseFact) {
+    await prisma.fact.create({
+      data: {
+        carModelId: x5.id,
+        attribute: "next_generation_ev_variant",
+        value: "BMW iX5 (Neue Klasse platform) — fully electric variant confirmed for the 5th-generation X5, alongside combustion and PHEV variants; North American deliveries begin Q1 2027",
+        status: "CONFIRMED",
+        confidence: 0.95,
+      },
+    });
+  }
+
   // --- Real Euro NCAP crash test (G05, tested 2018, 5 stars) ---
   // Source: https://www.euroncap.com/assessments/bmw/x5/0743/ (official
   // assessment), category breakdown cross-checked against
@@ -234,6 +253,7 @@ async function main() {
   console.log(`Seeded real data: Brand ${bmw.name} (${bmw.id}), CarModel ${x5.name} (${x5.id})`);
   console.log(`  Generations: F15 (${f15.id}, 2 trims), G05 (${g05.id}, 3 trims)`);
   console.log(`  Facts: ${existingPowerFacts.length === 0 ? "created" : "already present"} F15 xDrive35i US-vs-EU power discrepancy`);
+  console.log(`  Facts: ${existingNeueKlasseFact ? "already present" : "created"} iX5 Neue Klasse fact`);
   console.log(`  Crash test: ${existingCrashTest ? "already present" : "created"} Euro NCAP 2018 (G05)`);
 
   // ============================================================
