@@ -182,6 +182,29 @@ const ARTICLES: ArticleSpec[] = [
     carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
     scores: { qualityScore: 88, originalityScore: 85, factualScore: 92, sourceScore: 90, valueScore: 91, readabilityScore: 87 },
   },
+  {
+    slug: "euro-ncap-star-ratings-explained",
+    type: "GUIDE",
+    contentPurpose: "GUIDE",
+    headline: "What a Euro NCAP Star Rating Actually Tests (and Why You Can't Compare Scores Across Years)",
+    subtitle: "Five stars from 2018 and five stars from 2025 are not the same bar — Euro NCAP periodically makes its own test harder, so the same real car can score lower on a retest without getting any less safe.",
+    keyTakeaway:
+      "A Euro NCAP star rating is built from four separately scored categories — adult occupant, child occupant, vulnerable road users (pedestrians/cyclists), and safety-assist tech — each requiring its own minimum percentage to reach a given star count. The headline star number is real and comparable within the same test year, but Euro NCAP periodically tightens the underlying protocol, so a car retested years later can score a lower percentage in the same category while being just as safe, or safer, than before.",
+    paragraphs: [
+      "A Euro NCAP rating is really four separate assessments rolled into one headline number. Adult Occupant Protection covers how well the structure and restraints protect adult dummies in frontal, side and rear-impact (whiplash) tests. Child Occupant Protection does the same for child dummies across the same crash scenarios, plus checks on how easy the car makes it to install a child seat correctly. Vulnerable Road User Protection scores how the front of the car and its automatic emergency braking system respond to a pedestrian or cyclist in its path. Safety Assist scores the car's own accident-avoidance technology — lane-keeping, speed-limit recognition, and (since 2020) driver-attention monitoring.",
+      "Each of those four areas gets its own percentage score, and getting five stars overall requires clearing a minimum threshold in every one of them individually — a car can't make up a weak pedestrian-protection score with an exceptional adult-occupant score and still call itself five-star in the way that average implies. Euro NCAP doesn't publish the exact points formula behind each percentage, but the four category scores themselves are public for every rated car, which is why this site shows all four numbers on a model's page rather than just the star count.",
+      "The part that catches people out is comparing star ratings across different years. Euro NCAP doesn't run a fixed, unchanging test — it deliberately revises the protocol every few years to stay ahead of real-world crash data and newly common safety tech, which means the bar for \"five stars\" in 2026 is measurably harder to clear than the bar for \"five stars\" in 2018. A car re-tested years after its original rating can come back with a lower percentage in the same category purely because the test got harder, with no change to the car itself.",
+      "This site's own model pages have a real, direct example of exactly that. The Tesla Model Y was tested in 2022 and scored 97% on Adult Occupant Protection — Euro NCAP's highest-ever result in that category at the time. The redesigned 2025 Model Y, tested under the newer, stricter protocol, scored 91% on the same category. That's a real 6-point drop, but it does not mean the 2025 car is a worse design than the 2022 one; it means the 2025 car was measured against a harder version of the same test. Reading that as \"Tesla's safety got worse\" without knowing the protocol changed would be a genuine misreading of the number.",
+      "The practical rule: a star rating (and the category percentages behind it) is a meaningful, comparable number against other cars tested in the same year or the same protocol generation, and Euro NCAP's own site always states which year and protocol version a given result used. It is not a meaningful number to compare directly against a different car's rating from several years earlier, or against the same car's own earlier rating, without checking whether the protocol changed in between.",
+    ],
+    citations: [
+      { label: "The Ratings Explained — Euro NCAP", url: "https://www.euroncap.com/en/car-safety/the-ratings-explained" },
+      { label: "What is a Euro NCAP safety rating and how do you get 5 stars in a crash test? — Motorpoint", url: "https://www.motorpoint.co.uk/guides/what-is-a-euro-ncap-safety-rating" },
+      { label: "Euro NCAP safety ratings explained — Carwow", url: "https://www.carwow.co.uk/guides/choosing/euro-ncap-scores-explained" },
+    ],
+    carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    scores: { qualityScore: 87, originalityScore: 86, factualScore: 91, sourceScore: 88, valueScore: 90, readabilityScore: 87 },
+  },
 ];
 
 async function main() {
