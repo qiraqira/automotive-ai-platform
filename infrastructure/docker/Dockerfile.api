@@ -31,20 +31,23 @@ RUN npm install
 RUN npx prisma generate --schema packages/database/prisma/schema.prisma
 # Build order follows the real dependency graph (packages/*'s own
 # package.json "dependencies") — @automotive/api depends on database,
-# types, and config; config has no internal deps, but database itself now
-# depends on types (added for the EntityRelation type-safety fix), so
-# types must build first. Two real bugs found and fixed here 2026-09-07:
-# first, this only ever built database then api, silently missing
-# types/config, which didn't exist as dependencies yet when this file was
-# first written; second (caught later the same day, by re-simulating this
-# exact chain locally after database gained its own dependency on types),
-# database was still listed *before* types, which would fail for the
-# same "missing dist/ output" reason but in the other direction. Neither
-# was ever automatically enforced — re-verify this order any time a
-# packages/* dependency graph changes.
+# types, config, and (2026-09-11, added for the retroactive quality-gate
+# noindex feature) editorial; config has no internal deps, but database
+# itself now depends on types (added for the EntityRelation type-safety
+# fix), so types must build first, and editorial depends only on
+# database so it can build any time after that. Two real bugs found and
+# fixed here 2026-09-07: first, this only ever built database then api,
+# silently missing types/config, which didn't exist as dependencies yet
+# when this file was first written; second (caught later the same day,
+# by re-simulating this exact chain locally after database gained its
+# own dependency on types), database was still listed *before* types,
+# which would fail for the same "missing dist/ output" reason but in the
+# other direction. Neither was ever automatically enforced — re-verify
+# this order any time a packages/* dependency graph changes.
 RUN npm run build --workspace @automotive/types
 RUN npm run build --workspace @automotive/database
 RUN npm run build --workspace @automotive/config
+RUN npm run build --workspace @automotive/editorial
 RUN npm run build --workspace @automotive/api
 
 FROM node:20-slim AS runtime
