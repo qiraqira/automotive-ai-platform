@@ -70,16 +70,29 @@ function realCostUsd(usage: OpenAIChatUsage | undefined): number {
 
 /** Asks a vision model whether `imageUrl` genuinely depicts `context`
  * (the article's real subject — headline/story title, ideally naming a
- * brand+model). Fails OPEN (returns true, i.e. "accept the candidate")
- * whenever the check itself can't run — no API key, budget exceeded, a
- * network/parse error — so this gate can only make image selection more
- * conservative, never regress fetch-images.ts's existing behavior back
- * toward "no image at all" when OpenAI is unavailable. The existing
- * isRelevantTitle() text check in fetch-images.ts still runs before this
- * and catches plenty on its own; this is an additional filter, not the
- * only one. */
+ * brand+model). Fails CLOSED (returns false, i.e. "reject the
+ * candidate") whenever the check itself can't run — no API key, budget
+ * exceeded, a network/parse error.
+ *
+ * Real reversal, 2026-09-11: this used to fail OPEN ("accept
+ * unverified"), on the theory that this gate should only ever make
+ * selection MORE conservative than fetch-images.ts's own text check,
+ * never regress it back to "no image at all" when OpenAI is
+ * unavailable. That theory broke live during upgrade-logo-images.ts's
+ * first real sweep: a Commons image-download timeout hit this exact
+ * fail-open path, and the unverified candidate — a generic dealer-lot
+ * photo of regular gas Jeep Wagoneers — got published as the hero image
+ * for an article specifically about the Wagoneer S / Ram 1500 REV
+ * EXTENDED-RANGE EV variants. A wrong photo publishing live is a worse
+ * outcome than the caller falling through to its own next candidate, a
+ * brand logo, or no image at all — the same standing rule this
+ * project's whole hero-image discipline is built on. The caller
+ * (attachHeroImage()'s search loop, findRealPhoto() in
+ * upgrade-logo-images.ts) already treats `false` as "try the next
+ * candidate" / "give up cleanly", never as a hard error — failing
+ * closed here costs nothing but a few more attempts. */
 export async function verifyImageMatch(imageUrl: string, context: string): Promise<boolean> {
-  if (!env.OPENAI_API_KEY) return true;
+  if (!env.OPENAI_API_KEY) return false;
 
   const job = await prisma.aIJob.create({
     // No dedicated AIJobType for this either — same reused-type reasoning
@@ -92,8 +105,8 @@ export async function verifyImageMatch(imageUrl: string, context: string): Promi
   } catch (err) {
     if (err instanceof BudgetExceededError) {
       await handleBudgetExceeded(job.id, err);
-      console.log(`Image verification budget guard blocked this call (${err.message}) — accepting candidate unverified.`);
-      return true;
+      console.log(`Image verification budget guard blocked this call (${err.message}) — rejecting candidate, not accepting it unverified.`);
+      return false;
     }
     throw err;
   }
@@ -146,8 +159,8 @@ Answer with exactly one word: YES or NO.`;
       errorMessage: err instanceof Error ? err.message : String(err),
     });
     await prisma.aIJob.update({ where: { id: job.id }, data: { status: "FAILED", finishedAt: new Date() } });
-    console.error(`Image verification failed for ${imageUrl} —`, err instanceof Error ? err.message : err, "— accepting candidate unverified.");
-    return true;
+    console.error(`Image verification failed for ${imageUrl} —`, err instanceof Error ? err.message : err, "— rejecting candidate, not accepting it unverified.");
+    return false;
   }
   const latencyMs = Date.now() - start;
 
