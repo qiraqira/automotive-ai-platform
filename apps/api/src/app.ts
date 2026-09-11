@@ -296,17 +296,27 @@ app.get("/v1/stories", async (req, res) => {
   });
   const hasMore = rows.length > parsed.data.limit;
   const rowsPage = hasMore ? rows.slice(0, parsed.data.limit) : rows;
-  // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
-  // own comment: a reject-verdict article was still being linked here as
-  // "the" real article for its Story. Dropped back to the same
-  // no-article-yet state (story.articles = []) rather than surfaced —
-  // apps/web's own rendering already falls back to plain, unlinked text
-  // in that case, so no frontend change is needed for this fix to take
-  // effect.
-  const stories = rowsPage.map((s) => ({
-    ...s,
-    articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
-  }));
+  // Real regression found and fixed 2026-09-11 (user reported it live,
+  // with a screenshot, the same day): the previous fix here only
+  // stripped a reject-verdict article's link, dropping the Story back
+  // to `articles: []` — which apps/web renders as a plain, unlinked
+  // headline. That's exactly the "raw stub with nothing to click" shape
+  // the ORIGINAL 2026-09-09 `hasArticle` filter was built to prevent —
+  // this endpoint's own `where` clause only checks that a PUBLISHED
+  // article exists at all, not that it's a *good* one, so a Story whose
+  // only article is reject-verdict slipped back through. When the
+  // caller asked for `hasArticle` (real content to link to, not just
+  // "exists"), a Story with zero surviving articles after the quality
+  // filter no longer belongs in the result at all — dropped here,
+  // not just unlinked. `admin/stories` doesn't pass `hasArticle` and is
+  // unaffected (an editor legitimately wants to see every raw Story,
+  // reject-verdict article included, to actually review it).
+  const stories = rowsPage
+    .map((s) => ({
+      ...s,
+      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+    }))
+    .filter((s) => !parsed.data.hasArticle || s.articles.length > 0);
   res.json({ stories, hasMore, offset: parsed.data.offset, limit: parsed.data.limit });
 });
 
@@ -773,8 +783,18 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
     }
   }
 
+  // Real regression found and fixed 2026-09-11 (user reported it live,
+  // with a screenshot, the same day) — see GET /v1/stories' own updated
+  // comment for the full story: a search result whose only article is
+  // reject-verdict previously still appeared, just with a null
+  // `articleSlug` — an unclickable stub in the results list, exactly
+  // what the user flagged ("и в поиски они есть", they're in search
+  // too). A search result with nothing real to read isn't a useful
+  // result at all, so it's dropped here rather than shown unlinked.
   res.json({
-    stories: stories.map((s) => ({ id: s.id, title: s.title, articleSlug: articlesByStoryId.get(s.id) ?? null })),
+    stories: stories
+      .map((s) => ({ id: s.id, title: s.title, articleSlug: articlesByStoryId.get(s.id) ?? null }))
+      .filter((s) => s.articleSlug !== null),
     carModels: carModels.map((c) => ({ brandSlug: c.brand.slug, modelSlug: c.slug, name: `${c.brand.name} ${c.name}` })),
   });
 });
@@ -922,15 +942,19 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
 
   res.json({
     carModel,
-    // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
-    // own comment: same fix as every other reader-facing feed in this
-    // file, independently needed here (a 5th call site) since a car's
-    // own model page has its own separate relatedStories query.
-    relatedStories: relatedStories.map((s) => ({
-      id: s.id,
-      title: s.title,
-      articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
-    })),
+    // Real regression found and fixed 2026-09-11 (user reported it live,
+    // with a screenshot, the same day) — see GET /v1/stories' own
+    // updated comment for the full story: nulling `articleSlug` but
+    // keeping the story left an unlinked stub in the "Related stories"
+    // list. Filtered out entirely instead, same as every other
+    // reader-facing feed in this file.
+    relatedStories: relatedStories
+      .map((s) => ({
+        id: s.id,
+        title: s.title,
+        articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+      }))
+      .filter((s) => s.articleSlug !== null),
   });
 });
 
@@ -986,14 +1010,17 @@ app.get("/v1/brands/:slug", async (req, res) => {
       country: brand.country,
       models: brand.models.map((m) => ({ slug: m.slug, name: m.name, generationCount: m.generations.length })),
     },
-    // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
-    // own comment: same fix as GET /v1/stories/GET /v1/topics/:slug,
-    // independently needed here since this endpoint runs its own query.
-    relatedStories: relatedStories.map((s) => ({
-      id: s.id,
-      title: s.title,
-      articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
-    })),
+    // Real regression found and fixed 2026-09-11 (user reported it live,
+    // with a screenshot, the same day) — see GET /v1/stories' own
+    // updated comment: nulling `articleSlug` but keeping the story left
+    // an unlinked stub here too. Filtered out entirely instead.
+    relatedStories: relatedStories
+      .map((s) => ({
+        id: s.id,
+        title: s.title,
+        articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+      }))
+      .filter((s) => s.articleSlug !== null),
   });
 });
 
@@ -1077,14 +1104,24 @@ app.get("/v1/topics/:slug", async (req, res) => {
       },
     },
   });
-  // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
-  // own comment on GET /v1/stories: identical fix needed here
-  // independently, since this endpoint runs its own separate query
-  // rather than reusing GET /v1/stories'.
-  const storiesWithFilteredArticles = stories.map((s) => ({
-    ...s,
-    articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
-  }));
+  // Real regression found and fixed 2026-09-11 (user reported it live,
+  // with a screenshot, the same day) — see GET /v1/stories' own updated
+  // comment for the full story: stripping a reject-verdict article's
+  // link but leaving the Story in the list reintroduced exactly the
+  // "raw stub with nothing to click" shape this endpoint's own `where`
+  // clause was built to prevent in the first place ("a reader-facing
+  // topic feed should never show a raw, unwritten Story stub with
+  // nothing real to read" — the DB `where` only checks an article
+  // *exists*, not that it's *good*). This endpoint has no admin caller
+  // to protect (per its own comment above), so the fix is unconditional:
+  // a Story with zero surviving articles after the quality filter is
+  // dropped entirely, not just unlinked.
+  const storiesWithFilteredArticles = stories
+    .map((s) => ({
+      ...s,
+      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+    }))
+    .filter((s) => s.articles.length > 0);
 
   // Real gap found and fixed 2026-09-11: evergreen Articles (COMPARISON/
   // ANALYSIS/GUIDE/EXPLAINER, no Story) had no way to appear under a
