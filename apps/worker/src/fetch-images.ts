@@ -84,7 +84,7 @@ const KNOWN_BRANDS = [
   "SANY", "Evoke", "Slate",
 ];
 
-function detectBrand(text: string): string | null {
+export function detectBrand(text: string): string | null {
   for (const brand of KNOWN_BRANDS) {
     if (new RegExp(`\\b${escapeRegExp(brand)}\\b`, "i").test(text)) return brand;
   }
@@ -404,7 +404,7 @@ const IMAGE_PROVIDERS = [searchCommonsImage, searchOpenverseImage];
 // AI vision match check — a vision model judging "does this look like
 // the news event" makes no sense for a logo; a plain title check that
 // the result is actually a logo of the right brand is enough.
-async function searchBrandLogo(brand: string): Promise<ImageCandidate | null> {
+export async function searchBrandLogo(brand: string): Promise<ImageCandidate | null> {
   const url = new URL(COMMONS_API);
   url.search = new URLSearchParams({
     action: "query",

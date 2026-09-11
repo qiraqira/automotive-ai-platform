@@ -27,13 +27,31 @@ const FETCH_TIMEOUT_MS = 20_000;
 // is the right cost/quality tradeoff (same reasoning that already picked
 // gpt-image-1-mini over gpt-image-1 in generate-image.ts).
 const MODEL = "gpt-4o-mini";
+// Real, live failure found 2026-09-11 (user caught it live: a BYD
+// Sealion 6 photo published as the hero image for a "BYD Denza N8"
+// article): this same candidate photo was correctly rejected (NO) three
+// separate times for a differently-worded context ("BYD's new
+// Defender-like SUV breaks cover") but wrongly accepted (YES) once for
+// a more generic one ("BYD's new luxury electric SUV has a range of
+// over 1,000 km") — traced via the real AIJob log for both contexts
+// before concluding this, not assumed. The "low" detail setting was the
+// prime suspect: it fixes image input at a small, fixed token budget
+// regardless of resolution, which is fine for "is this obviously
+// unrelated" but not enough detail to distinguish two visually similar
+// SUVs from the same brand family. Switched to "high" detail — a real,
+// deliberate cost increase (roughly 10-20x the token count of "low" for
+// a photo this size) accepted specifically because a wrong SPECIFIC-
+// vehicle photo publishing live is a worse outcome than the extra
+// fraction-of-a-cent this costs per check.
+const IMAGE_DETAIL = "high";
 // Verified live against OpenAI's current published rates before picking
 // this (developers.openai.com/api/docs/pricing, 2026-09-10): gpt-4o-mini
-// is $0.15/1M input tokens, $0.60/1M output tokens. A "low" detail image
-// input is a fixed ~85 tokens regardless of resolution, plus a short
-// prompt and a 1-word answer — comfortably under $0.001 in practice; this
-// estimate is deliberately generous for the pre-call budget guard.
-const ESTIMATED_COST_USD = 0.002;
+// is $0.15/1M input tokens, $0.60/1M output tokens. "High" detail on a
+// photo around 1024px scales to roughly 1500-1800 input tokens (OpenAI's
+// own tiling formula), well under $0.001 either way — this estimate is
+// deliberately generous for the pre-call budget guard, same margin as
+// before.
+const ESTIMATED_COST_USD = 0.004;
 
 interface OpenAIChatUsage {
   prompt_tokens: number;
@@ -84,7 +102,7 @@ export async function verifyImageMatch(imageUrl: string, context: string): Promi
 
 Article subject: "${context}"
 
-Does the photo genuinely depict this subject (the specific vehicle/brand named, or — if the subject is a general roundup/hub with no single car — a plausible, on-topic automotive scene)? Reject it if it shows something unrelated that merely shares a word with the subject (e.g. a historical parade photo for a "Labor Day" business story, the wrong car brand/model, an unrelated landmark or object).
+Does the photo genuinely depict this exact subject? If the subject names a specific model (e.g. "Denza N8", "Model Y", "F-150 Lightning"), the photo must show that exact model — a different, even closely related model from the same brand or lineup (a sibling model, a different generation, a similar-looking SUV from the same maker) is NOT a match and must be rejected, even if the general shape or class of vehicle looks similar. Only accept a same-brand-different-model photo if the subject itself is genuinely brand-level or generic (a roundup with no single car, a general company/industry story) rather than naming one specific vehicle. Reject anything unrelated that merely shares a word with the subject (e.g. a historical parade photo for a "Labor Day" business story, an unrelated landmark or object).
 
 Answer with exactly one word: YES or NO.`;
 
@@ -101,7 +119,7 @@ Answer with exactly one word: YES or NO.`;
             role: "user",
             content: [
               { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+              { type: "image_url", image_url: { url: imageUrl, detail: IMAGE_DETAIL } },
             ],
           },
         ],
