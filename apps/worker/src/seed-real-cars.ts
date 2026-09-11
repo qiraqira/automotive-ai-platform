@@ -1,4 +1,6 @@
 import { prisma } from "@automotive/database";
+import { searchCommonsImage, hashRemoteImage, getOrCreateLicense, rightsStatusFor } from "./fetch-images.js";
+import { verifyImageMatch } from "./verify-image.js";
 
 // One-shot CLI entrypoint (`npm run seed:real-cars --workspace apps/worker`).
 //
@@ -153,9 +155,85 @@ async function main() {
     });
   }
 
+  // --- Real Euro NCAP crash test (G05, tested 2018, 5 stars) ---
+  // Source: https://www.euroncap.com/assessments/bmw/x5/0743/ (official
+  // assessment), category breakdown cross-checked against
+  // https://www.bmwblog.com/2018/12/05/bmw-x5-g05-five-stars-in-the-euro-ncap-crash-test/
+  const existingCrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: x5.id, generationId: g05.id, organization: "EURO_NCAP", testYear: 2018 },
+  });
+  if (!existingCrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: x5.id,
+        generationId: g05.id,
+        organization: "EURO_NCAP",
+        overallRating: "5 stars",
+        categoryScores: {
+          adult_occupant: "89%",
+          child_occupant: "86%",
+          pedestrian: "75%",
+          safety_assist: "75%",
+        },
+        testYear: 2018,
+        sourceUrl: "https://www.euroncap.com/assessments/bmw/x5/0743/",
+      },
+    });
+  }
+
+  // --- Real photo (Wikimedia Commons, reusing the same search + AI
+  // vision-verification pipeline as attachHeroImage() in fetch-images.ts
+  // — a hand-picked URL risks exactly the "random SUV passed off as an
+  // X5" failure the vertical-slice plan explicitly warns against; running
+  // it through the same relevance + vision check as every article hero
+  // image is the honest way to attach one here too). Skipped if this
+  // CarModel already has a HERO image — never overwrites an editor's own
+  // later choice.
+  const existingHero = await prisma.carModelImage.findFirst({ where: { carModelId: x5.id, role: "HERO" } });
+  if (!existingHero) {
+    const candidate = await searchCommonsImage("BMW X5 G05");
+    if (candidate) {
+      const verified = await verifyImageMatch(candidate.thumbUrl, "BMW X5, a mid-size luxury SUV");
+      if (verified) {
+        const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
+        const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+        const imageId = existingImage
+          ? existingImage.id
+          : (
+              await prisma.image.create({
+                data: {
+                  originalUrl: candidate.thumbUrl,
+                  sourceType: "CREATIVE_COMMONS",
+                  rightsStatus: rightsStatusFor(candidate.licenseSlug),
+                  author: candidate.artist,
+                  attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
+                  licenseId: await getOrCreateLicense(candidate),
+                  width: candidate.width,
+                  height: candidate.height,
+                  mimeType: candidate.mime,
+                  sha256,
+                  generatedByAi: false,
+                },
+              })
+            ).id;
+        await prisma.carModelImage.create({
+          data: { carModelId: x5.id, imageId, role: "HERO", position: 0, altText: "BMW X5" },
+        });
+        console.log("  Photo: attached a real, vision-verified Commons photo.");
+      } else {
+        console.log("  Photo: Commons candidate found but failed vision verification — skipped rather than risk a wrong photo.");
+      }
+    } else {
+      console.log("  Photo: no Commons candidate found.");
+    }
+  } else {
+    console.log("  Photo: HERO image already present, left untouched.");
+  }
+
   console.log(`Seeded real data: Brand ${bmw.name} (${bmw.id}), CarModel ${x5.name} (${x5.id})`);
   console.log(`  Generations: F15 (${f15.id}, 2 trims), G05 (${g05.id}, 3 trims)`);
   console.log(`  Facts: ${existingPowerFacts.length === 0 ? "created" : "already present"} F15 xDrive35i US-vs-EU power discrepancy`);
+  console.log(`  Crash test: ${existingCrashTest ? "already present" : "created"} Euro NCAP 2018 (G05)`);
 }
 
 main()

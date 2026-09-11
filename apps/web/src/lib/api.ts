@@ -164,6 +164,22 @@ export interface CarVideo {
   category: "OFFICIAL" | "CRASH_TEST" | "REVIEW";
 }
 
+export interface CarModelImage {
+  id: string;
+  role: "HERO" | "INLINE" | "GALLERY" | "OG";
+  altText: string | null;
+  image: { originalUrl: string; attribution: string | null; width: number | null; height: number | null };
+}
+
+export interface CrashTestResult {
+  id: string;
+  organization: "EURO_NCAP" | "IIHS" | "NHTSA";
+  overallRating: string;
+  categoryScores: Record<string, string> | null;
+  testYear: number;
+  sourceUrl: string;
+}
+
 export interface CarModelDetail {
   id: string;
   slug: string;
@@ -172,6 +188,8 @@ export interface CarModelDetail {
   generations: CarGeneration[];
   facts: CarFact[];
   videos: CarVideo[];
+  images: CarModelImage[];
+  crashTests: CrashTestResult[];
 }
 
 export interface SearchResults {
@@ -237,9 +255,19 @@ export function getBrands(): Promise<{ brands: Brand[] }> {
   return apiGet("/v1/brands");
 }
 
+// `articleSlug` added 2026-09-11 (real gap: the car page rendered every
+// related story as plain, unlinked text even when a real published EN
+// article existed for it) — `null` when the Story hasn't been written up
+// yet, a real valid state the page must still handle.
+export interface RelatedStorySummary {
+  id: string;
+  title: string;
+  articleSlug: string | null;
+}
+
 export interface CarModelWithRelated {
   carModel: CarModelDetail;
-  relatedStories: { id: string; title: string }[];
+  relatedStories: RelatedStorySummary[];
 }
 
 export async function getCarModel(brandSlug: string, modelSlug: string): Promise<CarModelWithRelated | null> {
@@ -249,6 +277,32 @@ export async function getCarModel(brandSlug: string, modelSlug: string): Promise
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API /v1/cars/${brandSlug}/${modelSlug} returned ${res.status}`);
+  return res.json();
+}
+
+export interface BrandDetail {
+  id: string;
+  slug: string;
+  name: string;
+  country: string | null;
+  models: { slug: string; name: string; generationCount: number }[];
+}
+
+export interface BrandWithRelated {
+  brand: BrandDetail;
+  relatedStories: RelatedStorySummary[];
+}
+
+// Real brand hub page (vertical-slice plan, 2026-09-11): same shape and
+// same no-store/timeout/404-as-null contract as getCarModel()/getTopic()
+// above, for consistency across every real detail-page fetch in this file.
+export async function getBrand(slug: string): Promise<BrandWithRelated | null> {
+  const res = await fetch(`${API_INTERNAL_URL}/v1/brands/${slug}`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API /v1/brands/${slug} returned ${res.status}`);
   return res.json();
 }
 

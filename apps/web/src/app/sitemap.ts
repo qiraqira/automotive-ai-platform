@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getCarModelSlugs, getTopicSlugs, getArticleSlugs } from "@/lib/api";
+import { getCarModelSlugs, getTopicSlugs, getArticleSlugs, getBrands } from "@/lib/api";
 
 // spec §29-31: a real sitemap enumerating actual indexable pages, not a
 // static stub. Topic pages were a real gap fixed 2026-09-07: they
@@ -44,7 +44,12 @@ const ABOUT_PATHS = [
 // emitting an empty `<lastmod>`) is substituted for `null` below rather
 // than passing it through directly.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [{ carModels }, { topics }, { articles }] = await Promise.all([getCarModelSlugs(), getTopicSlugs(), getArticleSlugs()]);
+  const [{ carModels }, { topics }, { articles }, { brands }] = await Promise.all([
+    getCarModelSlugs(),
+    getTopicSlugs(),
+    getArticleSlugs(),
+    getBrands(),
+  ]);
 
   return [
     { url: SITE_URL, changeFrequency: "hourly", priority: 1 },
@@ -55,6 +60,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.9,
       lastModified: article.updatedAt,
+    })),
+    // Brand hub pages (vertical-slice plan, 2026-09-11) — no per-brand
+    // "last changed" signal exists yet (unlike cars/topics above, which
+    // have a real Fact/Story timestamp to point at), so `lastModified` is
+    // simply omitted rather than guessed.
+    ...brands.map((b) => ({
+      url: `${SITE_URL}/brands/${b.slug}`,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
     })),
     ...carModels.map((car) => ({
       url: `${SITE_URL}/cars/${car.brandSlug}/${car.modelSlug}`,

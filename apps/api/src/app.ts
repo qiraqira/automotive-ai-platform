@@ -725,6 +725,8 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
       // and news. Newest-first within each category, same convention as
       // every other real-content list in this file (facts, stories).
       videos: { orderBy: { createdAt: "desc" } },
+      images: { orderBy: { position: "asc" }, include: { image: true } },
+      crashTests: { orderBy: { testYear: "desc" } },
     },
   });
 
@@ -753,15 +755,76 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
   // story list in this app (the homepage feed, topic pages,
   // /admin/stories) already orders by `lastUpdatedAt: desc` — "Related
   // stories" is the same kind of list and was the one missing it.
+  // Real gap found and fixed 2026-09-11: this returned `{ id, title }`
+  // only — the public car page rendered every related story as plain
+  // text with no link at all, even when a real published EN article
+  // existed for it. Widened to include that article's slug (when one
+  // exists and is actually published) so the page can link to it —
+  // exactly the "Model page should show actual news" internal-linking
+  // the vertical-slice plan calls for, not a cosmetic list.
   const relatedStories =
     relations.length > 0
       ? await prisma.story.findMany({
           where: { id: { in: relations.map((r) => r.fromId) } },
           orderBy: { lastUpdatedAt: "desc" },
+          include: { articles: { where: { locale: "en", status: "PUBLISHED" }, select: { slug: true }, take: 1 } },
         })
       : [];
 
-  res.json({ carModel, relatedStories: relatedStories.map((s) => ({ id: s.id, title: s.title })) });
+  res.json({
+    carModel,
+    relatedStories: relatedStories.map((s) => ({ id: s.id, title: s.title, articleSlug: s.articles[0]?.slug ?? null })),
+  });
+});
+
+// --- Brands (public brand hub page) ---
+//
+// Direct continuation of the vertical-slice plan (BMW -> X5, step 2):
+// GET /v1/brands already existed (a flat list for the admin picker) but
+// nothing served a single brand with its models/news for a real public
+// /brands/:slug page. "Latest news" is deliberately aggregated through
+// this brand's own CarModels' EntityRelation edges (same table/edges the
+// car-model page above already uses) rather than a new brand-level text
+// match — entity-extractor.ts's own module comment explains why it
+// never matches on a bare brand name (too many false positives); the
+// correct way to ask "BMW news" is "news about any real BMW model."
+app.get("/v1/brands/:slug", async (req, res) => {
+  const brand = await prisma.brand.findUnique({
+    where: { slug: req.params.slug },
+    include: {
+      models: { orderBy: { name: "asc" }, include: { generations: { select: { id: true } } } },
+    },
+  });
+  if (!brand) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  const modelIds = brand.models.map((m) => m.id);
+  const relations =
+    modelIds.length > 0
+      ? await prisma.entityRelation.findMany({ where: { toType: ENTITY_TYPE.CAR_MODEL, toId: { in: modelIds }, fromType: ENTITY_TYPE.STORY } })
+      : [];
+  const relatedStories =
+    relations.length > 0
+      ? await prisma.story.findMany({
+          where: { id: { in: relations.map((r) => r.fromId) } },
+          orderBy: { lastUpdatedAt: "desc" },
+          take: 20,
+          include: { articles: { where: { locale: "en", status: "PUBLISHED" }, select: { slug: true }, take: 1 } },
+        })
+      : [];
+
+  res.json({
+    brand: {
+      id: brand.id,
+      slug: brand.slug,
+      name: brand.name,
+      country: brand.country,
+      models: brand.models.map((m) => ({ slug: m.slug, name: m.name, generationCount: m.generations.length })),
+    },
+    relatedStories: relatedStories.map((s) => ({ id: s.id, title: s.title, articleSlug: s.articles[0]?.slug ?? null })),
+  });
 });
 
 // --- Topics (rule-based Classifier stand-in — packages/editorial's

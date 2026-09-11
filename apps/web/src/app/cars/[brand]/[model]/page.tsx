@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
 import { getCarModel, type CarEngine } from "@/lib/api";
+
+const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
+const CATEGORY_SCORE_LABEL: Record<string, string> = {
+  adult_occupant: "Adult occupant",
+  child_occupant: "Child occupant",
+  pedestrian: "Pedestrian",
+  safety_assist: "Safety assist",
+};
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -54,10 +63,9 @@ function formatBatteryRange(battery: { rangeKm: number | null; rangeMiles: numbe
   return null;
 }
 
-// spec §24 car page. MVP scope: overview/generations/trims/engines/facts —
-// pricing, photos, competitors, comparisons come once those data sources
-// exist (Image rights engine, Fact-derived pricing) rather than being
-// faked here.
+// spec §24 car page. Photos/crash-test ratings landed 2026-09-11 (vertical-
+// slice plan) — pricing/competitors/comparisons still come once those data
+// sources exist rather than being faked here.
 export default async function CarModelPage({
   params,
 }: {
@@ -76,8 +84,11 @@ export default async function CarModelPage({
   // needs real pages to link to, which this one has.
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: SITE_URL },
+    { name: carModel.brand.name, url: `${SITE_URL}/brands/${brand}` },
     { name: `${carModel.brand.name} ${carModel.name}`, url: `${SITE_URL}/cars/${brand}/${model}` },
   ]);
+
+  const heroImage = carModel.images.find((img) => img.role === "HERO");
 
   return (
     <article>
@@ -87,10 +98,28 @@ export default async function CarModelPage({
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
       <div className="story-meta">
-        {carModel.brand.name}
+        <Link href={`/brands/${brand}`}>{carModel.brand.name}</Link>
         {carModel.brand.country ? ` · ${formatCountryName(carModel.brand.country)}` : ""}
       </div>
       <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{carModel.name}</h1>
+
+      {heroImage && (
+        <figure style={{ margin: "0 0 32px" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+          <img
+            src={heroImage.image.originalUrl}
+            alt={heroImage.altText ?? `${carModel.brand.name} ${carModel.name}`}
+            width={heroImage.image.width ?? undefined}
+            height={heroImage.image.height ?? undefined}
+            style={{ width: "100%", height: "auto", display: "block", borderRadius: 4 }}
+          />
+          {heroImage.image.attribution && (
+            <figcaption className="story-meta" style={{ marginTop: 4 }}>
+              {heroImage.image.attribution}
+            </figcaption>
+          )}
+        </figure>
+      )}
 
       {carModel.facts.length > 0 && (
         <section style={{ marginBottom: 32 }}>
@@ -134,10 +163,37 @@ export default async function CarModelPage({
         </section>
       ))}
 
+      {carModel.crashTests.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>Crash test ratings</h2>
+          <ul className="story-list">
+            {carModel.crashTests.map((test) => (
+              <li key={test.id} className="story-item">
+                <strong>
+                  {CRASH_TEST_ORG_LABEL[test.organization] ?? test.organization} {test.testYear}: {test.overallRating}
+                </strong>
+                {test.categoryScores && (
+                  <div className="story-meta">
+                    {Object.entries(test.categoryScores)
+                      .map(([key, value]) => `${CATEGORY_SCORE_LABEL[key] ?? key}: ${value}`)
+                      .join(" · ")}
+                  </div>
+                )}
+                <div className="story-meta">
+                  <a href={test.sourceUrl} target="_blank" rel="noreferrer">
+                    Source
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {(["OFFICIAL", "CRASH_TEST", "REVIEW"] as const).map((category) => {
         const categoryVideos = carModel.videos.filter((v) => v.category === category);
         if (categoryVideos.length === 0) return null;
-        const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash tests" : "Reviews";
+        const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash test videos" : "Reviews";
         return (
           <section key={category} style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 16 }}>{heading}</h2>
@@ -172,7 +228,7 @@ export default async function CarModelPage({
           <ul className="story-list">
             {relatedStories.map((story) => (
               <li key={story.id} className="story-item">
-                {story.title}
+                {story.articleSlug ? <Link href={`/articles/en/${story.articleSlug}`}>{story.title}</Link> : story.title}
               </li>
             ))}
           </ul>

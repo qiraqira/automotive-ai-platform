@@ -36,7 +36,7 @@ const ALLOWED_LICENSE_PREFIXES = ["cc0", "cc-by-sa", "cc-by", "pd"];
 // searchOpenverseImage() below produce this, so getOrCreateLicense()/
 // attachHeroImage()'s Image.create() call don't need to know which
 // provider a candidate came from except for the `provider` label itself.
-interface ImageCandidate {
+export interface ImageCandidate {
   provider: string;
   title: string;
   thumbUrl: string;
@@ -158,7 +158,7 @@ interface CommonsPage {
   imageinfo?: CommonsImageInfo[];
 }
 
-async function searchCommonsImage(query: string): Promise<ImageCandidate | null> {
+export async function searchCommonsImage(query: string): Promise<ImageCandidate | null> {
   const url = new URL(COMMONS_API);
   url.search = new URLSearchParams({
     action: "query",
@@ -284,13 +284,13 @@ async function searchOpenverseImage(query: string): Promise<ImageCandidate | nul
   return null;
 }
 
-async function hashRemoteImage(url: string): Promise<{ sha256: string; byteLength: number }> {
+export async function hashRemoteImage(url: string): Promise<{ sha256: string; byteLength: number }> {
   const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": USER_AGENT } });
   const buf = Buffer.from(await res.arrayBuffer());
   return { sha256: createHash("sha256").update(buf).digest("hex"), byteLength: buf.length };
 }
 
-async function getOrCreateLicense(candidate: ImageCandidate): Promise<string> {
+export async function getOrCreateLicense(candidate: ImageCandidate): Promise<string> {
   const existing = await prisma.imageLicense.findFirst({
     where: { provider: candidate.provider, licenseType: candidate.licenseSlug },
   });
@@ -319,7 +319,7 @@ async function getOrCreateLicense(candidate: ImageCandidate): Promise<string> {
   return created.id;
 }
 
-function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" | "EDITORIAL_ONLY" {
+export function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" | "EDITORIAL_ONLY" {
   // A brand logo (searchBrandLogo's own "logo" sentinel slug) is neither
   // truly Creative-Commons-licensed content nor safe to imply otherwise —
   // it's used here for the same reason any real newsroom uses it: brand

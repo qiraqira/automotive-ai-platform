@@ -681,9 +681,65 @@ model CarModel {
   facts       Fact[]
   articles    ArticleCarModel[]
   videos      CarVideo[]
+  images      CarModelImage[]
+  crashTests  CrashTestResult[]
 
   @@unique([brandId, slug])
   @@map("car_models")
+}
+
+// Real photos of the actual car (spec's "Photos" model-page section) —
+// deliberately its own join table mirroring ArticleImage's exact shape
+// (role/position/altText over the same Image model, same rights/license
+// tracking) rather than a single `heroImageUrl` string on CarModel: a
+// model page needs more than one photo over time (different generations,
+// angles), and reusing Image means these photos get the same sourcing/
+// attribution discipline as article hero images, not a separate,
+// weaker-tracked path.
+model CarModelImage {
+  id         String           @id @default(cuid())
+  carModelId String
+  carModel   CarModel         @relation(fields: [carModelId], references: [id], onDelete: Cascade)
+  imageId    String
+  image      Image            @relation(fields: [imageId], references: [id])
+  role       ArticleImageRole
+  position   Int              @default(0)
+  altText    String?
+
+  @@map("car_model_images")
+}
+
+// Structured crash-test ratings (spec's Crash Tests section), tied to
+// Brand -> Model -> Generation. Kept as its own model rather than
+// overloading the generic `Fact` table: a real rating is several
+// category scores at once (adult/child occupant, pedestrian, safety
+// assist for Euro NCAP; different category names for IIHS/NHTSA), not a
+// single attribute/value pair, and `categoryScores` holds that shape
+// without forcing every organization's own scoring categories into a
+// fixed schema.
+enum CrashTestOrganization {
+  EURO_NCAP
+  IIHS
+  NHTSA
+}
+
+model CrashTestResult {
+  id             String                @id @default(cuid())
+  carModelId     String
+  carModel       CarModel              @relation(fields: [carModelId], references: [id])
+  generationId   String?
+  generation     Generation?           @relation(fields: [generationId], references: [id])
+  organization   CrashTestOrganization
+  overallRating  String // free text: orgs use different scales ("5 stars" for Euro NCAP, "Good" for IIHS) — never coerced into one numeric scale
+  categoryScores Json?
+  testYear       Int
+  sourceUrl      String
+  videoId        String?
+  video          CarVideo?             @relation(fields: [videoId], references: [id])
+  createdAt      DateTime              @default(now())
+
+  @@index([carModelId])
+  @@map("crash_test_results")
 }
 
 // Curated, not auto-fetched: an editor pastes a real YouTube URL (official
@@ -709,6 +765,8 @@ model CarVideo {
   sourceUrl   String
   createdAt   DateTime         @default(now())
 
+  crashTestResults CrashTestResult[]
+
   @@index([carModelId])
   @@map("car_videos")
 }
@@ -722,6 +780,7 @@ model Generation {
   startYear   Int?
   endYear     Int?
   trims       Trim[]
+  crashTests  CrashTestResult[]
 
   @@unique([carModelId, slug])
   @@map("generations")
@@ -910,6 +969,7 @@ model Image {
   createdAt        DateTime          @default(now())
 
   articleImages ArticleImage[]
+  carModelImages CarModelImage[]
 
   @@index([perceptualHash])
   @@map("images")
