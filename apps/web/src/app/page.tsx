@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { computeRankingScore } from "@automotive/editorial";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getStories, getTopic, getTopicSlugs, type StorySummary, type TopicWithStories } from "@/lib/api";
+import { getStories, getTopic, getTopicSlugs, getGuides, type StorySummary, type TopicWithStories } from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -91,7 +91,11 @@ export default async function HomePage() {
   // reader's actual workflow should be ingest -> write -> quality gate
   // -> publish, in that order, before anything shows up here — not
   // ingest -> immediately show. `hasArticle: true` is the real fix.
-  const [{ stories: unranked }, topicSections] = await Promise.all([getStories({ limit: 20, hasArticle: true }), getTopicSections()]);
+  const [{ stories: unranked }, topicSections, { guides }] = await Promise.all([
+    getStories({ limit: 20, hasArticle: true }),
+    getTopicSections(),
+    getGuides(),
+  ]);
   const stories = rankStories(unranked);
 
   return (
@@ -154,6 +158,36 @@ export default async function HomePage() {
           {stories.length === 0 && <p>No stories ingested yet — run the worker's ingestion job.</p>}
         </ul>
       </section>
+
+      {guides.length > 0 && (
+        // Real gap found and fixed 2026-09-11: the /guides section itself
+        // shipped this same tick, but nothing on the homepage ever
+        // pointed to it — only the footer link and other articles'
+        // internal cross-links did. Same list styling as the Topic
+        // sections below, capped at the 3 most recent since a guide
+        // rarely needs "latest first" the way news does, but 3 recent
+        // ones is still a fair representative sample.
+        <section style={{ marginTop: 32 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+            <Link href="/guides">Guides</Link>
+          </h2>
+          <ul className="story-list">
+            {guides.slice(0, 3).map((guide) => (
+              <li key={guide.slug} className="story-item">
+                <h3 style={{ fontSize: 18, margin: 0 }}>
+                  <Link href={`/articles/${guide.locale}/${guide.slug}`}>{guide.headline}</Link>
+                </h3>
+                {guide.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{guide.subtitle}</p>}
+              </li>
+            ))}
+          </ul>
+          {guides.length > 3 && (
+            <p className="story-meta">
+              <Link href="/guides">See all {guides.length} →</Link>
+            </p>
+          )}
+        </section>
+      )}
 
       {topicSections.map(({ topic, stories: topicStories }) => (
         <section key={topic.id} style={{ marginTop: 32 }}>
