@@ -506,6 +506,18 @@ model Article {
   id              String         @id @default(cuid())
   storyId         String?
   story           Story?         @relation(fields: [storyId], references: [id])
+  // Real gap found and fixed 2026-09-11: Topic linking only ever flowed
+  // through Story.primaryTopicId — an evergreen Article with no Story
+  // (COMPARISON/ANALYSIS/GUIDE/EXPLAINER content, exactly what
+  // seed-real-articles.ts writes) had no way to be listed under a real
+  // Topic page at all, even when it's genuinely about that topic (the
+  // BMW/Mercedes EV-naming ANALYSIS piece is squarely "Electric
+  // Vehicles"). A direct, optional FK — not an EntityRelation edge —
+  // since this is a single concrete relationship to one other model,
+  // the same shape Story.primaryTopicId already uses, not the
+  // genuinely-polymorphic case EntityRelation exists for.
+  topicId         String?
+  topic           Topic?         @relation(fields: [topicId], references: [id])
   locale          Locale
   editionGroupId  String? // links the EN/ES independent editions of the "same" piece — see schema note #2
   type            ArticleType
@@ -845,10 +857,11 @@ model Company {
 }
 
 model Topic {
-  id      String  @id @default(cuid())
-  slug    String  @unique
-  name    String
-  stories Story[]
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String
+  stories  Story[]
+  articles Article[]
 
   @@map("topics")
 }

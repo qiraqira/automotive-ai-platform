@@ -918,7 +918,28 @@ app.get("/v1/topics/:slug", async (req, res) => {
     },
   });
 
-  res.json({ topic, stories });
+  // Real gap found and fixed 2026-09-11: evergreen Articles (COMPARISON/
+  // ANALYSIS/GUIDE/EXPLAINER, no Story) had no way to appear under a
+  // Topic page at all — Topic linking only ever flowed through
+  // Story.primaryTopicId. Same shape as the stories list above (real
+  // hero image + rightsStatus for the same logo-fallback crop handling
+  // apps/web's own pages already do), ordered newest-first like every
+  // other real content list in this file.
+  const articles = await prisma.article.findMany({
+    where: { topicId: topic.id, status: "PUBLISHED", locale: "en" },
+    orderBy: { publishedAt: "desc" },
+    take: 50,
+    select: {
+      slug: true,
+      headline: true,
+      subtitle: true,
+      type: true,
+      publishedAt: true,
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+    },
+  });
+
+  res.json({ topic, stories, articles });
 });
 
 // --- Analytics (spec §49) ---

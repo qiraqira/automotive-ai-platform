@@ -33,7 +33,7 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const result = await getTopic(slug);
   if (!result) notFound();
-  const { topic, stories } = result;
+  const { topic, stories, articles } = result;
 
   // spec §29: real BreadcrumbList — same reasoning as the car page (see
   // its own comment), no fabricated "/topics" index page since none
@@ -95,6 +95,52 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         })}
         {stories.length === 0 && <p>No stories classified under this topic yet.</p>}
       </ul>
+
+      {articles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: evergreen content
+        // (comparisons, analysis, guides) has no Story and so never
+        // showed up above no matter how relevant it is to this Topic —
+        // see Article.topicId's own schema comment for why a Story-only
+        // feed missed this real category of content entirely.
+        <>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginTop: 32 }}>
+            Analysis &amp; guides
+          </h2>
+          <ul className="story-list">
+            {articles.map((article) => {
+              const heroUrl = article.images[0]?.image.originalUrl;
+              const isLogo =
+                article.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
+              return (
+                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {heroUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                    <img
+                      src={heroUrl}
+                      alt=""
+                      style={{
+                        width: 96,
+                        height: 64,
+                        objectFit: isLogo ? "contain" : "cover",
+                        background: isLogo ? "#fff" : undefined,
+                        padding: isLogo ? 8 : undefined,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                  <div>
+                    <div className="story-meta">{article.type}</div>
+                    <h3 style={{ fontSize: 18, margin: 0 }}>
+                      <Link href={`/articles/en/${article.slug}`}>{article.headline}</Link>
+                    </h3>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

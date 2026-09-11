@@ -307,9 +307,22 @@ export async function getBrand(slug: string): Promise<BrandWithRelated | null> {
   return res.json();
 }
 
+// Evergreen Articles tagged directly with this Topic (no Story) — see
+// GET /v1/topics/:slug's own comment for why this exists alongside
+// `stories` rather than being folded into it.
+export interface TopicArticleSummary {
+  slug: string;
+  headline: string;
+  subtitle: string | null;
+  type: string;
+  publishedAt: string | null;
+  images: { image: { originalUrl: string; rightsStatus: string } }[];
+}
+
 export interface TopicWithStories {
   topic: { id: string; slug: string; name: string };
   stories: StorySummary[];
+  articles: TopicArticleSummary[];
 }
 
 export async function getTopic(slug: string): Promise<TopicWithStories | null> {
