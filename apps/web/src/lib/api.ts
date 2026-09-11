@@ -157,6 +157,13 @@ export interface CarFact {
   market: { code: string; name: string } | null;
 }
 
+export interface CarVideo {
+  id: string;
+  youtubeId: string;
+  title: string;
+  category: "OFFICIAL" | "CRASH_TEST" | "REVIEW";
+}
+
 export interface CarModelDetail {
   id: string;
   slug: string;
@@ -164,6 +171,7 @@ export interface CarModelDetail {
   brand: { id: string; slug: string; name: string; country: string | null };
   generations: CarGeneration[];
   facts: CarFact[];
+  videos: CarVideo[];
 }
 
 export interface SearchResults {

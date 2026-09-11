@@ -64,7 +64,7 @@ test("homepage carries the real cross-origin isolation and legacy-hardening head
 // so it asserts the dev-mode value (`'unsafe-eval'` + `ws:` — both
 // removed in the real production build, verified separately by hand
 // since `npm run e2e` doesn't build/start production).
-test("homepage carries a real Content-Security-Policy with no external origins allowed beyond the one deliberate img-src exception", async ({ request }) => {
+test("homepage carries a real Content-Security-Policy with no external origins allowed beyond the two deliberate exceptions", async ({ request }) => {
   // Real gap found and fixed 2026-09-09, this repo's first real GitHub
   // Actions run: this test's own title/assertion said "no external
   // origins allowed anywhere" — true when it was written, but
@@ -76,6 +76,14 @@ test("homepage carries a real Content-Security-Policy with no external origins a
   // actually asserted against in CI. Now asserts the one deliberate
   // exception is present and that it's still the ONLY external origin
   // anywhere in the header, rather than re-asserting a blanket "none".
+  //
+  // Second deliberate exception added 2026-09-11: `frame-src
+  // https://www.youtube-nocookie.com` for the real CarVideo embeds on
+  // /cars/:brand/:model (user's own ask — official manufacturer and
+  // crash-test videos playable on the model page, not just linked out).
+  // The privacy-enhanced youtube-nocookie.com domain is used specifically
+  // so the embed doesn't set a YouTube cookie until a visitor actually
+  // presses play.
   const res = await request.get("/");
   const csp = res.headers()["content-security-policy"];
   expect(csp).toBeDefined();
@@ -83,8 +91,9 @@ test("homepage carries a real Content-Security-Policy with no external origins a
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("img-src 'self' data: https://*.wikimedia.org");
+  expect(csp).toContain("frame-src https://www.youtube-nocookie.com");
   const externalOrigins = csp!.match(/https?:\/\/(?!localhost)\S*/g) ?? [];
   for (const origin of externalOrigins) {
-    expect(origin).toMatch(/^https:\/\/\*\.wikimedia\.org;?$/);
+    expect(origin).toMatch(/^https:\/\/(\*\.wikimedia\.org|www\.youtube-nocookie\.com);?$/);
   }
 });

@@ -680,9 +680,37 @@ model CarModel {
   generations Generation[]
   facts       Fact[]
   articles    ArticleCarModel[]
+  videos      CarVideo[]
 
   @@unique([brandId, slug])
   @@map("car_models")
+}
+
+// Curated, not auto-fetched: an editor pastes a real YouTube URL (official
+// reveal, manufacturer walkaround, third-party crash test) rather than this
+// platform searching/matching one itself — same "real, not fabricated" bar
+// as the Image model's rights fields, and side-steps needing a YouTube Data
+// API key this project doesn't have configured. `category` lets the car
+// page group "Official" vs "Crash test" vs "Review" rather than one flat
+// list, since the user's own ask was specifically for both of the first two.
+enum CarVideoCategory {
+  OFFICIAL
+  CRASH_TEST
+  REVIEW
+}
+
+model CarVideo {
+  id          String           @id @default(cuid())
+  carModelId  String
+  carModel    CarModel         @relation(fields: [carModelId], references: [id])
+  youtubeId   String
+  title       String
+  category    CarVideoCategory
+  sourceUrl   String
+  createdAt   DateTime         @default(now())
+
+  @@index([carModelId])
+  @@map("car_videos")
 }
 
 model Generation {

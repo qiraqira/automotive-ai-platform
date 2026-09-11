@@ -134,6 +134,38 @@ export default async function CarModelPage({
         </section>
       ))}
 
+      {(["OFFICIAL", "CRASH_TEST", "REVIEW"] as const).map((category) => {
+        const categoryVideos = carModel.videos.filter((v) => v.category === category);
+        if (categoryVideos.length === 0) return null;
+        const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash tests" : "Reviews";
+        return (
+          <section key={category} style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 16 }}>{heading}</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {categoryVideos.map((video) => (
+                <div key={video.id}>
+                  <div className="story-meta">{video.title}</div>
+                  {/* 16:9 responsive embed via the classic padding-bottom trick — this
+                      app has no CSS framework/utility classes, only inline styles, so
+                      the wrapper's height comes from that padding rather than aspect-ratio
+                      (broad browser support without depending on a newer CSS feature). */}
+                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, maxWidth: 640 }}>
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}`}
+                      title={video.title}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
       {relatedStories.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 16 }}>Related stories</h2>

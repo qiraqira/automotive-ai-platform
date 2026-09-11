@@ -21,6 +21,7 @@ import { prisma } from "@automotive/database";
 import { env, qualityGateThresholds } from "@automotive/config";
 import { evaluateQualityGate, type QualityScores } from "@automotive/editorial";
 import { ENTITY_TYPE } from "@automotive/types";
+import { extractYoutubeId } from "@automotive/utils";
 import { hashPassword, comparePassword, signSession } from "./auth.js";
 import { attachSession, requirePermission } from "./permissions.js";
 import { rateLimit } from "./rate-limit.js";
@@ -719,6 +720,11 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
         },
       },
       facts: { include: { market: true }, orderBy: { validFrom: "desc" } },
+      // User's own ask: a model page should let a visitor watch official
+      // manufacturer videos and crash-test footage, not just read specs
+      // and news. Newest-first within each category, same convention as
+      // every other real-content list in this file (facts, stories).
+      videos: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -2002,6 +2008,92 @@ app.patch("/v1/batteries/:id", requirePermission("UPDATE_CAR"), async (req, res)
   });
 
   res.json(after);
+});
+
+// --- Admin: car videos (UPDATE_CAR-gated) ---
+//
+// Direct user request: a model page should let a visitor watch real
+// official manufacturer videos and crash-test footage, not just read
+// specs and news. Curated by a human editor pasting a real YouTube URL —
+// same as every other real-content path in this file, no fabricated or
+// auto-scraped video ever attached — and validated server-side with
+// extractYoutubeId() rather than trusting the client to have parsed it
+// correctly, the same posture as every other create endpoint in this
+// section validating its own input before touching the database.
+const createCarVideoSchema = z.object({
+  url: z.string().min(1),
+  title: z.string().min(1),
+  category: z.enum(["OFFICIAL", "CRASH_TEST", "REVIEW"]),
+});
+
+app.post("/v1/cars/:brandSlug/:modelSlug/videos", requirePermission("UPDATE_CAR"), async (req, res) => {
+  const parsed = createCarVideoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_body", issues: parsed.error.issues });
+    return;
+  }
+
+  const youtubeId = extractYoutubeId(parsed.data.url);
+  if (!youtubeId) {
+    res.status(400).json({ error: "invalid_youtube_url" });
+    return;
+  }
+
+  const carModel = await prisma.carModel.findFirst({
+    where: { slug: req.params.modelSlug, brand: { slug: req.params.brandSlug } },
+  });
+  if (!carModel) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  const video = await prisma.carVideo.create({
+    data: {
+      carModelId: carModel.id,
+      youtubeId,
+      title: parsed.data.title,
+      category: parsed.data.category,
+      sourceUrl: parsed.data.url,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorType: "HUMAN",
+      actorLabel: await auditActorLabel(req.userId),
+      actorUserId: req.userId,
+      action: "create_car_video",
+      entityType: "CarVideo",
+      entityId: video.id,
+      after: video as unknown as object,
+    },
+  });
+
+  res.status(201).json(video);
+});
+
+app.delete("/v1/car-videos/:id", requirePermission("UPDATE_CAR"), async (req, res) => {
+  const before = await prisma.carVideo.findUnique({ where: { id: req.params.id } });
+  if (!before) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  await prisma.carVideo.delete({ where: { id: req.params.id } });
+
+  await prisma.auditLog.create({
+    data: {
+      actorType: "HUMAN",
+      actorLabel: await auditActorLabel(req.userId),
+      actorUserId: req.userId,
+      action: "delete_car_video",
+      entityType: "CarVideo",
+      entityId: before.id,
+      before: before as unknown as object,
+    },
+  });
+
+  res.status(204).end();
 });
 
 // --- Admin: car fact correction (spec §24/§90-91, UPDATE_CAR-gated) ---

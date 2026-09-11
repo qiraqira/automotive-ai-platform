@@ -50,6 +50,7 @@ const nextConfig = {
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
+      frame-src https://www.youtube-nocookie.com;
       upgrade-insecure-requests;
     `
       .replace(/\s{2,}/g, " ")

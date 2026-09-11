@@ -25,6 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_body: "Check the required fields.",
   slug_taken: "That slug is already taken.",
   brand_not_found: "That brand doesn't exist — add it first.",
+  invalid_youtube_url: "Couldn't find a video ID in that URL — paste a real youtube.com/watch, youtu.be, /embed/, or /shorts/ link.",
   // Real gap found and fixed 2026-09-07: every correction route handler
   // sharing this page (battery/brand/engine/generation/trim/car-model/
   // fact) used to discard its real API response and always redirect
@@ -441,6 +442,56 @@ export default async function AdminCarsPage({
                 style={{ width: 100 }}
               />
               <button type="submit">Add generation</button>
+            </form>
+
+            <h4 style={{ fontSize: 14, marginTop: 16 }}>Videos</h4>
+            {carModel.videos.length === 0 ? (
+              <p className="story-meta">No videos added yet.</p>
+            ) : (
+              <ul className="story-list">
+                {carModel.videos.map((video) => (
+                  <li key={video.id} className="story-item" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="badge">{video.category}</span>
+                    <span>{video.title}</span>
+                    <a href={`https://www.youtube.com/watch?v=${video.youtubeId}`} target="_blank" rel="noreferrer">
+                      watch
+                    </a>
+                    <form method="post" action={`/api/admin/car-videos/${video.id}`}>
+                      <button type="submit" aria-label={`Remove video ${video.title} for ${carLabel}`}>
+                        Remove
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              method="post"
+              action={`/api/admin/cars/${carModel.brand.slug}/${carModel.slug}/videos`}
+              style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
+            >
+              <input
+                type="url"
+                name="url"
+                placeholder="YouTube URL"
+                aria-label={`New video URL for ${carLabel}`}
+                required
+                style={{ width: 220 }}
+              />
+              <input
+                type="text"
+                name="title"
+                placeholder="title (e.g. Official reveal)"
+                aria-label={`New video title for ${carLabel}`}
+                required
+                style={{ width: 200 }}
+              />
+              <select name="category" aria-label={`New video category for ${carLabel}`} defaultValue="OFFICIAL">
+                <option value="OFFICIAL">Official</option>
+                <option value="CRASH_TEST">Crash test</option>
+                <option value="REVIEW">Review</option>
+              </select>
+              <button type="submit">Add video</button>
             </form>
           </div>
         );
