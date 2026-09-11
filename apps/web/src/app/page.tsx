@@ -29,7 +29,14 @@ const HOME_DESCRIPTION =
   "Explore car specifications, generations, safety ratings and comparisons. Research models by brand, compare engines and powertrains, and follow the latest automotive news.";
 
 export const metadata: Metadata = {
-  title: HOME_TITLE,
+  // Verified live: unlike every nested route (car/brand/guides/topics
+  // pages), the root "/" page does not inherit layout.tsx's title
+  // template — Next.js resolves the root layout+page pair as a single
+  // segment rather than templating across it. Suffixing manually here is
+  // the one deliberate exception to SEO.md's "bare string, no suffix"
+  // rule, and only because the template genuinely doesn't reach this
+  // route.
+  title: `${HOME_TITLE} | ${SITE_NAME}`,
   description: HOME_DESCRIPTION,
   alternates: {
     canonical: buildLocaleUrl(SITE_URL, "en", ""),

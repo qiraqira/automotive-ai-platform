@@ -11,6 +11,11 @@ site — it documents what's actually implemented, not an aspirational plan.
   own `title` as a **bare string with no site-name suffix** — Next appends
   `| AutoNewsFeed` automatically. Never hardcode the suffix in a page's own
   title.
+- Exception: the root `/` page (`apps/web/src/app/page.tsx`) does NOT
+  inherit the layout's title template — verified live, Next.js resolves
+  the root layout+page pair as one segment rather than templating
+  across it. It's the one page that manually appends `| AutoNewsFeed`
+  to its own title string. Every other route templates correctly.
 - Build the title from real, currently-rendered content only. If a section
   wouldn't render (no crash-test data, no related news), its keyword
   doesn't belong in the title — see `buildCarPageCopy()` in
