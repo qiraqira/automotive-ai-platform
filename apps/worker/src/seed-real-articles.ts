@@ -11,13 +11,12 @@ import type { ArticleType, ContentPurpose } from "@automotive/database";
 // written once by a real editorial pass rather than generated per event.
 //
 // Real, current limitation worth flagging here rather than silently
-// working around: ArticleBlockType includes SPEC_TABLE/COMPARISON/
-// FACT_TABLE, but apps/web's article page (articles/[locale]/[slug]/
-// page.tsx) only ever renders TEXT blocks today — every other block type
-// is silently dropped. Rather than write a block type nothing renders,
-// every article below is real, sourced prose in sequential TEXT blocks,
-// which works with the renderer that actually exists. A structured
-// table renderer is real follow-up work, not done here.
+// working around: ArticleBlockType includes FACT_TABLE/TIMELINE/etc.,
+// but apps/web's article page (articles/[locale]/[slug]/page.tsx) only
+// renders TEXT and, as of 2026-09-11, SPEC_TABLE — every other block
+// type is still silently dropped. The COMPARISON article below now uses
+// a real SPEC_TABLE block (its `specTable` field) for the structured
+// side-by-side numbers, alongside its prose TEXT blocks.
 //
 // Second real limitation found while adding the ANALYSIS piece below:
 // Article has no direct Topic relation at all — Topic linking only
@@ -48,6 +47,11 @@ interface ArticleSpec {
    * doesn't fit (the X5-vs-GLE comparison below isn't specifically an EV
    * story, so it isn't tagged "electric-vehicles" just to have one). */
   topicSlug?: string;
+  /** Real structured side-by-side numbers, rendered via the SPEC_TABLE
+   * block type (apps/web's article page, added 2026-09-11) — appended
+   * after the prose TEXT blocks as a quick-reference recap, not a
+   * replacement for the narrative comparison above it. */
+  specTable?: { headers: string[]; rows: { label: string; values: string[] }[] };
   scores: { qualityScore: number; originalityScore: number; factualScore: number; sourceScore: number; valueScore: number; readabilityScore: number };
 }
 
@@ -78,6 +82,20 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "bmw", modelSlug: "x5" },
       { brandSlug: "mercedes-benz", modelSlug: "gle" },
     ],
+    specTable: {
+      headers: ["BMW X5", "Mercedes-Benz GLE"],
+      rows: [
+        { label: "Length", values: ["4,935 mm", "4,924-4,930 mm"] },
+        { label: "Wheelbase", values: ["2,975 mm", "2,995 mm"] },
+        { label: "Height", values: ["1,765 mm", "1,795-1,797 mm"] },
+        { label: "Mainstream 6-cyl. power", values: ["335 hp (xDrive40i)", "362 hp (GLE 450)"] },
+        { label: "Performance V8 power", values: ["523 hp (M50i)", "603 hp (AMG GLE 63 S)"] },
+        { label: "Euro NCAP — adult occupant", values: ["89%", "91%"] },
+        { label: "Euro NCAP — child occupant", values: ["86%", "90%"] },
+        { label: "Euro NCAP — pedestrian", values: ["75%", "78%"] },
+        { label: "Euro NCAP — safety assist", values: ["75%", "78%"] },
+      ],
+    },
     scores: { qualityScore: 88, originalityScore: 85, factualScore: 92, sourceScore: 90, valueScore: 88, readabilityScore: 85 },
   },
   {
@@ -109,27 +127,40 @@ const ARTICLES: ArticleSpec[] = [
 
 async function main() {
   for (const spec of ARTICLES) {
-    const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } } });
+    const existing = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } }, include: { blocks: true } });
     if (existing) {
-      // Real gap found and fixed the same tick topicSlug was added: this
-      // idempotency check correctly avoids duplicating content, but it
-      // also skipped syncing a field added to the spec *after* the
-      // article already existed — the ANALYSIS article below got a real
-      // topicSlug added post-creation, and this branch would have
-      // silently left its topicId null forever, exactly the gap this
-      // whole feature exists to close. Syncs topicId (only) on an
-      // existing row when the spec's now says something different, never
-      // touches content that's already real and published.
+      // Real gap found and fixed the tick topicSlug was added, generalized
+      // the tick specTable was added: this idempotency check correctly
+      // avoids duplicating content, but a naive version also skips
+      // syncing any field added to a spec *after* the article already
+      // existed. Both topicId and a missing SPEC_TABLE block get synced
+      // independently below — never touches TEXT content that's already
+      // real and published, and never duplicates a SPEC_TABLE block that's
+      // already there.
+      const syncedNotes: string[] = [];
+
       if (spec.topicSlug) {
         const topic = await prisma.topic.findUnique({ where: { slug: spec.topicSlug } });
         if (!topic) throw new Error(`Topic "${spec.topicSlug}" not found — check packages/database/src/bootstrap.ts's real topic list.`);
         if (existing.topicId !== topic.id) {
           await prisma.article.update({ where: { id: existing.id }, data: { topicId: topic.id } });
-          console.log(`Article "${spec.slug}" already exists (${existing.id}) — synced topicId to "${spec.topicSlug}".`);
-          continue;
+          syncedNotes.push(`topicId -> "${spec.topicSlug}"`);
         }
       }
-      console.log(`Article "${spec.slug}" already exists (${existing.id}) — not creating a duplicate.`);
+
+      if (spec.specTable && !existing.blocks.some((b) => b.type === "SPEC_TABLE")) {
+        const nextPosition = existing.blocks.length > 0 ? Math.max(...existing.blocks.map((b) => b.position)) + 1 : 0;
+        await prisma.articleBlock.create({
+          data: { articleId: existing.id, type: "SPEC_TABLE", position: nextPosition, data: spec.specTable },
+        });
+        syncedNotes.push("added missing SPEC_TABLE block");
+      }
+
+      console.log(
+        syncedNotes.length > 0
+          ? `Article "${spec.slug}" already exists (${existing.id}) — synced: ${syncedNotes.join(", ")}.`
+          : `Article "${spec.slug}" already exists (${existing.id}) — not creating a duplicate.`,
+      );
       continue;
     }
 
@@ -166,7 +197,12 @@ async function main() {
         // than left null, so this doesn't fall through
         // evaluateQualityGate()'s live re-check as an unscored article.
         ...spec.scores,
-        blocks: { create: spec.paragraphs.map((text, position) => ({ type: "TEXT" as const, position, data: { text } })) },
+        blocks: {
+          create: [
+            ...spec.paragraphs.map((text, position) => ({ type: "TEXT" as const, position, data: { text } })),
+            ...(spec.specTable ? [{ type: "SPEC_TABLE" as const, position: spec.paragraphs.length, data: spec.specTable }] : []),
+          ],
+        },
         carModels: { create: carModels.map((cm) => ({ carModelId: cm.id })) },
         citations: { create: spec.citations },
       },

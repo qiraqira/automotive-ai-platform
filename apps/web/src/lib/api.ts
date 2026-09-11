@@ -335,11 +335,17 @@ export async function getTopic(slug: string): Promise<TopicWithStories | null> {
   return res.json();
 }
 
+// `data`'s real shape depends on `type` (packages/database/prisma/
+// schema.prisma's ArticleBlock.data comment says exactly this — "shape
+// depends on type; validated at write time, not by the DB"). TEXT was
+// the only real shape until SPEC_TABLE landed 2026-09-11 alongside its
+// first real renderer — see that page's own comment for why a
+// structured comparison table couldn't just be written before then.
 export interface ArticleBlock {
   id: string;
   type: string;
   position: number;
-  data: { text?: string };
+  data: { text?: string; headers?: string[]; rows?: { label: string; values: string[] }[] };
 }
 
 export interface ArticleHeroImage {

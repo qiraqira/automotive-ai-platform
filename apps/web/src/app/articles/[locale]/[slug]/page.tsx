@@ -88,12 +88,14 @@ export async function generateMetadata({
 
 // The first real page rendering apps/worker/src/write-article.ts's real
 // AI-written Article rows — MVP scope: headline/subtitle/keyTakeaway plus
-// ordered TEXT blocks (the only ArticleBlockType the Writer stage
-// produces today; FACT_TABLE/SPEC_TABLE/etc. render once a real stage
-// produces them, not faked here). `authorType` is always shown, not
-// hidden — spec's own AI-transparency principle (see /about/how-we-use-ai)
-// applies to the very first article this platform ever published, not
-// just a future polished version.
+// ordered TEXT blocks (the only ArticleBlockType the real-time News
+// Writer stage produces) and, since 2026-09-11, SPEC_TABLE (the hand-
+// authored evergreen content in apps/worker/src/seed-real-articles.ts
+// is this block type's first real user). FACT_TABLE/TIMELINE/etc. still
+// render as nothing — not faked here — until a real caller writes one.
+// `authorType` is always shown, not hidden — spec's own AI-transparency
+// principle (see /about/how-we-use-ai) applies to the very first article
+// this platform ever published, not just a future polished version.
 export default async function ArticlePage({
   params,
 }: {
@@ -172,13 +174,54 @@ export default async function ArticlePage({
         </div>
       )}
 
-      {article.blocks.map((block) =>
-        block.type === "TEXT" && block.data.text ? (
-          <p key={block.id} style={{ marginBottom: 16, lineHeight: 1.6 }}>
-            {block.data.text}
-          </p>
-        ) : null,
-      )}
+      {article.blocks.map((block) => {
+        if (block.type === "TEXT" && block.data.text) {
+          return (
+            <p key={block.id} style={{ marginBottom: 16, lineHeight: 1.6 }}>
+              {block.data.text}
+            </p>
+          );
+        }
+        // Real gap closed 2026-09-11: ArticleBlockType.SPEC_TABLE existed
+        // in the schema since it first landed, but nothing ever rendered
+        // it — every COMPARISON article had to be written as prose-only
+        // TEXT blocks, even though a side-by-side spec table is exactly
+        // what a comparison piece should lead with. First real renderer,
+        // first real block using it (seed-real-articles.ts's BMW X5 vs
+        // Mercedes GLE piece).
+        if (block.type === "SPEC_TABLE" && block.data.headers && block.data.rows) {
+          const { headers, rows } = block.data;
+          return (
+            <div key={block.id} style={{ overflowX: "auto", marginBottom: 24 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 12px 6px 0", borderBottom: "2px solid var(--line)" }} />
+                    {headers.map((h) => (
+                      <th key={h} style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.label}>
+                      <td style={{ padding: "6px 12px 6px 0", fontWeight: 700, borderBottom: "1px solid var(--line)" }}>{row.label}</td>
+                      {row.values.map((v, i) => (
+                        <td key={i} style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                          {v}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        return null;
+      })}
 
       {article.story && (
         // No standalone Story detail page exists yet (see README's status
