@@ -99,7 +99,7 @@ const ARTICLES: ArticleSpec[] = [
     paragraphs: [
       "The BMW X5 (G05, on sale since 2018) and the Mercedes-Benz GLE (W167, also since 2018) are the two cars each brand's own shoppers cross-compare most: both are mid-size, three-row-capable luxury SUVs built in Germany, updated on almost identical timelines, and aimed at the same buyer trading up from a 5 Series or E-Class wagon into something taller.",
       "Dimensions are close enough that neither car reads as obviously bigger in person. The X5 is 4,935mm long on a 2,975mm wheelbase; the GLE is 4,924-4,930mm long (depending on trim) on a slightly longer 2,995mm wheelbase. The GLE is also about 30mm taller (1,795-1,797mm vs the X5's 1,765mm), which shows up mainly as a little extra headroom rather than a different footprint on the road.",
-      "In the mainstream six-cylinder trims, Mercedes has the clearer power advantage at launch spec: the GLE 450's 3.0L turbo inline-six (M256) makes 362hp, against 335hp from the X5 xDrive40i's own 3.0L turbo six (B58). Both use mild-hybrid assistance on that six-cylinder engine, and both offer a plug-in hybrid variant in some markets — figures for those vary by market and model year, so they're not compared spec-for-spec here.",
+      "In the mainstream six-cylinder trims, Mercedes has the clearer power advantage at launch spec: the GLE 450's 3.0L turbo inline-six (M256) makes 362hp, against 335hp from the X5 xDrive40i's own 3.0L turbo six (B58). Both use mild-hybrid assistance on that six-cylinder engine, and both also offer a real plug-in hybrid variant — the X5 xDrive45e (389hp combined, 24 kWh battery, 30 miles EPA electric range) against the GLE 450e (381hp combined, 23.3 kWh battery, but a real 38-48 mile EPA electric range). The GLE 450e's edge here is genuinely counterintuitive: a smaller battery delivering more real-world electric range than the X5's larger one, not a typo — see this site's own hybrid/PHEV/EV guide for how battery size and real efficiency are two different things.",
       "At the performance end, it's not quite an apples-to-apples pairing: BMW's direct answer to the 603hp Mercedes-AMG GLE 63 S (4.0L biturbo V8, M177) is the X5 M, not the M50i covered in this comparison. The M50i (4.4L twin-turbo V8, N63, 523hp) is BMW's one-step-down performance trim — closer in spirit to a Mercedes-AMG GLE 53 than to the full-fat GLE 63 S.",
       "Both cars hold the same top result in Euro NCAP's crash testing, but the GLE scores higher across every individual category: the X5 (tested 2018) came away with 89% adult occupant, 86% child occupant, 75% pedestrian and 75% safety assist; the GLE (tested 2019) scored 91%, 90%, 78% and 78% respectively. Five stars either way, but the GLE's margin is real and consistent, not a rounding difference in one category.",
       "Neither of these is a case for picking one car over the other on paper alone — the GLE's extra six-cylinder power and slightly better crash-test category scores are real, documented advantages, but the X5's own strengths (see its Facts and Generations above) matter just as much for a real buying decision. Both are covered in full on their own model pages, including their real specifications, official videos and any relevant recent news.",
@@ -109,11 +109,14 @@ const ARTICLES: ArticleSpec[] = [
       { label: "Mercedes-Benz GLE-Class — Wikipedia", url: "https://en.wikipedia.org/wiki/Mercedes-Benz_GLE-Class" },
       { label: "BMW X5 — Euro NCAP 2018 assessment", url: "https://www.euroncap.com/assessments/bmw/x5/0743/" },
       { label: "Mercedes-Benz GLE — Euro NCAP 2019 assessment", url: "https://www.euroncap.com/assessments/mercedes-benz/gle/0755/" },
+      { label: "BMW X5 xDrive45e — InsideEVs", url: "https://insideevs.com/news/428079/bmw-x5-xdrive45e-us-specs-range-price/" },
+      { label: "2024 Mercedes-Benz GLE 450e — Edmunds", url: "https://www.edmunds.com/mercedes-benz/gle-class/2024/plug-in-hybrid/st-401992361/features-specs/" },
     ],
     carModelSlugs: [
       { brandSlug: "bmw", modelSlug: "x5" },
       { brandSlug: "mercedes-benz", modelSlug: "gle" },
     ],
+    relatedArticleSlugs: ["hybrid-vs-plug-in-hybrid-vs-ev-explained"],
     specTable: {
       headers: ["BMW X5", "Mercedes-Benz GLE"],
       rows: [
@@ -122,6 +125,7 @@ const ARTICLES: ArticleSpec[] = [
         { label: "Height", values: ["1,765 mm", "1,795-1,797 mm"] },
         { label: "Mainstream 6-cyl. power", values: ["335 hp (xDrive40i)", "362 hp (GLE 450)"] },
         { label: "Performance V8 power", values: ["523 hp (M50i)", "603 hp (AMG GLE 63 S)"] },
+        { label: "Plug-in hybrid power / range", values: ["389 hp / 30 mi (xDrive45e)", "381 hp / 38-48 mi (GLE 450e)"] },
         { label: "Euro NCAP — adult occupant", values: ["89%", "91%"] },
         { label: "Euro NCAP — child occupant", values: ["86%", "90%"] },
         { label: "Euro NCAP — pedestrian", values: ["75%", "78%"] },
@@ -268,9 +272,10 @@ const ARTICLES: ArticleSpec[] = [
     carModelSlugs: [
       { brandSlug: "toyota", modelSlug: "rav4" },
       { brandSlug: "bmw", modelSlug: "x5" },
+      { brandSlug: "mercedes-benz", modelSlug: "gle" },
       { brandSlug: "tesla", modelSlug: "model-y" },
     ],
-    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y"],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y", "bmw-x5-vs-mercedes-benz-gle"],
     specTable: {
       headers: ["Hybrid (HEV)", "Plug-in Hybrid (PHEV)", "Full Electric (EV)"],
       rows: [
@@ -333,7 +338,11 @@ async function main() {
   for (const spec of ARTICLES) {
     const existing = await prisma.article.findUnique({
       where: { locale_slug: { locale: "en", slug: spec.slug } },
-      include: { blocks: true, carModels: { select: { carModel: { select: { slug: true, brand: { select: { slug: true } } } } } } },
+      include: {
+        blocks: true,
+        carModels: { select: { carModel: { select: { slug: true, brand: { select: { slug: true } } } } } },
+        citations: { select: { url: true } },
+      },
     });
     if (existing) {
       // Real gap found and fixed the tick topicSlug was added, generalized
@@ -408,6 +417,18 @@ async function main() {
           await prisma.articleCarModel.create({ data: { articleId: existing.id, carModelId: carModel.id } });
         }
         syncedNotes.push(`linked ${missingCarModelSlugs.length} missing CarModel(s): ${missingCarModelSlugs.map((c) => `${c.brandSlug}/${c.modelSlug}`).join(", ")}`);
+      }
+
+      // Same pattern once more: a citation added to the spec after the
+      // article already existed (e.g. this comparison's new PHEV
+      // paragraph needed two new real sources) needs to be added, not
+      // silently dropped. Matched by URL, since that's the one field a
+      // citation can't share with another real one.
+      const existingCitationUrls = new Set(existing.citations.map((c) => c.url));
+      const missingCitations = spec.citations.filter((c) => !existingCitationUrls.has(c.url));
+      if (missingCitations.length > 0) {
+        await prisma.citation.createMany({ data: missingCitations.map((c) => ({ articleId: existing.id, label: c.label, url: c.url })) });
+        syncedNotes.push(`added ${missingCitations.length} missing citation(s)`);
       }
 
       console.log(
