@@ -189,7 +189,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "tesla", modelSlug: "model-y" },
       { brandSlug: "toyota", modelSlug: "rav4" },
     ],
-    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y"],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y", "ford-f-150-49-years-best-selling-truck-vs-global-race"],
     specTable: {
       headers: ["2023", "2024", "2025"],
       rows: [
@@ -331,6 +331,44 @@ const ARTICLES: ArticleSpec[] = [
       "euro-ncap-star-ratings-explained",
     ],
     scores: { qualityScore: 88, originalityScore: 87, factualScore: 90, sourceScore: 89, valueScore: 91, readabilityScore: 87 },
+  },
+  {
+    slug: "ford-f-150-49-years-best-selling-truck-vs-global-race",
+    type: "ANALYSIS",
+    contentPurpose: "ANALYSIS",
+    headline: "The Ford F-150 Doesn't Need to Win the Global Sales Race. It's Been Winning a Bigger One for 49 Years",
+    subtitle: "While the Tesla Model Y and Toyota RAV4 trade the world's-best-seller title back and forth by a few thousand units, the F-Series has out-sold America's second-place vehicle by a quarter of a million.",
+    keyTakeaway:
+      "The Model Y/RAV4 global sales race is genuinely close - decided by fewer than 3,000 units some years. The Ford F-Series isn't in that global race at all (it sells in far smaller numbers outside North America), but domestically it isn't a race at any margin: 828,832 F-Series trucks sold in the US in 2025, beating the second-place Chevrolet Silverado by nearly 250,000 units, extending a streak of being America's best-selling vehicle - any body style, any brand - for 44 consecutive years.",
+    paragraphs: [
+      "Two of this site's own models are currently locked in one of the closest sales races in the auto industry: the Tesla Model Y and Toyota RAV4 have traded the title of world's best-selling vehicle back and forth since 2023, some years decided by a margin under 3,000 units out of well over a million sold by each (see this site's own analysis of that race). It's a genuinely tight contest. The Ford F-150 is not part of it, and the reason isn't that it's a lesser vehicle - it's that the F-150 competes in a different arena where it isn't really being challenged at all.",
+      "Domestically, the numbers aren't close. Ford's F-Series (the F-150 and its heavy-duty siblings, reported as one nameplate in US sales data) sold 828,832 units in the US in 2025, an 8.3% increase over the year before. The second-place vehicle, the Chevrolet Silverado, trailed by nearly 250,000 units - a gap larger than the RAV4's entire US sales total for some recent years. Rounding out the top five: Toyota RAV4 (479,288, also the best-selling non-pickup vehicle in the country), Honda CR-V (403,768), and the Ram Pickup (374,059).",
+      "This isn't a one-year fluke. 2025 marked the F-Series' 49th consecutive year as America's best-selling truck, a streak dating back to 1977, and its 44th consecutive year as the single best-selling vehicle of any kind in the US. No global nameplate, including the Model Y during its own genuine best-seller years, has ever come close to that kind of durability in any single market.",
+      "The reason the F-150 doesn't show up in the Model Y/RAV4 global conversation is straightforward: pickup trucks of the F-150's size and configuration are overwhelmingly a North American phenomenon. The regulatory, infrastructure and cultural factors that make a full-size truck a practical daily vehicle in the US and Canada don't carry over to most of the rest of the world the way a compact crossover like the RAV4 or Model Y does - both of those sell in meaningful volume across North America, Europe and Asia simultaneously, which is exactly what makes their global race possible in the first place. The F-150 wins overwhelmingly in the one market that matters most to it, rather than competing thinly across many.",
+      "Both kinds of dominance are real, they're just different shapes: a wafer-thin global race between two vehicles built for worldwide relevance, and a blowout domestic streak by a vehicle built for one market's specific needs, uncontested there for essentially half a century.",
+    ],
+    citations: [
+      { label: "Ford Sales Rose 6% in 2025 on Torrid Truck, Hybrid Demand — Ford", url: "https://www.fromtheroad.ford.com/us/en/articles/2026/ford-2025-full-year-us-sales-results" },
+      { label: "Ford F-Series Topped U.S. Sales Charts In 2025 — Ford Authority", url: "https://fordauthority.com/2025/12/blue-oval-says-ford-f-series-topped-u-s-sales-chart-in-2025/" },
+      { label: "2025 (Full Year) USA: Top 10 Best-Selling Vehicle Models — Car Sales Statistics", url: "https://www.best-selling-cars.com/usa/2025-full-year-usa-top-10-best-selling-vehicle-models/" },
+    ],
+    carModelSlugs: [
+      { brandSlug: "ford", modelSlug: "f-150" },
+      { brandSlug: "toyota", modelSlug: "rav4" },
+      { brandSlug: "tesla", modelSlug: "model-y" },
+    ],
+    relatedArticleSlugs: ["tesla-model-y-worlds-best-selling-car-toyota-rav4"],
+    specTable: {
+      headers: ["2025 US sales", "Rank"],
+      rows: [
+        { label: "Ford F-Series", values: ["828,832", "#1 (49th year as top truck, 44th as top vehicle)"] },
+        { label: "Chevrolet Silverado", values: ["~579,000 (est.)", "#2"] },
+        { label: "Toyota RAV4", values: ["479,288", "#3 (best-selling non-pickup)"] },
+        { label: "Honda CR-V", values: ["403,768", "#4"] },
+        { label: "Ram Pickup", values: ["374,059", "#5"] },
+      ],
+    },
+    scores: { qualityScore: 87, originalityScore: 88, factualScore: 89, sourceScore: 87, valueScore: 90, readabilityScore: 87 },
   },
 ];
 
