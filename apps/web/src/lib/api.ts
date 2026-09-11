@@ -379,6 +379,18 @@ export interface ArticleRelatedCarModel {
   carModel: { slug: string; name: string; brand: { slug: string; name: string } };
 }
 
+// Real gap found and fixed 2026-09-11 — backed by a real EntityRelation
+// edge (see GET /v1/articles/:locale/:slug's own comment): several of
+// this site's own COMPARISON/ANALYSIS/GUIDE articles reference each
+// other in prose ("see this site's own analysis of..."), but TEXT
+// blocks render as plain text with no links — this is what makes those
+// mentions actually clickable.
+export interface RelatedArticleSummary {
+  slug: string;
+  locale: string;
+  headline: string;
+}
+
 export interface ArticleDetail {
   id: string;
   locale: string;
@@ -393,6 +405,7 @@ export interface ArticleDetail {
   images: ArticleHeroImage[];
   citations: ArticleCitation[];
   carModels: ArticleRelatedCarModel[];
+  relatedArticles: RelatedArticleSummary[];
   qualityVerdict: "publish" | "review" | "reject" | null;
 }
 
@@ -405,6 +418,6 @@ export async function getArticle(locale: string, slug: string): Promise<ArticleD
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API /v1/articles/${locale}/${slug} returned ${res.status}`);
-  const { article } = (await res.json()) as { article: ArticleDetail };
-  return article;
+  const { article, relatedArticles } = (await res.json()) as { article: ArticleDetail; relatedArticles: RelatedArticleSummary[] };
+  return { ...article, relatedArticles };
 }

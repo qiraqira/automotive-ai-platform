@@ -492,7 +492,43 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
     qualityVerdict = evaluateQualityGate(scores, qualityGateThresholds).verdict;
   }
 
-  res.json({ article: { ...article, qualityVerdict } });
+  // Real gap found and fixed 2026-09-11: apps/worker/src/seed-real-articles.ts's
+  // own hand-written prose had several "(see this site's own analysis of
+  // X)" references between the COMPARISON/ANALYSIS/GUIDE articles, but
+  // apps/web's article page only ever renders a TEXT block as plain text
+  // — none of those mentions were ever clickable. Backed by a real
+  // EntityRelation edge (ENTITY_TYPE.ARTICLE, "mentions") rather than
+  // parsing prose, same generic knowledge-graph mechanism already used
+  // for Story<->CarModel. Same isRejectedByQualityGate() filter as every
+  // other reader-facing surface — a related-article link should never
+  // point at a reject-verdict article either.
+  const relatedArticleRelations = await prisma.entityRelation.findMany({
+    where: { fromType: ENTITY_TYPE.ARTICLE, fromId: article.id, toType: ENTITY_TYPE.ARTICLE },
+  });
+  const relatedArticles =
+    relatedArticleRelations.length > 0
+      ? await prisma.article.findMany({
+          where: { id: { in: relatedArticleRelations.map((r) => r.toId) }, status: "PUBLISHED", locale: "en" },
+          select: {
+            slug: true,
+            locale: true,
+            headline: true,
+            factualScore: true,
+            sourceScore: true,
+            qualityScore: true,
+            originalityScore: true,
+            valueScore: true,
+            readabilityScore: true,
+          },
+        })
+      : [];
+
+  res.json({
+    article: { ...article, qualityVerdict },
+    relatedArticles: relatedArticles
+      .filter((a) => !isRejectedByQualityGate(a))
+      .map(({ slug, locale, headline }) => ({ slug, locale, headline })),
+  });
 });
 
 // --- Article review queue (spec's "AI assisted, not autonomous" —

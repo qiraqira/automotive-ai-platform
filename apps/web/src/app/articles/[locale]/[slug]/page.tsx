@@ -251,6 +251,26 @@ export default async function ArticlePage({
         </div>
       )}
 
+      {article.relatedArticles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: this file's own hand-
+        // written prose (seed-real-articles.ts's ANALYSIS/GUIDE/
+        // COMPARISON pieces) repeatedly wrote lines like "(see this
+        // site's own analysis of...)" — but a TEXT block renders as
+        // plain text, so none of those mentions were ever clickable.
+        // Backed by a real EntityRelation edge, not by parsing the
+        // prose for a matching phrase.
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Related articles</h2>
+          <ul>
+            {article.relatedArticles.map((related) => (
+              <li key={related.slug}>
+                <Link href={`/articles/${related.locale}/${related.slug}`}>{related.headline}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {article.citations.length > 0 && (
         // Real gap found and fixed 2026-09-09, user's explicit request:
         // this section didn't exist at all — apps/worker/src/

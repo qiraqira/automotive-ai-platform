@@ -1,5 +1,6 @@
 import { prisma } from "@automotive/database";
 import type { ArticleType, ContentPurpose } from "@automotive/database";
+import { ENTITY_TYPE } from "@automotive/types";
 
 // One-shot CLI entrypoint (`npm run seed:real-articles --workspace apps/worker`).
 //
@@ -52,6 +53,20 @@ interface ArticleSpec {
    * after the prose TEXT blocks as a quick-reference recap, not a
    * replacement for the narrative comparison above it. */
   specTable?: { headers: string[]; rows: { label: string; values: string[] }[] };
+  /** Real gap found and fixed 2026-09-11: this file's own prose had been
+   * writing lines like "(see this site's own analysis of the Model Y/
+   * RAV4 sales race)" across four articles, but apps/web's article page
+   * only ever renders a TEXT block as plain text — no markdown/HTML, so
+   * none of those were ever actually clickable. Rather than switch TEXT
+   * rendering to parsed markdown (a bigger, riskier change touching every
+   * existing article), this reuses the existing generic EntityRelation
+   * edge (ENTITY_TYPE.ARTICLE has been a valid type since packages/types
+   * was written, but nothing had ever actually created an Article<->
+   * Article edge with it) to back a real "Related articles" section
+   * instead. Slugs, not ids, since specs are hand-written before the
+   * related article's real id exists — resolved in the second pass
+   * below, after every article in this file has been created/found. */
+  relatedArticleSlugs?: string[];
   scores: { qualityScore: number; originalityScore: number; factualScore: number; sourceScore: number; valueScore: number; readabilityScore: number };
 }
 
@@ -153,6 +168,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "tesla", modelSlug: "model-y" },
       { brandSlug: "toyota", modelSlug: "rav4" },
     ],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y"],
     specTable: {
       headers: ["2023", "2024", "2025"],
       rows: [
@@ -209,6 +225,7 @@ const ARTICLES: ArticleSpec[] = [
       { label: "Euro NCAP safety ratings explained — Carwow", url: "https://www.carwow.co.uk/guides/choosing/euro-ncap-scores-explained" },
     ],
     carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y"],
     scores: { qualityScore: 87, originalityScore: 86, factualScore: 91, sourceScore: 88, valueScore: 90, readabilityScore: 87 },
   },
   {
@@ -236,6 +253,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "bmw", modelSlug: "x5" },
       { brandSlug: "tesla", modelSlug: "model-y" },
     ],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y"],
     specTable: {
       headers: ["Hybrid (HEV)", "Plug-in Hybrid (PHEV)", "Full Electric (EV)"],
       rows: [
@@ -285,6 +303,11 @@ const ARTICLES: ArticleSpec[] = [
         { label: "IIHS rating", values: ["Top Safety Pick", "Top Safety Pick+"] },
       ],
     },
+    relatedArticleSlugs: [
+      "tesla-model-y-worlds-best-selling-car-toyota-rav4",
+      "hybrid-vs-plug-in-hybrid-vs-ev-explained",
+      "euro-ncap-star-ratings-explained",
+    ],
     scores: { qualityScore: 88, originalityScore: 87, factualScore: 90, sourceScore: 89, valueScore: 91, readabilityScore: 87 },
   },
 ];
@@ -392,6 +415,33 @@ async function main() {
     });
 
     console.log(`Created ${spec.type} article "${spec.headline}" (/articles/en/${spec.slug}), id ${article.id}`);
+  }
+
+  // Second pass: wire up relatedArticleSlugs via EntityRelation, now that
+  // every article in this file is guaranteed to exist (a spec earlier in
+  // the array can reference one defined later, and vice versa — order in
+  // ARTICLES shouldn't matter for this). One "mentions" edge per pair,
+  // deduplicated by (fromId, toId) so a re-run never creates a duplicate.
+  for (const spec of ARTICLES) {
+    if (!spec.relatedArticleSlugs || spec.relatedArticleSlugs.length === 0) continue;
+    const fromArticle = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: spec.slug } } });
+    if (!fromArticle) continue;
+    for (const relatedSlug of spec.relatedArticleSlugs) {
+      const toArticle = await prisma.article.findUnique({ where: { locale_slug: { locale: "en", slug: relatedSlug } } });
+      if (!toArticle) {
+        console.log(`  Related-article link "${spec.slug}" -> "${relatedSlug}" skipped: target not found (yet).`);
+        continue;
+      }
+      const existing = await prisma.entityRelation.findFirst({
+        where: { fromType: ENTITY_TYPE.ARTICLE, fromId: fromArticle.id, toType: ENTITY_TYPE.ARTICLE, toId: toArticle.id },
+      });
+      if (!existing) {
+        await prisma.entityRelation.create({
+          data: { fromType: ENTITY_TYPE.ARTICLE, fromId: fromArticle.id, toType: ENTITY_TYPE.ARTICLE, toId: toArticle.id, relation: "mentions" },
+        });
+        console.log(`  Related-article link: "${spec.slug}" -> "${relatedSlug}" (created)`);
+      }
+    }
   }
 }
 
