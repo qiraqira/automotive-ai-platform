@@ -60,6 +60,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // navigation aid over content already indexed elsewhere, same
     // reasoning as omitting /search below).
     { url: `${SITE_URL}/news`, changeFrequency: "hourly", priority: 0.6 },
+    // /comparisons index page (2026-09-12) — each individual comparison/
+    // analysis piece is still a published Article, already listed via
+    // `articles` below; this only adds the index page itself.
+    { url: `${SITE_URL}/comparisons`, changeFrequency: "weekly", priority: 0.6 },
     // /guides index page (2026-09-11) — each individual guide is still a
     // published Article, already listed via `articles` below; this only
     // adds the index page itself.

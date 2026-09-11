@@ -16,9 +16,14 @@ const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 // copy below accurately describes the sections actually rendered
 // further down this file (Explore models -> real specs, Comparisons &
 // analysis -> real comparisons) — see SEO.md's homepage rule.
-const HOME_TITLE = "Car Specs, Models & Comparisons";
+// "Auto news" phrase added 2026-09-12, user's own explicit request — the
+// homepage genuinely does include a real news section (see below), so
+// this isn't a claim disconnected from the page's actual content, just
+// wording that also matches how a reader searching "auto news" phrases
+// it, not only "automotive news".
+const HOME_TITLE = "Car Specs, Models, Comparisons & Auto News";
 const HOME_DESCRIPTION =
-  "Explore car specifications, generations, safety ratings and comparisons. Research models by brand, compare engines and powertrains, and follow the latest automotive news.";
+  "Explore car specifications, generations, safety ratings and comparisons. Research models by brand, compare engines and powertrains, and follow the latest auto news.";
 
 export const metadata: Metadata = {
   // Verified live: unlike every nested route (car/brand/guides/topics
@@ -80,10 +85,65 @@ export default async function HomePage() {
       <section style={{ marginBottom: 40 }}>
         <h1 style={{ fontSize: 32, margin: "0 0 12px" }}>Real cars, real numbers, no filler</h1>
         <p style={{ fontSize: 17, color: "var(--ink-dim)", maxWidth: 640, lineHeight: 1.5 }}>
-          Specs, generations, crash-test ratings and side-by-side comparisons — every figure sourced and checked, every
-          photo the real car.
+          Specs, generations, crash-test ratings and side-by-side comparisons — every figure sourced and checked,
+          every photo the real car — plus real auto news, checked the same way, as it happens.
         </p>
       </section>
+
+      {featuredArticles.length > 0 && (
+        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
+        // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
+        // section at all (see GET /v1/featured-articles's own comment) —
+        // exactly the kind of evergreen content a portal's front page
+        // should lead with, unlike the news feed this replaces.
+        //
+        // Moved to the very top 2026-09-12, user's own explicit request:
+        // the portal's own evergreen flagship content (comparisons/
+        // analysis) belongs before even the model grid on a page whose
+        // whole point is not being a news feed. "See all" links to the
+        // new /comparisons index page (apps/web/src/app/comparisons/page.tsx).
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            <Link href="/comparisons">Comparisons &amp; analysis</Link>
+          </h2>
+          <ul className="story-list">
+            {featuredArticles.map((article) => {
+              const heroUrl = article.images[0]?.image.originalUrl;
+              const isLogo = isLogoImage(article.images);
+              return (
+                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {heroUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                    <img
+                      src={heroUrl}
+                      alt=""
+                      style={{
+                        width: 96,
+                        height: 64,
+                        objectFit: isLogo ? "contain" : "cover",
+                        background: isLogo ? "#fff" : undefined,
+                        padding: isLogo ? 8 : undefined,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                  <div>
+                    <div className="story-meta">{article.type}</div>
+                    <h3 style={{ fontSize: 18, margin: 0 }}>
+                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
+                    </h3>
+                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="story-meta">
+            <Link href="/comparisons">See all comparisons &amp; analysis →</Link>
+          </p>
+        </section>
+      )}
 
       {featuredCars.length > 0 && (
         // Real gap found and fixed 2026-09-11: four (now five) fully-built
@@ -122,57 +182,6 @@ export default async function HomePage() {
               </Link>
             ))}
           </div>
-        </section>
-      )}
-
-      {featuredArticles.length > 0 && (
-        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
-        // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
-        // section at all (see GET /v1/featured-articles's own comment) —
-        // exactly the kind of evergreen content a portal's front page
-        // should lead with, unlike the news feed this replaces.
-        //
-        // Moved above "Latest news" 2026-09-11, user's own explicit
-        // request — the portal's own evergreen flagship content
-        // (comparisons/analysis) belongs higher than timely news on a
-        // page whose whole point is not being a news feed.
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            Comparisons &amp; analysis
-          </h2>
-          <ul className="story-list">
-            {featuredArticles.map((article) => {
-              const heroUrl = article.images[0]?.image.originalUrl;
-              const isLogo = isLogoImage(article.images);
-              return (
-                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {heroUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img
-                      src={heroUrl}
-                      alt=""
-                      style={{
-                        width: 96,
-                        height: 64,
-                        objectFit: isLogo ? "contain" : "cover",
-                        background: isLogo ? "#fff" : undefined,
-                        padding: isLogo ? 8 : undefined,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                      }}
-                    />
-                  )}
-                  <div>
-                    <div className="story-meta">{article.type}</div>
-                    <h3 style={{ fontSize: 18, margin: 0 }}>
-                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-                    </h3>
-                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         </section>
       )}
 

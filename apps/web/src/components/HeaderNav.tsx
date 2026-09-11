@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 // plain `<a>`, not a client-side route transition.
 const SECTIONS: { href: string; label: string }[] = [
   { href: "/news", label: "News" },
+  { href: "/comparisons", label: "Comparisons & Analysis" },
   { href: "/brands", label: "Brands" },
   { href: "/guides", label: "Guides" },
 ];
