@@ -33,8 +33,18 @@ interface GallerySpec {
 // AND the other car" instruction. Re-running with broader/alternate
 // queries for GLE exterior only; already-attached photos are still
 // skipped via the sha256 dedupe above regardless of what re-runs here.
+// Third try: the second pass's rejections were likely a prompting
+// mistake, not a real mismatch — the context string described a desired
+// CAMERA ANGLE ("side profile or three-quarter exterior view") inside
+// the same sentence verifyImageMatch() uses to judge vehicle identity,
+// and its prompt treats the whole context as "the subject", so a real,
+// correct GLE 450 photo shot from a different angle than described
+// reads as a mismatch. Simplified to identity only — a real photo of
+// this exact model, any exterior angle — since angle variety is what
+// trying multiple distinct queries already provides, not something the
+// verifier should be asked to judge too.
 const CARS: GallerySpec[] = [
-  { context: "Mercedes-Benz GLE (W167), side profile or three-quarter exterior view", queries: ["Mercedes-Benz GLE-Class 2020", "Mercedes-Benz GLE SUV", "Mercedes GLE 450"] },
+  { context: "Mercedes-Benz GLE (W167) — a real photo of this exact SUV, any exterior angle", queries: ["Mercedes-Benz GLE 450 Genf 2019", "Mercedes-Benz GLE-Class exterior"] },
 ];
 
 async function main() {
