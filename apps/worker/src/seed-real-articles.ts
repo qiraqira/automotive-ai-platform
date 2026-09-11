@@ -116,7 +116,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "bmw", modelSlug: "x5" },
       { brandSlug: "mercedes-benz", modelSlug: "gle" },
     ],
-    relatedArticleSlugs: ["hybrid-vs-plug-in-hybrid-vs-ev-explained"],
+    relatedArticleSlugs: ["hybrid-vs-plug-in-hybrid-vs-ev-explained", "bmw-ix5-mercedes-ev-naming-strategy-analysis"],
     specTable: {
       headers: ["BMW X5", "Mercedes-Benz GLE"],
       rows: [
@@ -157,6 +157,15 @@ const ARTICLES: ArticleSpec[] = [
       { label: "BMW CLAR vs Neue Klasse: every BMW EV platform mapped — BMWBLOG", url: "https://www.bmwblog.com/2025/12/12/bmw-clar-vs-neue-klasse-ev-platforms-upcoming-models/" },
     ],
     carModelSlugs: [{ brandSlug: "bmw", modelSlug: "x5" }],
+    // Real gap found and fixed 2026-09-11: this piece was one of 3
+    // orphaned articles with zero relatedArticleSlugs when auditing the
+    // full article<->article graph — genuinely relevant to both:
+    // bmw-x5-vs-mercedes-benz-gle already covers the X5/GLE rivalry
+    // this naming split plays out on, and the GLE's own real Fact
+    // (added the same tick) about GLC/GLA getting same-name EVs while
+    // GLE doesn't yet is the exact live version of the split this
+    // article describes.
+    relatedArticleSlugs: ["bmw-x5-vs-mercedes-benz-gle"],
     scores: { qualityScore: 86, originalityScore: 90, factualScore: 88, sourceScore: 87, valueScore: 90, readabilityScore: 84 },
   },
   {
@@ -223,6 +232,11 @@ const ARTICLES: ArticleSpec[] = [
       { label: "Electric Vehicle Range Testing: Understanding NEDC vs. WLTP vs. EPA — J.D. Power", url: "https://www.jdpower.com/cars/shopping-guides/electric-vehicle-range-testing-understanding-nedc-vs-wltp-vs-epa" },
     ],
     carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    // Real gap found and fixed 2026-09-11: this was one of 3 orphaned
+    // articles when auditing the full article<->article graph — the
+    // hybrid/PHEV/EV guide is the natural next read for the same reader
+    // (both about EV mechanics, both use Model Y as their real example).
+    relatedArticleSlugs: ["hybrid-vs-plug-in-hybrid-vs-ev-explained"],
     scores: { qualityScore: 88, originalityScore: 85, factualScore: 92, sourceScore: 90, valueScore: 91, readabilityScore: 87 },
   },
   {
@@ -275,7 +289,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "mercedes-benz", modelSlug: "gle" },
       { brandSlug: "tesla", modelSlug: "model-y" },
     ],
-    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y", "bmw-x5-vs-mercedes-benz-gle"],
+    relatedArticleSlugs: ["toyota-rav4-vs-tesla-model-y", "bmw-x5-vs-mercedes-benz-gle", "ev-range-and-charging-explained"],
     specTable: {
       headers: ["Hybrid (HEV)", "Plug-in Hybrid (PHEV)", "Full Electric (EV)"],
       rows: [
@@ -357,7 +371,7 @@ const ARTICLES: ArticleSpec[] = [
       { brandSlug: "toyota", modelSlug: "rav4" },
       { brandSlug: "tesla", modelSlug: "model-y" },
     ],
-    relatedArticleSlugs: ["tesla-model-y-worlds-best-selling-car-toyota-rav4"],
+    relatedArticleSlugs: ["tesla-model-y-worlds-best-selling-car-toyota-rav4", "towing-capacity-payload-gvwr-explained"],
     specTable: {
       headers: ["2025 US sales", "Rank"],
       rows: [
@@ -391,6 +405,11 @@ const ARTICLES: ArticleSpec[] = [
       { label: "Ford F-150 Lightning Towing Capacity & Range Loss Guide — Recharged", url: "https://recharged.com/articles/ford-f-150-lightning-towing-capacity-range-loss" },
     ],
     carModelSlugs: [{ brandSlug: "ford", modelSlug: "f-150" }],
+    // Real gap found and fixed 2026-09-11: this was one of 3 orphaned
+    // articles when auditing the full article<->article graph — both
+    // pieces are F-150-centric, a natural next read for the same
+    // reader.
+    relatedArticleSlugs: ["ford-f-150-49-years-best-selling-truck-vs-global-race"],
     specTable: {
       headers: ["Towing capacity", "Real-world efficiency hit while towing"],
       rows: [
