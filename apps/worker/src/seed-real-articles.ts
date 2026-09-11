@@ -2,6 +2,23 @@ import { prisma } from "@automotive/database";
 import type { ArticleType, ContentPurpose } from "@automotive/database";
 import { ENTITY_TYPE } from "@automotive/types";
 
+// Postgres's jsonb type does NOT preserve object key insertion order —
+// confirmed live while adding the SPEC_TABLE content-correction sync
+// below: a plain `JSON.stringify(a) !== JSON.stringify(b)` flagged
+// "corrected" on 3 articles whose spec.specTable hadn't actually
+// changed at all, purely because jsonb round-tripped the same object
+// with a different key order than the literal written in this file.
+// Recursively sorting object keys before stringifying makes the
+// comparison order-independent, matching content not serialization.
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 // One-shot CLI entrypoint (`npm run seed:real-articles --workspace apps/worker`).
 //
 // Hand-authored evergreen content (Comparison/Analysis/Guide/Explainer
@@ -345,7 +362,7 @@ async function main() {
           data: { articleId: existing.id, type: "SPEC_TABLE", position: nextPosition, data: spec.specTable },
         });
         syncedNotes.push("added missing SPEC_TABLE block");
-      } else if (spec.specTable && existingSpecTableBlock && JSON.stringify(existingSpecTableBlock.data) !== JSON.stringify(spec.specTable)) {
+      } else if (spec.specTable && existingSpecTableBlock && canonicalJson(existingSpecTableBlock.data) !== canonicalJson(spec.specTable)) {
         // Real, deliberate content correction (2026-09-11: the GLE 450e
         // PHEV trim was missing from the hybrid/PHEV/EV guide's own spec
         // table when first written) — same posture as the Model Y
