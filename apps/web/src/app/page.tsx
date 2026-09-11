@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { computeRankingScore } from "@automotive/editorial";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getStories, getTopic, getTopicSlugs, getGuides, type StorySummary, type TopicWithStories } from "@/lib/api";
+import { getStories, getTopic, getTopicSlugs, getGuides, getBrands, type StorySummary, type TopicWithStories } from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -91,10 +91,11 @@ export default async function HomePage() {
   // reader's actual workflow should be ingest -> write -> quality gate
   // -> publish, in that order, before anything shows up here — not
   // ingest -> immediately show. `hasArticle: true` is the real fix.
-  const [{ stories: unranked }, topicSections, { guides }] = await Promise.all([
+  const [{ stories: unranked }, topicSections, { guides }, { brands }] = await Promise.all([
     getStories({ limit: 20, hasArticle: true }),
     getTopicSections(),
     getGuides(),
+    getBrands(),
   ]);
   const stories = rankStories(unranked);
 
@@ -186,6 +187,30 @@ export default async function HomePage() {
               <Link href="/guides">See all {guides.length} →</Link>
             </p>
           )}
+        </section>
+      )}
+
+      {brands.length > 0 && (
+        // Real gap found and fixed 2026-09-11: four fully-built model
+        // pages (BMW X5, Mercedes-Benz GLE, Tesla Model Y, Toyota RAV4 —
+        // real specs, generations, crash tests, curated videos) existed
+        // with zero links from the homepage or site-wide nav — only
+        // reachable via an article's own "Related cars" section or a
+        // topic feed's EntityRelation match. Same section pattern as
+        // Guides above, one level up (brand, not model, since GET
+        // /v1/brands is the list this site already exposes — each
+        // brand's own page lists its models).
+        <section style={{ marginTop: 32 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+            <Link href="/brands">Brands</Link>
+          </h2>
+          <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", listStyle: "none", padding: 0, margin: 0 }}>
+            {brands.map((brand) => (
+              <li key={brand.slug} style={{ fontSize: 16 }}>
+                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
