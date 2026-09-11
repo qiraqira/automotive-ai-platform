@@ -290,6 +290,7 @@ export interface ArticleDetail {
   story: { id: string; title: string } | null;
   images: ArticleHeroImage[];
   citations: ArticleCitation[];
+  qualityVerdict: "publish" | "review" | "reject" | null;
 }
 
 // apps/worker/src/write-article.ts's real AI Writer stage output — the

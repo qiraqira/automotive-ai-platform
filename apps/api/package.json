@@ -12,6 +12,7 @@
   "dependencies": {
     "@automotive/config": "0.1.0",
     "@automotive/database": "0.1.0",
+    "@automotive/editorial": "0.1.0",
     "@automotive/types": "0.1.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

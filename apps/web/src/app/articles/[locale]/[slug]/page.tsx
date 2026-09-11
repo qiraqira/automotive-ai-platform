@@ -43,6 +43,15 @@ export async function generateMetadata({
   const canonicalUrl = buildLocaleUrl(SITE_URL, locale, path);
   const imageUrl = article.images[0] ? absoluteUrl(article.images[0].image.originalUrl) : undefined;
 
+  // 2026-09-11: a retroactive quality-gate pass found ~65% of the
+  // published corpus contains fabricated/unsupported claims beyond what
+  // their cited sources say (see apps/api/src/app.ts's own comment on
+  // this same finding). Unpublishing all of them at once would 404 a
+  // large batch of already-indexed URLs; noindex keeps the URL and its
+  // link equity alive while pulling it out of search until it's
+  // rewritten or deliberately removed.
+  const robots = article.qualityVerdict === "reject" ? { index: false, follow: false } : undefined;
+
   // Real, live-discovered gap found 2026-09-09 (user directly asked "will
   // Google rank this?" while reviewing the site): this page had zero
   // Open Graph/Twitter Card tags — real, meaningful for both social-share
@@ -58,6 +67,7 @@ export async function generateMetadata({
       canonical: canonicalUrl,
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
     },
+    robots,
     openGraph: {
       type: "article",
       title: article.headline,

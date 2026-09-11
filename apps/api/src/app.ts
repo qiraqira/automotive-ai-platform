@@ -18,7 +18,8 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { z } from "zod";
 import { prisma } from "@automotive/database";
-import { env } from "@automotive/config";
+import { env, qualityGateThresholds } from "@automotive/config";
+import { evaluateQualityGate, type QualityScores } from "@automotive/editorial";
 import { ENTITY_TYPE } from "@automotive/types";
 import { hashPassword, comparePassword, signSession } from "./auth.js";
 import { attachSession, requirePermission } from "./permissions.js";
@@ -306,12 +307,40 @@ app.get("/v1/stories", async (req, res) => {
 // with a real sitemap index (multiple <sitemap> files) if it ever is,
 // not preemptively.
 app.get("/v1/articles", async (_req, res) => {
-  const articles = await prisma.article.findMany({
+  const rows = await prisma.article.findMany({
     where: { status: "PUBLISHED" },
-    select: { locale: true, slug: true, publishedAt: true, updatedAt: true },
+    select: {
+      locale: true,
+      slug: true,
+      publishedAt: true,
+      updatedAt: true,
+      factualScore: true,
+      sourceScore: true,
+      qualityScore: true,
+      originalityScore: true,
+      valueScore: true,
+      readabilityScore: true,
+    },
     orderBy: { publishedAt: "desc" },
     take: 5000,
   });
+  // Same 2026-09-11 quality-gate finding as the article-detail route
+  // above: a "reject"-verdict article is set noindex there, so it
+  // shouldn't also be advertised to crawlers via the sitemap feed.
+  const articles = rows
+    .filter((a) => {
+      if (a.factualScore === null || a.sourceScore === null) return true;
+      const scores: QualityScores = {
+        qualityScore: a.qualityScore ?? 0,
+        originalityScore: a.originalityScore ?? 0,
+        factualScore: a.factualScore,
+        sourceScore: a.sourceScore,
+        valueScore: a.valueScore ?? 0,
+        readabilityScore: a.readabilityScore ?? 0,
+      };
+      return evaluateQualityGate(scores, qualityGateThresholds).verdict !== "reject";
+    })
+    .map(({ locale, slug, publishedAt, updatedAt }) => ({ locale, slug, publishedAt, updatedAt }));
   res.json({ articles });
 });
 
@@ -347,7 +376,31 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
     return;
   }
 
-  res.json({ article });
+  // 2026-09-11 retroactive quality-gate backfill scored every published
+  // article against its own cited sources (fact-check re-verification,
+  // not the original draft-time check — AUTO_MODERATION was off when
+  // most of this corpus was written, so it never actually ran). ~65% of
+  // the corpus came back "reject" (fabricated/unsupported claims beyond
+  // what sources say). Unpublishing all of them outright would 404 a
+  // large batch of already-indexed URLs at once — noindex instead keeps
+  // the URL alive (no broken links, no lost link equity) while pulling
+  // it out of search results until it's rewritten or deliberately
+  // removed. Only "reject" is treated this way; "review" is a lower-
+  // confidence signal left indexed pending manual triage.
+  let qualityVerdict: "publish" | "review" | "reject" | null = null;
+  if (article.factualScore !== null && article.sourceScore !== null) {
+    const scores: QualityScores = {
+      qualityScore: article.qualityScore ?? 0,
+      originalityScore: article.originalityScore ?? 0,
+      factualScore: article.factualScore,
+      sourceScore: article.sourceScore,
+      valueScore: article.valueScore ?? 0,
+      readabilityScore: article.readabilityScore ?? 0,
+    };
+    qualityVerdict = evaluateQualityGate(scores, qualityGateThresholds).verdict;
+  }
+
+  res.json({ article: { ...article, qualityVerdict } });
 });
 
 // --- Article review queue (spec's "AI assisted, not autonomous" —
