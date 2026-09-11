@@ -20,6 +20,7 @@
     "reverify:hero-images": "tsx src/reverify-hero-images.ts",
     "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
     "attach:unsplash-photos": "tsx src/attach-unsplash-photos.ts",
+    "self-host:unsplash-images": "tsx src/self-host-unsplash-images.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
