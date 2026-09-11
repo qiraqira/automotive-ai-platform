@@ -281,7 +281,7 @@ app.get("/v1/stories", async (req, res) => {
         select: {
           slug: true,
           locale: true,
-          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 },
+          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
         },
         take: 1,
       },
@@ -826,7 +826,7 @@ app.get("/v1/topics/:slug", async (req, res) => {
         select: {
           slug: true,
           locale: true,
-          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 },
+          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
         },
         take: 1,
       },

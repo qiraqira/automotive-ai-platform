@@ -53,7 +53,7 @@ export interface StorySummary {
   primaryTopic: { slug: string; name: string } | null;
   events: { id: string; label: string; description: string | null; occurredAt: string }[];
   sourceArticles: { id: string; title: string; url: string; author: { name: string } | null }[];
-  articles: { slug: string; locale: string; images: { image: { originalUrl: string } }[] }[];
+  articles: { slug: string; locale: string; images: { image: { originalUrl: string; rightsStatus: string } }[] }[];
 }
 
 export interface SourceSummary {

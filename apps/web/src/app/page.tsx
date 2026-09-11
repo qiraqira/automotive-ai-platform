@@ -103,11 +103,29 @@ export default async function HomePage() {
         <ul className="story-list">
           {stories.map((story) => {
             const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
+            // A brand-logo fallback (see fetch-images.ts's EDITORIAL_ONLY path) is
+            // usually square/circular with padding baked in — objectFit: "cover"
+            // in this landscape 96x64 box crops its edges off. Show it whole
+            // instead, on a neutral ground since many logo files have a
+            // transparent background.
+            const isLogo = story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY";
             return (
               <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 {heroUrl && (
                   // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                  <img src={heroUrl} alt="" style={{ width: 96, height: 64, objectFit: "cover", flexShrink: 0, borderRadius: 4 }} />
+                  <img
+                    src={heroUrl}
+                    alt=""
+                    style={{
+                      width: 96,
+                      height: 64,
+                      objectFit: isLogo ? "contain" : "cover",
+                      background: isLogo ? "#fff" : undefined,
+                      padding: isLogo ? 8 : undefined,
+                      flexShrink: 0,
+                      borderRadius: 4,
+                    }}
+                  />
                 )}
                 <div>
                   <div className="story-meta">
@@ -137,11 +155,24 @@ export default async function HomePage() {
           <ul className="story-list">
             {topicStories.slice(0, 5).map((story) => {
               const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
+              const isLogo = story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY";
               return (
                 <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   {heroUrl && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img src={heroUrl} alt="" style={{ width: 96, height: 64, objectFit: "cover", flexShrink: 0, borderRadius: 4 }} />
+                    <img
+                      src={heroUrl}
+                      alt=""
+                      style={{
+                        width: 96,
+                        height: 64,
+                        objectFit: isLogo ? "contain" : "cover",
+                        background: isLogo ? "#fff" : undefined,
+                        padding: isLogo ? 8 : undefined,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                      }}
+                    />
                   )}
                   <div>
                     <div className="story-meta">
