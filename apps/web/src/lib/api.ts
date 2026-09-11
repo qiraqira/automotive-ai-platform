@@ -224,6 +224,22 @@ export function getArticleSlugs(): Promise<{
   return apiGet("/v1/articles");
 }
 
+export interface GuideSummary {
+  locale: string;
+  slug: string;
+  headline: string;
+  subtitle: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+// New /guides section (2026-09-11) — user's own pick from the vertical-
+// slice AskUserQuestion ("Новый раздел /guides (Recommended)") for where
+// GUIDE-type evergreen content should live.
+export function getGuides(): Promise<{ guides: GuideSummary[] }> {
+  return apiGet("/v1/guides");
+}
+
 export interface Market {
   id: string;
   code: string;

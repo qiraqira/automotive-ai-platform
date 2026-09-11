@@ -345,6 +345,53 @@ app.get("/v1/articles", async (_req, res) => {
   res.json({ articles });
 });
 
+// --- Guides (spec's proposed /guides section — user picked this over
+// folding guide content into an existing section: "Новый раздел /guides
+// (Recommended)", 2026-09-11) ---
+//
+// Real gap: GUIDE has been a valid ArticleType/ContentPurpose since the
+// schema first landed, and seed-real-articles.ts's ArticleSpec.type
+// already accepts it, but nothing ever queried by it — there was no way
+// for a real GUIDE article to be found by anything other than its exact
+// slug. Same shape and same quality-gate filtering as GET /v1/articles
+// above, narrowed to `type: "GUIDE"`.
+app.get("/v1/guides", async (_req, res) => {
+  const rows = await prisma.article.findMany({
+    where: { status: "PUBLISHED", type: "GUIDE" },
+    select: {
+      locale: true,
+      slug: true,
+      headline: true,
+      subtitle: true,
+      publishedAt: true,
+      updatedAt: true,
+      factualScore: true,
+      sourceScore: true,
+      qualityScore: true,
+      originalityScore: true,
+      valueScore: true,
+      readabilityScore: true,
+    },
+    orderBy: { publishedAt: "desc" },
+    take: 200,
+  });
+  const guides = rows
+    .filter((a) => {
+      if (a.factualScore === null || a.sourceScore === null) return true;
+      const scores: QualityScores = {
+        qualityScore: a.qualityScore ?? 0,
+        originalityScore: a.originalityScore ?? 0,
+        factualScore: a.factualScore,
+        sourceScore: a.sourceScore,
+        valueScore: a.valueScore ?? 0,
+        readabilityScore: a.readabilityScore ?? 0,
+      };
+      return evaluateQualityGate(scores, qualityGateThresholds).verdict !== "reject";
+    })
+    .map(({ locale, slug, headline, subtitle, publishedAt, updatedAt }) => ({ locale, slug, headline, subtitle, publishedAt, updatedAt }));
+  res.json({ guides });
+});
+
 app.get("/v1/articles/:locale/:slug", async (req, res) => {
   const locale = req.params.locale;
   if (locale !== "en" && locale !== "es") {

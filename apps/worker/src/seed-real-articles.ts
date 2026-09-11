@@ -157,6 +157,31 @@ const ARTICLES: ArticleSpec[] = [
     },
     scores: { qualityScore: 87, originalityScore: 89, factualScore: 90, sourceScore: 88, valueScore: 89, readabilityScore: 86 },
   },
+  {
+    slug: "ev-range-and-charging-explained",
+    type: "GUIDE",
+    contentPurpose: "GUIDE",
+    topicSlug: "electric-vehicles",
+    headline: "What an EV's Range Number Actually Means (and Why Yours Will Probably Be Lower)",
+    subtitle: "The window-sticker figure is already adjusted for real-world driving — but cold weather, highway speed and a European rating system that measures things differently can still make the number on paper misleading.",
+    keyTakeaway:
+      "In the US, the EPA range number on a new EV's window sticker already has a real-world correction built in (a 0.7 multiplier applied to raw lab results) — it isn't an optimistic best-case figure the way a 0-60 time is. What still pulls real range below that number is highway speed, cold weather, and preconditioning, not some undisclosed lab trick. Europe's WLTP figures for the same car are typically 10-20% higher because they use a different, less aggressive test cycle, not because the car is actually different.",
+    paragraphs: [
+      "Every new EV in the US carries an EPA-estimated range number on its window sticker, the same way every gas car carries an MPG figure. It's the single number most shoppers use to compare models, but few know how it's actually produced or what \"adjustment\" already happened before it reached the sticker.",
+      "The test itself happens on a chassis dynamometer, not a public road: the car is fully charged, left to sit overnight, then run the next morning through repeated city and highway drive cycles until the battery is depleted. That raw result — the actual lab measurement — is deliberately not what appears on the sticker. The EPA applies a 0.7 multiplier to the raw highway-cycle result specifically to account for real-world factors like more aggressive acceleration and climate-control use, then weights the adjusted city and highway numbers 55%/45% to produce the combined figure that gets published. In other words, the number on the sticker is already a conservative, real-world-adjusted estimate — not a lab-optimal best case being handed to you unadjusted.",
+      "That's genuinely different from how Europe rates the same cars. The WLTP cycle used across the EU and UK runs a fixed 30-minute, four-phase profile at a mild 23°C with less aggressive acceleration than the EPA's test, and applies no equivalent real-world downward adjustment. The result: WLTP figures for an identical car typically come in 10-20% higher than the US EPA figure for the same model — not because the European version of the car is more efficient, but because the two tests are measuring different driving assumptions. A shopper comparing a European WLTP number against an American EPA number for what looks like the same car is comparing two different rulers, not two different vehicles.",
+      "Even with the EPA's own real-world adjustment already applied, actual range still commonly comes in below the sticker number for a few specific, well-understood reasons: sustained highway speeds above the roughly 48-60 mph average the test cycles are built around draw meaningfully more energy per mile through aerodynamic drag; cold weather cuts range both by reducing battery efficiency directly and through cabin heating, which (unlike a gas car's engine waste heat) has to come from the same battery driving the wheels; and larger wheel/tire packages on higher trims add rotating mass and drag that the base trim's own EPA test doesn't reflect if a different, smaller-wheel variant was what got tested.",
+      "None of this means the sticker number is unreliable — independent 70-mph highway range tests and large real-world driver datasets consistently show most EVs achieving somewhere around 70-85% of their EPA highway figure specifically in cold weather at sustained highway speed, which is the worst realistic case, not the typical one. In mild weather at more typical mixed driving, actual range usually tracks much closer to the sticker figure. The Tesla Model Y's own trims on this site are a useful real illustration of the range/price/battery-size tradeoff this creates: its \"Standard\" trim is EPA-rated at 321 miles against the \"Premium\" trim's 357 miles, a gap that comes entirely from a larger usable battery pack, not a different motor or body.",
+      "The practical takeaway for cross-shopping any two EVs: compare EPA numbers to EPA numbers and WLTP numbers to WLTP numbers, never mix the two; treat the sticker figure as a realistic year-round average rather than a guaranteed minimum; and if most of your driving is sustained highway travel in a cold climate, mentally discount the sticker number rather than assuming a worst-case scenario is a defect specific to the car you bought.",
+    ],
+    citations: [
+      { label: "Fuel Economy and EV Range Testing — US EPA", url: "https://www.epa.gov/greenvehicles/fuel-economy-and-ev-range-testing" },
+      { label: "EPA Vs. WLTP EV Range Ratings: Here's Why They're Different — InsideEVs", url: "https://insideevs.com/features/695492/epa-vs-wltp-ev-range-difference/" },
+      { label: "Electric Vehicle Range Testing: Understanding NEDC vs. WLTP vs. EPA — J.D. Power", url: "https://www.jdpower.com/cars/shopping-guides/electric-vehicle-range-testing-understanding-nedc-vs-wltp-vs-epa" },
+    ],
+    carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    scores: { qualityScore: 88, originalityScore: 85, factualScore: 92, sourceScore: 90, valueScore: 91, readabilityScore: 87 },
+  },
 ];
 
 async function main() {

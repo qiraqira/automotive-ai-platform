@@ -53,6 +53,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: SITE_URL, changeFrequency: "hourly", priority: 1 },
+    // /guides index page (2026-09-11) — each individual guide is still a
+    // published Article, already listed via `articles` below; this only
+    // adds the index page itself.
+    { url: `${SITE_URL}/guides`, changeFrequency: "weekly", priority: 0.6 },
     // Real articles — the site's actual news content, and the highest
     // real priority of anything here besides the homepage itself.
     ...articles.map((article) => ({

@@ -124,6 +124,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/topics/safety-recalls">Safety &amp; Recalls</a>
             </div>
             <div className="footer-links">
+              <a href="/guides">Guides</a>
+            </div>
+            <div className="footer-links">
               <a href="/about">About</a>
               <a href="/about/editorial-policy">Editorial Policy</a>
               <a href="/about/how-we-use-ai">How we use AI</a>
