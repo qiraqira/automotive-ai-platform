@@ -178,6 +178,7 @@ export interface CrashTestResult {
   categoryScores: Record<string, string> | null;
   testYear: number;
   sourceUrl: string;
+  video: { id: string; youtubeId: string; title: string } | null;
 }
 
 export interface CarModelDetail {

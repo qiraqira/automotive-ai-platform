@@ -32,15 +32,22 @@ RUN npx prisma generate --schema packages/database/prisma/schema.prisma
 # type-safety fix) — types must build before database, which must build
 # before ai/editorial. config has no internal deps. This file's build
 # steps have drifted out of sync with apps/worker's actual dependency
-# graph *three separate times* now (2026-09-07, all caught by literally
-# re-simulating this exact RUN sequence locally, never assumed correct):
-# missing ai/editorial/types entirely; missing config after the BullMQ
-# migration added it; database listed *before* types even though database
-# needs it. Nothing enforces this file staying in sync automatically —
-# re-verify it by hand any time a packages/* dependency graph changes.
+# graph *four separate times* now, always caught live rather than by any
+# local check (no local Postgres to run a full build+migrate dry run
+# against before pushing): missing ai/editorial/types entirely
+# (2026-09-07); missing config after the BullMQ migration added it
+# (2026-09-07); database listed *before* types even though database needs
+# it (2026-09-07); and, 2026-09-11, missing @automotive/utils entirely
+# after seed-real-cars.ts started importing extractYoutubeId() from it
+# (same class of bug as Dockerfile.api's own real gap the same week —
+# see that file's comment). Nothing enforces this file staying in sync
+# automatically — re-verify it by hand any time a packages/* dependency
+# graph changes, and run infrastructure/docker/verify-build-order.js
+# before pushing (it would have caught this one immediately).
 RUN npm run build --workspace @automotive/types
 RUN npm run build --workspace @automotive/database
 RUN npm run build --workspace @automotive/config
+RUN npm run build --workspace @automotive/utils
 RUN npm run build --workspace @automotive/ai
 RUN npm run build --workspace @automotive/editorial
 RUN npm run build --workspace @automotive/worker

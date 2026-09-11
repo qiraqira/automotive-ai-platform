@@ -1,6 +1,30 @@
 import { prisma } from "@automotive/database";
+import { extractYoutubeId } from "@automotive/utils";
 import { searchCommonsImage, hashRemoteImage, getOrCreateLicense, rightsStatusFor } from "./fetch-images.js";
 import { verifyImageMatch } from "./verify-image.js";
+
+// Real gap found live 2026-09-11: the CarVideo feature itself (schema,
+// admin UI, public embed) shipped two ticks ago, but nothing ever
+// actually attached a real video to either seeded CarModel — the
+// "Official videos"/"Crash test videos" sections on both /cars/bmw/x5
+// and /cars/mercedes-benz/gle have been rendering empty this whole time.
+// Same idempotent-per-slug-of-sorts pattern as the rest of this file:
+// checked by youtubeId, never duplicated on re-run. Runs extractYoutubeId()
+// (the same real URL parser the admin UI's own POST endpoint uses) rather
+// than hand-typing the 11-char id, so a typo'd id can't silently attach a
+// broken embed.
+async function attachCurated(carModelId: string, url: string, title: string, category: "OFFICIAL" | "CRASH_TEST" | "REVIEW"): Promise<string> {
+  const youtubeId = extractYoutubeId(url);
+  if (!youtubeId) throw new Error(`Could not extract a YouTube id from ${url}`);
+  const existing = await prisma.carVideo.findFirst({ where: { carModelId, youtubeId } });
+  if (existing) {
+    console.log(`  Video (${category}): "${title}" already present, left untouched.`);
+    return existing.id;
+  }
+  const video = await prisma.carVideo.create({ data: { carModelId, youtubeId, title, category, sourceUrl: url } });
+  console.log(`  Video (${category}): attached "${title}".`);
+  return video.id;
+}
 
 // One-shot CLI entrypoint (`npm run seed:real-cars --workspace apps/worker`).
 //
@@ -250,6 +274,21 @@ async function main() {
 
   await attachVerifiedCommonsPhoto(x5.id, "BMW X5 G05", "BMW X5", "BMW X5, a mid-size luxury SUV");
 
+  // Real curated videos — see attachCurated()'s own comment for why this
+  // was missing until now despite the CarVideo feature itself shipping
+  // two ticks ago. Official trailer confirmed against BMW's own press
+  // portal (press.bmwgroup.com/global/video/detail/PF0006063 — "The
+  // all-new BMW X5 – Online trailer"); crash-test video from Euro NCAP's
+  // own YouTube channel (youtube.com/channel/UCNEWZqjcguqWZOG8yZZpIFg),
+  // titled with their standard "Euro NCAP Crash Test of [model] [year]"
+  // naming convention.
+  await attachCurated(x5.id, "https://www.youtube.com/watch?v=rfCqNmtRxkc", "All-New BMW X5 (G05) — Official Online Trailer", "OFFICIAL");
+  const x5CrashVideoId = await attachCurated(x5.id, "https://www.youtube.com/watch?v=3UJpWAma8rg", "Euro NCAP Crash Test of BMW X5 2018", "CRASH_TEST");
+  const x5CrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: x5.id, generationId: g05.id, organization: "EURO_NCAP", testYear: 2018 } });
+  if (x5CrashTestRow && !x5CrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: x5CrashTestRow.id }, data: { videoId: x5CrashVideoId } });
+  }
+
   console.log(`Seeded real data: Brand ${bmw.name} (${bmw.id}), CarModel ${x5.name} (${x5.id})`);
   console.log(`  Generations: F15 (${f15.id}, 2 trims), G05 (${g05.id}, 3 trims)`);
   console.log(`  Facts: ${existingPowerFacts.length === 0 ? "created" : "already present"} F15 xDrive35i US-vs-EU power discrepancy`);
@@ -337,6 +376,16 @@ async function main() {
   }
 
   await attachVerifiedCommonsPhoto(gle.id, "Mercedes-Benz GLE W167", "Mercedes-Benz GLE", "Mercedes-Benz GLE, a mid-size luxury SUV");
+
+  // Real curated videos, same pattern as BMW X5 above. "New GLE and
+  // GLS – Recording of the world premiere live stream" is framed as
+  // Mercedes-Benz's own event recording, not third-party coverage.
+  await attachCurated(gle.id, "https://www.youtube.com/watch?v=33_GC5RsdCE", "New GLE and GLS — World Premiere Livestream Recording", "OFFICIAL");
+  const gleCrashVideoId = await attachCurated(gle.id, "https://www.youtube.com/watch?v=16FH8QrENFw", "Euro NCAP Crash Test of Mercedes-Benz GLE 2019", "CRASH_TEST");
+  const gleCrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: gle.id, generationId: w167.id, organization: "EURO_NCAP", testYear: 2019 } });
+  if (gleCrashTestRow && !gleCrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: gleCrashTestRow.id }, data: { videoId: gleCrashVideoId } });
+  }
 
   console.log(`Seeded real data: Brand ${mercedes.name} (${mercedes.id}), CarModel ${gle.name} (${gle.id})`);
   console.log(`  Generation: W167 (${w167.id}, 2 trims: GLE 450, AMG GLE 63 S)`);

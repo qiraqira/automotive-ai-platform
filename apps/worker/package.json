@@ -25,6 +25,7 @@
     "@automotive/database": "0.1.0",
     "@automotive/editorial": "0.1.0",
     "@automotive/types": "0.1.0",
+    "@automotive/utils": "0.1.0",
     "bullmq": "^6.3.4",
     "fast-xml-parser": "^5.11.1",
     "ioredis": "^6.0.0",

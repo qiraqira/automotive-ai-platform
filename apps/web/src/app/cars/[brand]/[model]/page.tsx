@@ -184,6 +184,23 @@ export default async function CarModelPage({
                     Source
                   </a>
                 </div>
+                {test.video && (
+                  // Real footage of this exact test, shown right next to
+                  // its own rating rather than only in the general video
+                  // list further down — CrashTestResult.videoId existed
+                  // in the schema since it first landed, this is the
+                  // first real row to actually use it.
+                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, maxWidth: 480, marginTop: 8 }}>
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${test.video.youtubeId}`}
+                      title={test.video.title}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+                    />
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -191,7 +208,11 @@ export default async function CarModelPage({
       )}
 
       {(["OFFICIAL", "CRASH_TEST", "REVIEW"] as const).map((category) => {
-        const categoryVideos = carModel.videos.filter((v) => v.category === category);
+        // Skip any video already embedded inline next to its own
+        // CrashTestResult rating above — same video, shown once, not
+        // twice on the same page.
+        const inlineVideoIds = new Set(carModel.crashTests.map((t) => t.video?.id).filter(Boolean));
+        const categoryVideos = carModel.videos.filter((v) => v.category === category && !inlineVideoIds.has(v.id));
         if (categoryVideos.length === 0) return null;
         const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash test videos" : "Reviews";
         return (

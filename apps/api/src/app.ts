@@ -737,7 +737,12 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
       // every other real-content list in this file (facts, stories).
       videos: { orderBy: { createdAt: "desc" } },
       images: { orderBy: { position: "asc" }, include: { image: true } },
-      crashTests: { orderBy: { testYear: "desc" } },
+      // `video` include added 2026-09-11 alongside the first two real
+      // curated crash-test videos (seed-real-cars.ts) — CrashTestResult.
+      // videoId existed since the schema first landed, but nothing ever
+      // selected it, so a linked video had no way to reach the page even
+      // once one existed.
+      crashTests: { orderBy: { testYear: "desc" }, include: { video: true } },
     },
   });
 
