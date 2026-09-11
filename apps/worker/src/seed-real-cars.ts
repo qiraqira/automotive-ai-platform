@@ -880,10 +880,28 @@ async function main() {
     create: { carModelId: f150.id, slug: "14th-gen", name: "F-150 (14th Gen)", startYear: 2021, endYear: null },
   });
 
+  // Real bug found and fixed live 2026-09-11, same day this model was
+  // added: seeding these trims with bare, generic English-word names
+  // ("Pro", "Platinum", both real words with zero automotive
+  // specificity) fed directly into extractCarModelMentions()'s
+  // candidate matchTerms — confirmed live it created two real false
+  // EntityRelation edges linking unrelated e-bike/power-station Stories
+  // ("Tenways CGO600 Pro e-bike", "Segway ZT3 Pro e-scooter") to this
+  // CarModel, purely because both headlines contain the standalone word
+  // "Pro". The exact same failure shape as the GLE/"Eagle" collision
+  // found earlier this session, just from a trim name instead of a
+  // brand name — that fix was a word-boundary regex (still correctly
+  // applied here too), but a word-boundary match on a genuinely common
+  // English word doesn't help; the fix has to be not using a common
+  // English word as a bare match term in the first place. Every other
+  // trim on this site (xDrive45e, M50i, GLE 450, Prime XSE...) is
+  // already distinctive on its own; only this model's used bare English
+  // words. Renamed with the model/generation name folded in, matching
+  // that same established convention.
   const f150Xlt = await prisma.trim.upsert({
     where: { generationId_slug: { generationId: f15014th.id, slug: "xlt" } },
-    update: {},
-    create: { generationId: f15014th.id, slug: "xlt", name: "XLT" },
+    update: { name: "F-150 XLT" },
+    create: { generationId: f15014th.id, slug: "xlt", name: "F-150 XLT" },
   });
   if ((await prisma.engine.count({ where: { trimId: f150Xlt.id } })) === 0) {
     await prisma.engine.create({ data: { trimId: f150Xlt.id, name: "2.7L EcoBoost V6", powerHp: 325, fuel: "petrol" } });
@@ -891,8 +909,8 @@ async function main() {
 
   const f150Platinum = await prisma.trim.upsert({
     where: { generationId_slug: { generationId: f15014th.id, slug: "platinum" } },
-    update: {},
-    create: { generationId: f15014th.id, slug: "platinum", name: "Platinum" },
+    update: { name: "F-150 Platinum" },
+    create: { generationId: f15014th.id, slug: "platinum", name: "F-150 Platinum" },
   });
   if ((await prisma.engine.count({ where: { trimId: f150Platinum.id } })) === 0) {
     await prisma.engine.create({ data: { trimId: f150Platinum.id, name: "3.5L PowerBoost Hybrid V6", powerHp: 430, fuel: "hybrid" } });
@@ -907,8 +925,8 @@ async function main() {
 
   const lightningPro = await prisma.trim.upsert({
     where: { generationId_slug: { generationId: lightning.id, slug: "pro" } },
-    update: {},
-    create: { generationId: lightning.id, slug: "pro", name: "Pro" },
+    update: { name: "Lightning Pro" },
+    create: { generationId: lightning.id, slug: "pro", name: "Lightning Pro" },
   });
   if ((await prisma.engine.count({ where: { trimId: lightningPro.id } })) === 0) {
     await prisma.engine.create({ data: { trimId: lightningPro.id, name: "Dual Motor (front + rear)", powerHp: 452, fuel: "electric" } });
@@ -919,8 +937,8 @@ async function main() {
 
   const lightningPlatinum = await prisma.trim.upsert({
     where: { generationId_slug: { generationId: lightning.id, slug: "platinum" } },
-    update: {},
-    create: { generationId: lightning.id, slug: "platinum", name: "Platinum" },
+    update: { name: "Lightning Platinum" },
+    create: { generationId: lightning.id, slug: "platinum", name: "Lightning Platinum" },
   });
   if ((await prisma.engine.count({ where: { trimId: lightningPlatinum.id } })) === 0) {
     await prisma.engine.create({ data: { trimId: lightningPlatinum.id, name: "Dual Motor (front + rear)", powerHp: 580, fuel: "electric" } });
