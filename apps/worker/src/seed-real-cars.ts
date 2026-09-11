@@ -357,6 +357,29 @@ async function main() {
     });
   }
 
+  // GLE 450e (PHEV) — added 2026-09-11, real trim missing from this
+  // model's own W167 lineup despite the site already comparing PHEVs
+  // elsewhere (hybrid-vs-plug-in-hybrid-vs-ev-explained cites the X5
+  // xDrive45e and RAV4 Prime but had no real GLE PHEV to include).
+  // Source: cars.com/edmunds.com 2024 model-year pages — 381 hp combined
+  // (2.0L turbo-four + electric motor), 23.3 kWh usable battery, 38-48
+  // mile EPA electric range (genuinely the best of this site's three
+  // real PHEV examples despite the smallest-ish battery — real,
+  // noteworthy efficiency difference, not an error to reconcile away).
+  const gle450e = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: w167.id, slug: "gle450e" } },
+    update: {},
+    create: { generationId: w167.id, slug: "gle450e", name: "GLE 450e" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: gle450e.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: gle450e.id, name: "2.0L Turbo I4 + electric motor, combined", powerHp: 381, fuel: "phev" },
+    });
+  }
+  if ((await prisma.battery.count({ where: { trimId: gle450e.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: gle450e.id, capacityKwh: 23.3, rangeMiles: 43 } });
+  }
+
   // Real Euro NCAP result — source: https://www.euroncap.com/assessments/mercedes-benz/gle/0755/
   // (applies to GLE 300d/350d/400d/450, both LHD and RHD).
   const existingGleCrashTest = await prisma.crashTestResult.findFirst({
@@ -394,7 +417,7 @@ async function main() {
   }
 
   console.log(`Seeded real data: Brand ${mercedes.name} (${mercedes.id}), CarModel ${gle.name} (${gle.id})`);
-  console.log(`  Generation: W167 (${w167.id}, 2 trims: GLE 450, AMG GLE 63 S)`);
+  console.log(`  Generation: W167 (${w167.id}, 3 trims: GLE 450, AMG GLE 63 S, GLE 450e)`);
   console.log(`  Crash test: ${existingGleCrashTest ? "already present" : "created"} Euro NCAP 2019 (W167)`);
 
   // ============================================================

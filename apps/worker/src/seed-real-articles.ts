@@ -240,7 +240,7 @@ const ARTICLES: ArticleSpec[] = [
     paragraphs: [
       "\"Hybrid,\" \"plug-in hybrid,\" and \"electric\" get used almost interchangeably in casual conversation, but they describe three meaningfully different pieces of hardware, not three points on a smooth spectrum of \"more electric.\" The clearest way to tell them apart is by what the battery is actually for, not by how green the badge on the back looks.",
       "A regular hybrid (HEV) — this site's Toyota RAV4 Hybrid is a real example — carries a small battery, typically only 1-2 kWh, recharged entirely by regenerative braking and the gas engine itself. It never plugs in, and it's not really designed to drive any meaningful distance on electricity alone; the battery's job is to smooth out the gas engine's workload (assisting on acceleration, letting the engine shut off at a stop) so it burns less fuel overall. Zero owner behavior changes versus a normal gas car: no cable, no charging routine, nothing.",
-      "A plug-in hybrid (PHEV) — the RAV4 Prime and the BMW X5 xDrive45e on this site are both real examples — keeps the same gas engine but swaps in a much larger battery, generally 8-18 kWh (the X5 xDrive45e's is 24 kWh, the RAV4 Prime's 18.1 kWh), sized specifically to be charged from a wall outlet or public charger like an EV. That battery is big enough to drive a genuine 25-50 miles on electricity alone before the gas engine ever needs to turn on. A PHEV owner who plugs in every night and mostly drives short distances might burn very little gasoline in practice; the same PHEV never plugged in just behaves like a heavier, slightly less efficient regular hybrid — the gas engine is always there as a real fallback either way.",
+      "A plug-in hybrid (PHEV) — the RAV4 Prime, the BMW X5 xDrive45e and the Mercedes-Benz GLE 450e on this site are all real examples — keeps the same gas engine but swaps in a much larger battery, generally 8-18 kWh (the RAV4 Prime's is 18.1 kWh, the X5 xDrive45e's 24 kWh, the GLE 450e's 23.3 kWh), sized specifically to be charged from a wall outlet or public charger like an EV. That battery is big enough to drive a genuine 30-48 miles on electricity alone before the gas engine ever needs to turn on — the GLE 450e actually gets the most real-world electric range of the three despite not having the largest battery, a genuine efficiency difference between these systems, not a typo. A PHEV owner who plugs in every night and mostly drives short distances might burn very little gasoline in practice; the same PHEV never plugged in just behaves like a heavier, slightly less efficient regular hybrid — the gas engine is always there as a real fallback either way.",
       "A full EV — the Tesla Model Y on this site — has no gas engine at all, so the comparison stops being about \"how much electric range\" and becomes \"the entire range, period.\" That requires a much bigger battery still (60-100+ kWh is typical across the market; Model Y's own trims run 69.5-79 kWh), and it means external charging isn't an optional efficiency boost, it's the only way the car moves. That's the real tradeoff: an EV never burns a drop of gasoline and typically costs far less per mile to run, but it's also the one of the three genuinely dependent on charging access — a PHEV or HEV owner with no home charger loses an efficiency feature, an EV owner with no charging access loses the car.",
       "None of this makes one category strictly better than another — it makes them different tools for different situations. A regular hybrid suits a driver who wants better fuel economy with zero behavior change and no charger anywhere in the picture. A plug-in hybrid suits a driver who could charge at home most nights but occasionally needs to drive further than any charging network could keep up with, without planning around it. A full EV suits a driver whose charging access (home, work, or reliable public fast-charging) is already solid, in exchange for the lowest running cost and zero gasoline of the three.",
     ],
@@ -257,10 +257,10 @@ const ARTICLES: ArticleSpec[] = [
     specTable: {
       headers: ["Hybrid (HEV)", "Plug-in Hybrid (PHEV)", "Full Electric (EV)"],
       rows: [
-        { label: "Real example on this site", values: ["Toyota RAV4 Hybrid", "BMW X5 xDrive45e / RAV4 Prime", "Tesla Model Y"] },
+        { label: "Real example on this site", values: ["Toyota RAV4 Hybrid", "RAV4 Prime / X5 xDrive45e / GLE 450e", "Tesla Model Y"] },
         { label: "Typical battery size", values: ["1-2 kWh", "8-18 kWh", "60-100+ kWh"] },
         { label: "Plugs in?", values: ["No", "Yes (optional)", "Yes (required)"] },
-        { label: "Electric-only range", values: ["None", "30-42 mi (this site's examples)", "300+ mi"] },
+        { label: "Electric-only range", values: ["None", "30-48 mi (this site's examples)", "300+ mi"] },
         { label: "Gas engine as fallback", values: ["Always", "Always", "None — no gas engine"] },
       ],
     },
@@ -338,12 +338,43 @@ async function main() {
         }
       }
 
-      if (spec.specTable && !existing.blocks.some((b) => b.type === "SPEC_TABLE")) {
+      const existingSpecTableBlock = existing.blocks.find((b) => b.type === "SPEC_TABLE");
+      if (spec.specTable && !existingSpecTableBlock) {
         const nextPosition = existing.blocks.length > 0 ? Math.max(...existing.blocks.map((b) => b.position)) + 1 : 0;
         await prisma.articleBlock.create({
           data: { articleId: existing.id, type: "SPEC_TABLE", position: nextPosition, data: spec.specTable },
         });
         syncedNotes.push("added missing SPEC_TABLE block");
+      } else if (spec.specTable && existingSpecTableBlock && JSON.stringify(existingSpecTableBlock.data) !== JSON.stringify(spec.specTable)) {
+        // Real, deliberate content correction (2026-09-11: the GLE 450e
+        // PHEV trim was missing from the hybrid/PHEV/EV guide's own spec
+        // table when first written) — same posture as the Model Y
+        // sales-streak Fact correction earlier this session: a
+        // published, already-live figure turned out to need a real
+        // update, not a silent re-confirmation of the first draft. Never
+        // touches an existing TEXT paragraph this way (see the loop
+        // below) — SPEC_TABLE is structured data with one clear source
+        // of truth (this spec), unlike hand-written prose.
+        await prisma.articleBlock.update({ where: { id: existingSpecTableBlock.id }, data: { data: spec.specTable } });
+        syncedNotes.push("corrected SPEC_TABLE content");
+      }
+
+      // Same real, deliberate correction as SPEC_TABLE above, applied to
+      // TEXT paragraphs — position-matched, since ArticleBlock has no
+      // other stable identity. Only ever updates a paragraph whose
+      // content actually changed; never adds/removes a paragraph (a
+      // real length change would need a human editorial decision about
+      // where it fits, not an automatic append).
+      const existingTextBlocks = existing.blocks.filter((b) => b.type === "TEXT").sort((a, b) => a.position - b.position);
+      const textBlockPairCount = Math.min(existingTextBlocks.length, spec.paragraphs.length);
+      for (let i = 0; i < textBlockPairCount; i++) {
+        const block = existingTextBlocks[i]!;
+        const specText = spec.paragraphs[i]!;
+        const existingText = (block.data as { text?: string }).text;
+        if (existingText !== specText) {
+          await prisma.articleBlock.update({ where: { id: block.id }, data: { data: { text: specText } } });
+          syncedNotes.push(`corrected TEXT paragraph ${i}`);
+        }
       }
 
       // Same pattern as topicId/specTable above: a carModelSlugs entry
