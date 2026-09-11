@@ -57,8 +57,20 @@ async function main() {
     try {
       const result = await factCheckArticle(article.id, article.headline, article.subtitle, paragraphs, sourcesBlock, qualityGateThresholds);
       if (!result) {
-        console.log(`- "${article.headline}": fact-check call blocked (budget) — stopping here, resume later.`);
-        break;
+        // Real bug found live 2026-09-12: factCheckArticle() returns
+        // null for a real budget block AND for any other internal
+        // error (both cases already logged their own specific reason
+        // inside fact-check.ts itself) — treating every null as "budget
+        // exhausted" and stopping the whole audit here was wrong: the
+        // first real run hit a transient per-article API error (since
+        // fixed) on article 1 and this line stopped the ENTIRE 151-
+        // article audit right there, reporting "0 re-checked". Skip and
+        // keep going — if the daily/monthly budget is genuinely
+        // exhausted, every remaining call will fail the same cheap,
+        // fast pre-flight check rather than silently truncating a real
+        // audit over one bad article.
+        console.log(`- "${article.headline}": fact-check returned no result (see its own log line above for why) — skipping, continuing audit.`);
+        continue;
       }
       results.push({
         slug: article.slug,

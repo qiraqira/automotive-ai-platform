@@ -175,7 +175,13 @@ Before writing, use web search to find genuinely new, real, current context beyo
       system,
       prompt,
       responseSchema: RESPONSE_SCHEMA,
-      maxTokens: 2048,
+      // Real bug found live 2026-09-12 in fact-check.ts's own identical
+      // call (see that file's own comment): `max_tokens` caps OUTPUT
+      // tokens, and every server_tool_use/web_search_tool_result block
+      // emitted while searching counts against that cap before the
+      // final JSON answer — 2048 was sized before web search existed
+      // here. Raised with the same headroom reasoning.
+      maxTokens: 4096,
       webSearch: { maxUses: WRITE_WEB_SEARCH_MAX_USES },
     });
     const latencyMs = Date.now() - start;

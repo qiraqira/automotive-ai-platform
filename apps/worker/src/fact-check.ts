@@ -118,7 +118,18 @@ export async function factCheckArticle(
       system,
       prompt,
       responseSchema: RESPONSE_SCHEMA,
-      maxTokens: 1024,
+      // Real bug found live 2026-09-12 (audit-published-quality.ts's
+      // first real run): 1024 was sized for a plain text-only
+      // completion, before web search was added. `max_tokens` caps
+      // OUTPUT tokens, and every server_tool_use/web_search_tool_result
+      // block Claude emits while searching counts against that same
+      // cap before it ever reaches the final JSON answer — a real
+      // multi-search fact-check hit `stop_reason: "max_tokens"` with
+      // ZERO text blocks produced, which this provider correctly
+      // surfaces as an error rather than silently returning nothing.
+      // 4096 leaves real headroom for up to WEB_SEARCH_MAX_USES search
+      // round-trips plus the actual scored response.
+      maxTokens: 4096,
       model: FACT_CHECK_MODEL,
       webSearch: { maxUses: WEB_SEARCH_MAX_USES },
     });
