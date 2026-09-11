@@ -390,6 +390,223 @@ async function main() {
   console.log(`Seeded real data: Brand ${mercedes.name} (${mercedes.id}), CarModel ${gle.name} (${gle.id})`);
   console.log(`  Generation: W167 (${w167.id}, 2 trims: GLE 450, AMG GLE 63 S)`);
   console.log(`  Crash test: ${existingGleCrashTest ? "already present" : "created"} Euro NCAP 2019 (W167)`);
+
+  // ============================================================
+  // Tesla Model Y — added 2026-09-11, third vertical slice. Picked over a
+  // second luxury-SUV competitor deliberately: it's the single best-
+  // selling vehicle on Earth (any body style, any powertrain) for three
+  // straight years, so it's a real, high-interest search topic distinct
+  // from the BMW X5 / Mercedes GLE pair above, not just "one more SUV".
+  //
+  // Sources (fetched 2026-09-11):
+  // - https://en.wikipedia.org/wiki/Tesla_Model_Y (generation timeline:
+  //   2020 launch, 2022 heat-pump refresh — same body generation — then
+  //   the 2025 "Juniper" redesign as a genuinely new generation)
+  // - 2022 Long Range/Performance pricing+specs: truecar.com/kbb.com/
+  //   fleetnews.co.uk 2022 model-year pages (384 hp LR / 456 hp
+  //   Performance, both dual-motor AWD — Tesla never sold a single-motor
+  //   Model Y in this generation)
+  // - 2026 Juniper Standard/Premium/Performance pricing+specs:
+  //   evspecifications.com + motormatchup.com 2026 model pages; usable
+  //   battery capacity (69.5/79.0 kWh) from evkx.net/tycorun.com — Tesla
+  //   itself has never published an official pack-kWh figure for either
+  //   generation, so these are the commonly-cited third-party figures,
+  //   same sourcing tier as the BMW xDrive45e 24 kWh figure above.
+  // - Euro NCAP 2022 assessment (Berlin-built, first generation):
+  //   https://www.euroncap.com/assessments/tesla/model+y/0961/
+  // - Euro NCAP 2025 assessment (Juniper, retested under the stricter
+  //   2025 protocol — a genuinely lower Adult/child % is expected under
+  //   the harder protocol, not a real safety regression):
+  //   https://www.euroncap.com/assessments/tesla/model+y/1181/
+  // - World's-best-selling-vehicle fact: insideevs.com/motor1.com/
+  //   jato.com (2023, 1.23M units, first EV ever to top the global
+  //   yearly sales chart) + teslarati.com (held the title again in 2024
+  //   and 2025)
+  // ============================================================
+  const tesla = await prisma.brand.upsert({
+    where: { slug: "tesla" },
+    update: {},
+    create: { slug: "tesla", name: "Tesla", country: "US" },
+  });
+  const modelY = await prisma.carModel.upsert({
+    where: { brandId_slug: { brandId: tesla.id, slug: "model-y" } },
+    update: {},
+    create: { brandId: tesla.id, slug: "model-y", name: "Model Y" },
+  });
+
+  // --- First generation (2020-2024, incl. 2022 heat-pump refresh) ---
+  const gen1 = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: modelY.id, slug: "2020-2024" } },
+    update: {},
+    create: { carModelId: modelY.id, slug: "2020-2024", name: "Model Y (2020–2024)", startYear: 2020, endYear: 2024 },
+  });
+
+  const gen1LongRange = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: gen1.id, slug: "long-range-awd" } },
+    update: {},
+    create: { generationId: gen1.id, slug: "long-range-awd", name: "Long Range AWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: gen1LongRange.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: gen1LongRange.id, name: "Dual Motor (front + rear)", powerHp: 384, fuel: "electric" },
+    });
+  }
+  if ((await prisma.battery.count({ where: { trimId: gen1LongRange.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: gen1LongRange.id, rangeMiles: 318 } });
+  }
+
+  const gen1Performance = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: gen1.id, slug: "performance-awd" } },
+    update: {},
+    create: { generationId: gen1.id, slug: "performance-awd", name: "Performance AWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: gen1Performance.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: gen1Performance.id, name: "Dual Motor (front + rear)", powerHp: 456, fuel: "electric" },
+    });
+  }
+  if ((await prisma.battery.count({ where: { trimId: gen1Performance.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: gen1Performance.id, rangeMiles: 303 } });
+  }
+
+  // --- Second generation: "Juniper" redesign (2025-present) ---
+  const juniper = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: modelY.id, slug: "juniper" } },
+    update: {},
+    create: { carModelId: modelY.id, slug: "juniper", name: "Model Y Juniper", startYear: 2025, endYear: null },
+  });
+
+  const juniperStandard = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: juniper.id, slug: "standard-rwd" } },
+    update: {},
+    create: { generationId: juniper.id, slug: "standard-rwd", name: "Standard RWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: juniperStandard.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: juniperStandard.id, name: "Single Motor (rear)", fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: juniperStandard.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: juniperStandard.id, capacityKwh: 69.5, rangeMiles: 321 } });
+  }
+
+  const juniperPremiumRwd = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: juniper.id, slug: "premium-rwd" } },
+    update: {},
+    create: { generationId: juniper.id, slug: "premium-rwd", name: "Premium RWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: juniperPremiumRwd.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: juniperPremiumRwd.id, name: "Single Motor (rear)", fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: juniperPremiumRwd.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: juniperPremiumRwd.id, capacityKwh: 79.0, rangeMiles: 357 } });
+  }
+
+  const juniperPremiumAwd = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: juniper.id, slug: "premium-awd" } },
+    update: {},
+    create: { generationId: juniper.id, slug: "premium-awd", name: "Premium AWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: juniperPremiumAwd.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: juniperPremiumAwd.id, name: "Dual Motor (front + rear)", fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: juniperPremiumAwd.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: juniperPremiumAwd.id, capacityKwh: 79.0, rangeMiles: 327 } });
+  }
+
+  const juniperPerformance = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: juniper.id, slug: "performance-awd" } },
+    update: {},
+    create: { generationId: juniper.id, slug: "performance-awd", name: "Performance AWD" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: juniperPerformance.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: juniperPerformance.id, name: "Dual Motor (front + rear)", powerHp: 525, fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: juniperPerformance.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: juniperPerformance.id, capacityKwh: 79.0, rangeMiles: 306 } });
+  }
+
+  // --- Real, dated fact: three consecutive years as the world's
+  // best-selling vehicle (not just best-selling EV) — genuinely notable,
+  // and the reason this model was picked as the third vertical slice.
+  const existingSalesFact = await prisma.fact.findFirst({ where: { carModelId: modelY.id, attribute: "world_best_selling_vehicle" } });
+  if (!existingSalesFact) {
+    await prisma.fact.create({
+      data: {
+        carModelId: modelY.id,
+        attribute: "world_best_selling_vehicle",
+        value: "World's best-selling vehicle overall (not just best-selling EV) for 2023, 2024 and 2025 — 1.23M units sold in 2023, the first time an all-electric car topped the global yearly sales chart for any body style or powertrain",
+        status: "CONFIRMED",
+        confidence: 0.9,
+      },
+    });
+  }
+
+  // --- Real Euro NCAP crash tests, one per generation ---
+  const existingGen1CrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: modelY.id, generationId: gen1.id, organization: "EURO_NCAP", testYear: 2022 },
+  });
+  if (!existingGen1CrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: modelY.id,
+        generationId: gen1.id,
+        organization: "EURO_NCAP",
+        overallRating: "5 stars",
+        categoryScores: {
+          adult_occupant: "97%",
+          child_occupant: "87%",
+          pedestrian: "82%",
+          safety_assist: "98%",
+        },
+        testYear: 2022,
+        sourceUrl: "https://www.euroncap.com/assessments/tesla/model+y/0961/",
+      },
+    });
+  }
+
+  const existingJuniperCrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: modelY.id, generationId: juniper.id, organization: "EURO_NCAP", testYear: 2025 },
+  });
+  if (!existingJuniperCrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: modelY.id,
+        generationId: juniper.id,
+        organization: "EURO_NCAP",
+        overallRating: "5 stars",
+        categoryScores: {
+          adult_occupant: "91%",
+          child_occupant: "93%",
+          pedestrian: "86%",
+          safety_assist: "92%",
+        },
+        testYear: 2025,
+        sourceUrl: "https://www.euroncap.com/assessments/tesla/model+y/1181/",
+      },
+    });
+  }
+
+  await attachVerifiedCommonsPhoto(modelY.id, "Tesla Model Y", "Tesla Model Y", "Tesla Model Y, a compact electric crossover SUV");
+
+  // Real curated videos. Official: Tesla's own unveil event recording
+  // (tesla.com's YouTube channel, March 2019). Crash tests: Euro NCAP's
+  // own channel (youtube.com/channel/UCNEWZqjcguqWZOG8yZZpIFg), one per
+  // real generation tested above.
+  await attachCurated(modelY.id, "https://www.youtube.com/watch?v=Tb_Wn6K0uVs", "Tesla Model Y Unveil", "OFFICIAL");
+  const gen1CrashVideoId = await attachCurated(modelY.id, "https://www.youtube.com/watch?v=dKaN3f2zmCQ", "Euro NCAP Safety Tests of Tesla Model Y 2022", "CRASH_TEST");
+  const gen1CrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: modelY.id, generationId: gen1.id, organization: "EURO_NCAP", testYear: 2022 } });
+  if (gen1CrashTestRow && !gen1CrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: gen1CrashTestRow.id }, data: { videoId: gen1CrashVideoId } });
+  }
+  const juniperCrashVideoId = await attachCurated(modelY.id, "https://www.youtube.com/watch?v=tMzggr2BDes", "Euro NCAP Crash & Safety Tests of Tesla Model Y 2025", "CRASH_TEST");
+  const juniperCrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: modelY.id, generationId: juniper.id, organization: "EURO_NCAP", testYear: 2025 } });
+  if (juniperCrashTestRow && !juniperCrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: juniperCrashTestRow.id }, data: { videoId: juniperCrashVideoId } });
+  }
+
+  console.log(`Seeded real data: Brand ${tesla.name} (${tesla.id}), CarModel ${modelY.name} (${modelY.id})`);
+  console.log(`  Generations: 2020-2024 (${gen1.id}, 2 trims), Juniper (${juniper.id}, 4 trims)`);
+  console.log(`  Fact: ${existingSalesFact ? "already present" : "created"} world's-best-selling-vehicle fact`);
+  console.log(`  Crash tests: ${existingGen1CrashTest ? "already present" : "created"} Euro NCAP 2022 (gen1), ${existingJuniperCrashTest ? "already present" : "created"} Euro NCAP 2025 (Juniper)`);
 }
 
 main()
