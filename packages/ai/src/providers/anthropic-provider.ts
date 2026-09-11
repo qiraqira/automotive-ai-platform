@@ -21,8 +21,9 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResult> {
+    const model = request.model ?? this.model;
     const response = await this.client.messages.create({
-      model: this.model,
+      model,
       max_tokens: request.maxTokens ?? 4096,
       ...(request.system !== undefined ? { system: request.system } : {}),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
@@ -41,16 +42,34 @@ export class AnthropicProvider implements AIProvider {
       ...(request.responseSchema !== undefined
         ? { output_config: { format: { type: "json_schema" as const, schema: request.responseSchema } } }
         : {}),
+      // Anthropic's own server-side web search tool (verified against the
+      // installed SDK's WebSearchTool20250305 type before using it) —
+      // the search itself executes on Anthropic's infrastructure inside
+      // this one call (no client-side agentic loop needed): the model
+      // emits a `server_tool_use` block, Anthropic runs the real search
+      // and appends a `web_search_tool_result` block, and the model then
+      // writes its final answer as a further text block, all in the same
+      // response. `max_uses` bounds real per-call search cost.
+      ...(request.webSearch
+        ? { tools: [{ name: "web_search" as const, type: "web_search_20250305" as const, max_uses: request.webSearch.maxUses ?? 3 }] }
+        : {}),
       messages: [{ role: "user", content: request.prompt }],
     });
 
     if (response.stop_reason === "refusal") {
-      throw new Error(`Anthropic refused the request (model ${this.model}): ${response.stop_details?.category ?? "unknown category"}`);
+      throw new Error(`Anthropic refused the request (model ${model}): ${response.stop_details?.category ?? "unknown category"}`);
     }
 
-    const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === "text");
+    // The LAST text block, not the first: when web search runs, the
+    // content array interleaves `server_tool_use`/`web_search_tool_result`
+    // blocks between an initial text block (e.g. "Let me check that") and
+    // the model's real final answer — taking the first text block would
+    // silently return the wrong (incomplete) content whenever a search
+    // actually happened.
+    const textBlocks = response.content.filter((block): block is Anthropic.TextBlock => block.type === "text");
+    const textBlock = textBlocks.at(-1);
     if (!textBlock) {
-      throw new Error(`Anthropic response for model ${this.model} contained no text block (stop_reason: ${response.stop_reason})`);
+      throw new Error(`Anthropic response for model ${model} contained no text block (stop_reason: ${response.stop_reason})`);
     }
 
     return {
@@ -58,6 +77,7 @@ export class AnthropicProvider implements AIProvider {
       tokensIn: response.usage.input_tokens,
       tokensOut: response.usage.output_tokens,
       model: response.model,
+      webSearchCount: response.usage.server_tool_use?.web_search_requests ?? 0,
     };
   }
 
