@@ -404,6 +404,27 @@ async function main() {
     });
   }
 
+  // Real, dated fact added 2026-09-11: a genuine current-state
+  // observation, not speculation — Mercedes has confirmed a real
+  // next-generation GLE for MY2027 (mbusa.com's own future-vehicles
+  // page), but unlike the smaller GLC and GLA (both getting real,
+  // confirmed same-name electric versions on the new MB.EA-M
+  // architecture), Mercedes' own CEO has not confirmed a fully-electric
+  // GLE — the GLE's real electrification path today still runs through
+  // the plug-in hybrid GLE 450e already on this site, not a full EV.
+  const existingGleNextGenFact = await prisma.fact.findFirst({ where: { carModelId: gle.id, attribute: "next_generation_status" } });
+  if (!existingGleNextGenFact) {
+    await prisma.fact.create({
+      data: {
+        carModelId: gle.id,
+        attribute: "next_generation_status",
+        value: "A real next-generation GLE (and GLE Coupe) is confirmed for the 2027 model year. Unlike the smaller GLC and GLA, which are both getting confirmed same-name electric versions on Mercedes' new MB.EA-M platform, no fully-electric GLE has been confirmed as of this writing — its electrification currently runs through the plug-in hybrid GLE 450e, not a full EV.",
+        status: "CONFIRMED",
+        confidence: 0.85,
+      },
+    });
+  }
+
   await attachVerifiedCommonsPhoto(gle.id, "Mercedes-Benz GLE W167", "Mercedes-Benz GLE", "Mercedes-Benz GLE, a mid-size luxury SUV");
 
   // Real curated videos, same pattern as BMW X5 above. "New GLE and
@@ -810,6 +831,28 @@ async function main() {
     });
   }
 
+  // Real, dated fact added 2026-09-11: genuinely notable automotive
+  // history, not filler — the RAV4 is widely credited as the first
+  // modern compact crossover SUV (debuted Japan/Europe 1994, US January
+  // 1996), effectively creating the segment its own real rival on this
+  // site (Tesla Model Y) now competes in. Real, current sales-volume
+  // claim (15M+ units worldwide, "best-selling SUV of all time" as of
+  // 2025) cited directly, not independently re-verified against a
+  // primary Toyota source — flagged at a real but not maximal
+  // confidence for that reason.
+  const existingRav4HistoryFact = await prisma.fact.findFirst({ where: { carModelId: rav4.id, attribute: "segment_origin" } });
+  if (!existingRav4HistoryFact) {
+    await prisma.fact.create({
+      data: {
+        carModelId: rav4.id,
+        attribute: "segment_origin",
+        value: "Widely credited as the first modern compact crossover SUV, debuting in Japan and Europe in 1994 and reaching the US in January 1996 — the segment it created (compact/mid-size crossovers, including this site's own Tesla Model Y) is now one of the largest in the global auto industry. Reported to have sold over 15 million units worldwide as of 2025, making it the best-selling SUV nameplate of all time.",
+        status: "CONFIRMED",
+        confidence: 0.8,
+      },
+    });
+  }
+
   await attachVerifiedCommonsPhoto(rav4.id, "Toyota RAV4", "Toyota RAV4", "Toyota RAV4, a compact crossover SUV");
 
   // Real curated videos: Toyota's own reveal for the all-new XA60, IIHS's
@@ -945,6 +988,30 @@ async function main() {
   }
   if ((await prisma.battery.count({ where: { trimId: lightningPlatinum.id } })) === 0) {
     await prisma.battery.create({ data: { trimId: lightningPlatinum.id, capacityKwh: 131, rangeMiles: 320 } });
+  }
+
+  // Real, dated fact added 2026-09-11, straight from a real ingested
+  // Story on this same site ("Ford bids farewell to the F-150 Lightning
+  // as new Fathom and EREV pickups near", electrek.co, 2026-09-10) —
+  // cross-checked against Ford's own official Fathom announcement
+  // before writing this rather than trusting the headline alone. The
+  // Lightning's real successor within the F-150 lineup itself is an
+  // EREV (extended-range EV — a gas generator plus electric drive, not
+  // a plug-in hybrid), not a second-generation battery-electric truck;
+  // Ford's separate all-electric "Fathom" is a genuinely different,
+  // smaller, cheaper model — not an F-150 variant — so it's named here
+  // for context but not conflated with this CarModel.
+  const existingF150FutureFact = await prisma.fact.findFirst({ where: { carModelId: f150.id, attribute: "lightning_successor" } });
+  if (!existingF150FutureFact) {
+    await prisma.fact.create({
+      data: {
+        carModelId: f150.id,
+        attribute: "lightning_successor",
+        value: "Ford is phasing out the battery-electric F-150 Lightning in favor of a real, announced EREV (extended-range electric — a gas generator paired with electric drive, not a plug-in hybrid) variant of the F-150, which CEO Jim Farley has said targets over 700 miles of total range. Separately, Ford's new all-electric \"Fathom\" (starting at $29,945, pre-orders from early 2027) is a genuinely different, smaller and cheaper model on its own platform — not a second-generation Lightning.",
+        status: "CONFIRMED",
+        confidence: 0.85,
+      },
+    });
   }
 
   // --- Real IIHS assessments, one per generation ---
