@@ -283,13 +283,30 @@ app.get("/v1/stories", async (req, res) => {
           slug: true,
           locale: true,
           images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+          factualScore: true,
+          sourceScore: true,
+          qualityScore: true,
+          originalityScore: true,
+          valueScore: true,
+          readabilityScore: true,
         },
         take: 1,
       },
     },
   });
   const hasMore = rows.length > parsed.data.limit;
-  const stories = hasMore ? rows.slice(0, parsed.data.limit) : rows;
+  const rowsPage = hasMore ? rows.slice(0, parsed.data.limit) : rows;
+  // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
+  // own comment: a reject-verdict article was still being linked here as
+  // "the" real article for its Story. Dropped back to the same
+  // no-article-yet state (story.articles = []) rather than surfaced —
+  // apps/web's own rendering already falls back to plain, unlinked text
+  // in that case, so no frontend change is needed for this fix to take
+  // effect.
+  const stories = rowsPage.map((s) => ({
+    ...s,
+    articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+  }));
   res.json({ stories, hasMore, offset: parsed.data.offset, limit: parsed.data.limit });
 });
 
@@ -307,6 +324,44 @@ app.get("/v1/stories", async (req, res) => {
 // up to 50,000 URLs each and this is nowhere near that scale; revisit
 // with a real sitemap index (multiple <sitemap> files) if it ever is,
 // not preemptively.
+// Shared by every route that decides whether to surface a link to a
+// published Article — GET /v1/articles (sitemap feed), GET /v1/guides,
+// and (real gap found and fixed 2026-09-11, this same tick) GET
+// /v1/stories, GET /v1/topics/:slug and GET /v1/brands/:slug. Those last
+// three feed the homepage, topic pages and brand pages — the actual
+// reader-facing "here's what to read next" surfaces, not just crawler
+// signals. A live query against production the same tick this was
+// written found 92 of 148 published Articles (62%) currently re-score
+// as quality-gate "reject" (legacy content written before AUTO_MODERATION
+// existed, per this file's 2026-09-11 comment on GET /v1/articles/:locale/:slug)
+// — and until now, every one of those 92 was still being actively linked
+// to a real reader from the homepage and every topic page, not merely
+// left crawlable. noindex (already applied to the article's own page)
+// only ever addressed the search-engine side of that; this addresses
+// the human-reader side, which is the more direct violation of "не
+// нагенерить страниц для выдачи, а сделать очень много интересной
+// информации" — actively recommending a 15%-factual-score article to a
+// real visitor is a worse outcome than a search engine finding it.
+function isRejectedByQualityGate(a: {
+  factualScore: number | null;
+  sourceScore: number | null;
+  qualityScore: number | null;
+  originalityScore: number | null;
+  valueScore: number | null;
+  readabilityScore: number | null;
+}): boolean {
+  if (a.factualScore === null || a.sourceScore === null) return false;
+  const scores: QualityScores = {
+    qualityScore: a.qualityScore ?? 0,
+    originalityScore: a.originalityScore ?? 0,
+    factualScore: a.factualScore,
+    sourceScore: a.sourceScore,
+    valueScore: a.valueScore ?? 0,
+    readabilityScore: a.readabilityScore ?? 0,
+  };
+  return evaluateQualityGate(scores, qualityGateThresholds).verdict === "reject";
+}
+
 app.get("/v1/articles", async (_req, res) => {
   const rows = await prisma.article.findMany({
     where: { status: "PUBLISHED" },
@@ -329,18 +384,7 @@ app.get("/v1/articles", async (_req, res) => {
   // above: a "reject"-verdict article is set noindex there, so it
   // shouldn't also be advertised to crawlers via the sitemap feed.
   const articles = rows
-    .filter((a) => {
-      if (a.factualScore === null || a.sourceScore === null) return true;
-      const scores: QualityScores = {
-        qualityScore: a.qualityScore ?? 0,
-        originalityScore: a.originalityScore ?? 0,
-        factualScore: a.factualScore,
-        sourceScore: a.sourceScore,
-        valueScore: a.valueScore ?? 0,
-        readabilityScore: a.readabilityScore ?? 0,
-      };
-      return evaluateQualityGate(scores, qualityGateThresholds).verdict !== "reject";
-    })
+    .filter((a) => !isRejectedByQualityGate(a))
     .map(({ locale, slug, publishedAt, updatedAt }) => ({ locale, slug, publishedAt, updatedAt }));
   res.json({ articles });
 });
@@ -376,18 +420,7 @@ app.get("/v1/guides", async (_req, res) => {
     take: 200,
   });
   const guides = rows
-    .filter((a) => {
-      if (a.factualScore === null || a.sourceScore === null) return true;
-      const scores: QualityScores = {
-        qualityScore: a.qualityScore ?? 0,
-        originalityScore: a.originalityScore ?? 0,
-        factualScore: a.factualScore,
-        sourceScore: a.sourceScore,
-        valueScore: a.valueScore ?? 0,
-        readabilityScore: a.readabilityScore ?? 0,
-      };
-      return evaluateQualityGate(scores, qualityGateThresholds).verdict !== "reject";
-    })
+    .filter((a) => !isRejectedByQualityGate(a))
     .map(({ locale, slug, headline, subtitle, publishedAt, updatedAt }) => ({ locale, slug, headline, subtitle, publishedAt, updatedAt }));
   res.json({ guides });
 });
@@ -874,7 +907,13 @@ app.get("/v1/brands/:slug", async (req, res) => {
           where: { id: { in: relations.map((r) => r.fromId) } },
           orderBy: { lastUpdatedAt: "desc" },
           take: 20,
-          include: { articles: { where: { locale: "en", status: "PUBLISHED" }, select: { slug: true }, take: 1 } },
+          include: {
+            articles: {
+              where: { locale: "en", status: "PUBLISHED" },
+              select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+              take: 1,
+            },
+          },
         })
       : [];
 
@@ -886,7 +925,14 @@ app.get("/v1/brands/:slug", async (req, res) => {
       country: brand.country,
       models: brand.models.map((m) => ({ slug: m.slug, name: m.name, generationCount: m.generations.length })),
     },
-    relatedStories: relatedStories.map((s) => ({ id: s.id, title: s.title, articleSlug: s.articles[0]?.slug ?? null })),
+    // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
+    // own comment: same fix as GET /v1/stories/GET /v1/topics/:slug,
+    // independently needed here since this endpoint runs its own query.
+    relatedStories: relatedStories.map((s) => ({
+      id: s.id,
+      title: s.title,
+      articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+    })),
   });
 });
 
@@ -959,11 +1005,25 @@ app.get("/v1/topics/:slug", async (req, res) => {
           slug: true,
           locale: true,
           images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+          factualScore: true,
+          sourceScore: true,
+          qualityScore: true,
+          originalityScore: true,
+          valueScore: true,
+          readabilityScore: true,
         },
         take: 1,
       },
     },
   });
+  // Real gap found and fixed 2026-09-11 — see isRejectedByQualityGate()'s
+  // own comment on GET /v1/stories: identical fix needed here
+  // independently, since this endpoint runs its own separate query
+  // rather than reusing GET /v1/stories'.
+  const storiesWithFilteredArticles = stories.map((s) => ({
+    ...s,
+    articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+  }));
 
   // Real gap found and fixed 2026-09-11: evergreen Articles (COMPARISON/
   // ANALYSIS/GUIDE/EXPLAINER, no Story) had no way to appear under a
@@ -972,7 +1032,7 @@ app.get("/v1/topics/:slug", async (req, res) => {
   // hero image + rightsStatus for the same logo-fallback crop handling
   // apps/web's own pages already do), ordered newest-first like every
   // other real content list in this file.
-  const articles = await prisma.article.findMany({
+  const articleRows = await prisma.article.findMany({
     where: { topicId: topic.id, status: "PUBLISHED", locale: "en" },
     orderBy: { publishedAt: "desc" },
     take: 50,
@@ -983,10 +1043,19 @@ app.get("/v1/topics/:slug", async (req, res) => {
       type: true,
       publishedAt: true,
       images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+      factualScore: true,
+      sourceScore: true,
+      qualityScore: true,
+      originalityScore: true,
+      valueScore: true,
+      readabilityScore: true,
     },
   });
+  const articles = articleRows
+    .filter((a) => !isRejectedByQualityGate(a))
+    .map(({ slug, headline, subtitle, type, publishedAt, images }) => ({ slug, headline, subtitle, type, publishedAt, images }));
 
-  res.json({ topic, stories, articles });
+  res.json({ topic, stories: storiesWithFilteredArticles, articles });
 });
 
 // --- Analytics (spec §49) ---
