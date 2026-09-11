@@ -825,6 +825,172 @@ async function main() {
   console.log(`Seeded real data: Brand ${toyota.name} (${toyota.id}), CarModel ${rav4.name} (${rav4.id})`);
   console.log(`  Generations: XA50 (${xa50.id}, 2 trims), XA60 (${xa60.id}, 3 trims)`);
   console.log(`  Crash test: ${existingRav4CrashTest ? "already present" : "created"} IIHS 2024 (XA50)`);
+
+  // ============================================================
+  // Ford F-150 — fifth vertical-slice model, added 2026-09-11. Picked
+  // for real segment diversity none of the first four models cover:
+  // it's America's best-selling vehicle of any kind for decades running,
+  // and it's the one real example on this site of a single nameplate
+  // selling gas/hybrid AND a genuinely separate full-electric line (the
+  // Lightning) side by side, not a facelift replacing one with the
+  // other the way Model Y's Juniper or RAV4's XA60 did.
+  //
+  // Sources (fetched 2026-09-11):
+  // - https://en.wikipedia.org/wiki/Ford_F-Series_(fourteenth_generation)
+  //   (generation timeline: 2021 launch, 2024 mid-cycle refresh)
+  // - 2024 XLT 2.7L EcoBoost: 325 hp/400 lb-ft (stage3motorsports.com/
+  //   multiple dealer spec pages, cross-checked)
+  // - 2024 Platinum 3.5L PowerBoost hybrid: 430 hp/570 lb-ft
+  //   (dorianford.com's own PowerBoost engine page)
+  // - F-150 Lightning: cars.com/edmunds.com 2024-2025 pages — Pro
+  //   (Standard Range, 98 kWh, 240 mi EPA, 452 hp combined) and a
+  //   higher trim on the Extended Range pack (131 kWh, 320 mi EPA,
+  //   580 hp combined)
+  // - IIHS 2025 Crew Cab (gas): Good on both small-overlap tests, Good
+  //   on the ORIGINAL moderate-overlap test but Poor on IIHS's newer
+  //   updated version of that same test (rear-passenger protection) —
+  //   confirmed via iihs.org directly, cross-checked against
+  //   fordauthority.com's own reporting that this Poor-on-updated-test
+  //   pattern is "consistent across all current half-ton trucks", the
+  //   same real industry-wide shape already documented for the RAV4
+  //   above, just a harsher result (Poor vs RAV4's Marginal). Still
+  //   earns "Top Safety Pick" because that award only requires a Good
+  //   on the original test, not the updated one (Top Safety Pick+ is
+  //   the one gated on the updated test).
+  // - IIHS 2025 F-150 Lightning: Poor on the same updated moderate-
+  //   overlap test (iihs.org directly) — genuinely did NOT earn any
+  //   Top Safety award, a real, honest divergence from the gas truck
+  //   kept as-is rather than smoothed into a false parallel.
+  // ============================================================
+  const ford = await prisma.brand.upsert({
+    where: { slug: "ford" },
+    update: {},
+    create: { slug: "ford", name: "Ford", country: "US" },
+  });
+  const f150 = await prisma.carModel.upsert({
+    where: { brandId_slug: { brandId: ford.id, slug: "f-150" } },
+    update: {},
+    create: { brandId: ford.id, slug: "f-150", name: "F-150" },
+  });
+
+  // --- 14th generation, gas/hybrid (2021-present, incl. 2024 refresh) ---
+  const f15014th = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: f150.id, slug: "14th-gen" } },
+    update: {},
+    create: { carModelId: f150.id, slug: "14th-gen", name: "F-150 (14th Gen)", startYear: 2021, endYear: null },
+  });
+
+  const f150Xlt = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: f15014th.id, slug: "xlt" } },
+    update: {},
+    create: { generationId: f15014th.id, slug: "xlt", name: "XLT" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: f150Xlt.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: f150Xlt.id, name: "2.7L EcoBoost V6", powerHp: 325, fuel: "petrol" } });
+  }
+
+  const f150Platinum = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: f15014th.id, slug: "platinum" } },
+    update: {},
+    create: { generationId: f15014th.id, slug: "platinum", name: "Platinum" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: f150Platinum.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: f150Platinum.id, name: "3.5L PowerBoost Hybrid V6", powerHp: 430, fuel: "hybrid" } });
+  }
+
+  // --- F-150 Lightning (2022-present), a genuinely separate full-electric line ---
+  const lightning = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: f150.id, slug: "lightning" } },
+    update: {},
+    create: { carModelId: f150.id, slug: "lightning", name: "F-150 Lightning", startYear: 2022, endYear: null },
+  });
+
+  const lightningPro = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: lightning.id, slug: "pro" } },
+    update: {},
+    create: { generationId: lightning.id, slug: "pro", name: "Pro" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: lightningPro.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: lightningPro.id, name: "Dual Motor (front + rear)", powerHp: 452, fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: lightningPro.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: lightningPro.id, capacityKwh: 98, rangeMiles: 240 } });
+  }
+
+  const lightningPlatinum = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: lightning.id, slug: "platinum" } },
+    update: {},
+    create: { generationId: lightning.id, slug: "platinum", name: "Platinum" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: lightningPlatinum.id } })) === 0) {
+    await prisma.engine.create({ data: { trimId: lightningPlatinum.id, name: "Dual Motor (front + rear)", powerHp: 580, fuel: "electric" } });
+  }
+  if ((await prisma.battery.count({ where: { trimId: lightningPlatinum.id } })) === 0) {
+    await prisma.battery.create({ data: { trimId: lightningPlatinum.id, capacityKwh: 131, rangeMiles: 320 } });
+  }
+
+  // --- Real IIHS assessments, one per generation ---
+  const existingF150CrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: f150.id, generationId: f15014th.id, organization: "IIHS", testYear: 2025 },
+  });
+  if (!existingF150CrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: f150.id,
+        generationId: f15014th.id,
+        organization: "IIHS",
+        overallRating: "Top Safety Pick",
+        categoryScores: {
+          small_overlap_front_driver: "Good",
+          small_overlap_front_passenger: "Good",
+          moderate_overlap_front_original: "Good",
+          moderate_overlap_front_updated: "Poor",
+          side: "Good",
+        },
+        testYear: 2025,
+        sourceUrl: "https://www.iihs.org/ratings/vehicle/ford/f-150-crew-cab-pickup/2025",
+      },
+    });
+  }
+
+  const existingLightningCrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: f150.id, generationId: lightning.id, organization: "IIHS", testYear: 2025 },
+  });
+  if (!existingLightningCrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: f150.id,
+        generationId: lightning.id,
+        organization: "IIHS",
+        overallRating: "No Top Safety award",
+        categoryScores: {
+          moderate_overlap_front_updated: "Poor",
+          front_crash_prevention_pedestrian: "Good",
+        },
+        testYear: 2025,
+        sourceUrl: "https://www.iihs.org/ratings/vehicle/ford/f-150-lightning-crew-cab-pickup/2025",
+      },
+    });
+  }
+
+  await attachVerifiedCommonsPhoto(f150.id, "Ford F-150", "Ford F-150", "Ford F-150, a full-size pickup truck");
+
+  // Real curated videos: Ford's own reveal for the gas 14th-gen refresh
+  // and for the Lightning; IIHS's own channel for the Lightning's real
+  // crash test (the one whose Poor result is the more newsworthy of the
+  // two — no equally specific gas-truck video found under IIHS's own
+  // channel naming convention at the time this was written).
+  await attachCurated(f150.id, "https://www.youtube.com/watch?v=WrfPo5n0oNA", "The New 2024 Ford F-150 Live Reveal", "OFFICIAL");
+  await attachCurated(f150.id, "https://www.youtube.com/watch?v=Lz6NFGm0oA8", "F-150 Lightning Launch In 2 Minutes | Built Ford Proud", "OFFICIAL");
+  const lightningCrashVideoId = await attachCurated(f150.id, "https://www.youtube.com/watch?v=QlTnWKb5Vxg", "2025 Ford F-150 Lightning Updated Moderate Overlap IIHS Crash Test", "CRASH_TEST");
+  const lightningCrashTestRow = await prisma.crashTestResult.findFirst({ where: { carModelId: f150.id, generationId: lightning.id, organization: "IIHS", testYear: 2025 } });
+  if (lightningCrashTestRow && !lightningCrashTestRow.videoId) {
+    await prisma.crashTestResult.update({ where: { id: lightningCrashTestRow.id }, data: { videoId: lightningCrashVideoId } });
+  }
+
+  console.log(`Seeded real data: Brand ${ford.name} (${ford.id}), CarModel ${f150.name} (${f150.id})`);
+  console.log(`  Generations: 14th Gen (${f15014th.id}, 2 trims), Lightning (${lightning.id}, 2 trims)`);
+  console.log(`  Crash tests: ${existingF150CrashTest ? "already present" : "created"} IIHS 2025 (14th Gen), ${existingLightningCrashTest ? "already present" : "created"} IIHS 2025 (Lightning)`);
 }
 
 main()
