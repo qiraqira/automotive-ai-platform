@@ -27,13 +27,14 @@ interface GallerySpec {
   queries: string[]; // tried in order until one verifies
 }
 
+// Second run (2026-09-11, same tick): the first pass verified 0 of 2 GLE
+// exterior candidates, leaving the gallery with zero GLE exterior shots
+// (only its interior) — a real imbalance against the user's own "of one
+// AND the other car" instruction. Re-running with broader/alternate
+// queries for GLE exterior only; already-attached photos are still
+// skipped via the sha256 dedupe above regardless of what re-runs here.
 const CARS: GallerySpec[] = [
-  { context: "BMW X5 (G05), front three-quarter view", queries: ["BMW X5 G05 front"] },
-  { context: "BMW X5 (G05), rear view", queries: ["BMW X5 G05 rear"] },
-  { context: "BMW X5 (G05), interior dashboard", queries: ["BMW X5 G05 interior"] },
-  { context: "Mercedes-Benz GLE (W167), front three-quarter view", queries: ["Mercedes-Benz GLE W167 front"] },
-  { context: "Mercedes-Benz GLE (W167), rear view", queries: ["Mercedes-Benz GLE W167 rear"] },
-  { context: "Mercedes-Benz GLE (W167), interior dashboard", queries: ["Mercedes-Benz GLE W167 interior"] },
+  { context: "Mercedes-Benz GLE (W167), side profile or three-quarter exterior view", queries: ["Mercedes-Benz GLE-Class 2020", "Mercedes-Benz GLE SUV", "Mercedes GLE 450"] },
 ];
 
 async function main() {
