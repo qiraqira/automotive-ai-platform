@@ -263,23 +263,35 @@ async function getOrCreateLicense(candidate: ImageCandidate): Promise<string> {
   });
   if (existing) return existing.id;
 
+  // A brand logo (searchBrandLogo's "logo" sentinel) is trademark fair-use
+  // for editorial identification, not a CC grant — real news use (this
+  // case) is fine, but claiming "modification allowed" the same way a
+  // CC-BY photo does would misrepresent actual trademark rights.
+  const isLogo = candidate.licenseSlug === "logo";
   const created = await prisma.imageLicense.create({
     data: {
       provider: candidate.provider,
       licenseType: candidate.licenseSlug,
       licenseUrl: candidate.licenseUrl,
       attributionRequired: candidate.attributionRequired,
-      // Every license this function accepts (see ALLOWED_LICENSE_PREFIXES)
-      // permits both commercial use and modification — NC/ND variants are
-      // filtered out before this is ever called.
+      // Every CC license this function otherwise accepts (see
+      // ALLOWED_LICENSE_PREFIXES) permits both commercial use and
+      // modification — NC/ND variants are filtered out before this is
+      // ever called — so `true` is accurate there; the logo case is
+      // handled separately above.
       commercialUseAllowed: true,
-      modificationAllowed: true,
+      modificationAllowed: !isLogo,
     },
   });
   return created.id;
 }
 
-function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" {
+function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" | "EDITORIAL_ONLY" {
+  // A brand logo (searchBrandLogo's own "logo" sentinel slug) is neither
+  // truly Creative-Commons-licensed content nor safe to imply otherwise —
+  // it's used here for the same reason any real newsroom uses it: brand
+  // identification, under trademark fair-use, not a CC grant.
+  if (licenseSlug === "logo") return "EDITORIAL_ONLY";
   if (licenseSlug.startsWith("cc0") || licenseSlug.startsWith("pd")) return "PUBLIC_DOMAIN";
   if (licenseSlug.startsWith("cc-by-sa")) return "CC_BY_SA";
   return "CC_BY";
@@ -343,6 +355,74 @@ export function buildSearchQueries(texts: string[]): string[] {
 // non-model-specific subjects).
 const IMAGE_PROVIDERS = [searchCommonsImage, searchOpenverseImage];
 
+// Last-resort fallback, user's explicit instruction 2026-09-11 after a
+// live AI-image-replacement run found a real photo for only 4 of 75
+// AI-illustrated articles: most of this site's coverage is brand-new
+// vehicle reveals (a just-announced BYD SUV, a spotted prototype) that
+// simply have no free-licensed photo anywhere yet — Commons/Openverse
+// can't find what doesn't exist. Rather than leave the old fake AI
+// "photo" in that case, or show no image at all, fall back to the
+// brand's own real logo — honest (it doesn't pretend to be a photo of
+// the specific car), easy to source (Commons carries clean official
+// logo files for essentially every real car brand), and exactly the
+// "aakuratnyy fallback" the user asked for over either a fake photo or
+// a blank hero slot. Deliberately searches WITHOUT isRelevantTitle()'s
+// logo/diagram/badge exclusion (the opposite intent here) and skips the
+// AI vision match check — a vision model judging "does this look like
+// the news event" makes no sense for a logo; a plain title check that
+// the result is actually a logo of the right brand is enough.
+async function searchBrandLogo(brand: string): Promise<ImageCandidate | null> {
+  const url = new URL(COMMONS_API);
+  url.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    generator: "search",
+    gsrsearch: `${brand} logo`,
+    gsrnamespace: "6",
+    gsrlimit: "10",
+    prop: "imageinfo",
+    iiprop: "url|size|mime|extmetadata",
+    iiurlwidth: String(THUMB_WIDTH),
+  }).toString();
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { query?: { pages?: Record<string, CommonsPage> } };
+  const pages = Object.values(data.query?.pages ?? {});
+
+  const brandWord = brand.split(/\s+/)[0] ?? brand;
+  for (const page of pages) {
+    const info = page.imageinfo?.[0];
+    if (!info) continue;
+    if (info.mime !== "image/jpeg" && info.mime !== "image/png" && info.mime !== "image/svg+xml") continue;
+    if (!/logo/i.test(page.title)) continue;
+    if (!new RegExp(`\\b${escapeRegExp(brandWord)}\\b`, "i").test(page.title)) continue;
+
+    const meta = info.extmetadata ?? {};
+    const licenseSlug = (meta.License?.value ?? "").toLowerCase();
+    // Real logos are almost always uploaded under {{PD-logo}} (too
+    // simple to be copyrightable) or a real trademark-fair-use template,
+    // neither of which necessarily carries a CC License field the same
+    // way a photograph does — a missing/non-CC license here is the norm
+    // for a logo, not a rights problem, so this candidate isn't rejected
+    // for that alone the way a photo would be.
+    return {
+      provider: "Wikimedia Commons",
+      title: page.title,
+      thumbUrl: info.thumburl ?? info.url,
+      width: info.thumbwidth ?? info.width,
+      height: info.thumbheight ?? info.height,
+      mime: info.mime,
+      artist: stripHtml(meta.Artist?.value ?? "Unknown"),
+      licenseShortName: meta.LicenseShortName?.value || (licenseSlug ? licenseSlug : "Trademark/logo — fair use"),
+      licenseSlug: licenseSlug || "logo",
+      licenseUrl: meta.LicenseUrl?.value ?? "https://commons.wikimedia.org/wiki/Commons:Logos",
+      attributionRequired: (meta.AttributionRequired?.value ?? "false") === "true",
+    };
+  }
+  return null;
+}
+
 export async function attachHeroImage(articleId: string, searchTexts: string[]): Promise<boolean> {
   // The fullest real text (a full headline/story title, not the
   // truncated 2-4-word search queries below) is what the AI vision check
@@ -402,5 +482,44 @@ export async function attachHeroImage(articleId: string, searchTexts: string[]):
       return true;
     }
   }
+
+  // Last resort: the brand's own logo (searchBrandLogo above) — never a
+  // vision-matched photo of the specific event, but a real, honest
+  // placeholder. Brand is the headline's own first word by construction
+  // (buildSearchQueries()' own anchor-word convention, confirmed live
+  // against this file's real isRelevantTitle() logic).
+  const brand = context.split(/\s+/)[0];
+  if (brand) {
+    const logo = await searchBrandLogo(brand);
+    if (logo) {
+      const { sha256 } = await hashRemoteImage(logo.thumbUrl);
+      const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+      const imageId = existingImage
+        ? existingImage.id
+        : (
+            await prisma.image.create({
+              data: {
+                originalUrl: logo.thumbUrl,
+                sourceType: "CREATIVE_COMMONS",
+                rightsStatus: rightsStatusFor(logo.licenseSlug),
+                author: logo.artist,
+                attribution: `Official ${brand} logo, via ${logo.provider} — used for identification, not a photo of the specific vehicle/event.`,
+                licenseId: await getOrCreateLicense(logo),
+                width: logo.width,
+                height: logo.height,
+                mimeType: logo.mime,
+                sha256,
+                generatedByAi: false,
+              },
+            })
+          ).id;
+
+      await prisma.articleImage.create({
+        data: { articleId, imageId, role: "HERO", position: 0, altText: `${brand} logo` },
+      });
+      return true;
+    }
+  }
+
   return false;
 }
