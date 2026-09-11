@@ -369,6 +369,17 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
       // all until now, so the article page had nothing real to render
       // even once the writer started producing them.
       citations: { select: { id: true, label: true, url: true } },
+      // Real gap found and fixed 2026-09-11: ArticleCarModel has been
+      // populated for a while now (entity-extractor.ts links a real NEWS
+      // article to a real CarModel whenever its headline precisely names
+      // one — see that file's own comment), and this project's new
+      // COMPARISON articles link explicitly to the models they compare,
+      // but this endpoint never returned any of it — the article page
+      // had zero "Related cars" internal linking despite the data
+      // already existing. Real internal linking (spec's "Related: Model
+      // page" requirement) needs both the model's own name AND its real
+      // /cars/:brand/:model URL, hence the nested brand.slug select.
+      carModels: { select: { carModel: { select: { slug: true, name: true, brand: { select: { slug: true, name: true } } } } } },
     },
   });
 

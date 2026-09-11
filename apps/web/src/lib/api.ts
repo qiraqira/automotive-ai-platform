@@ -339,6 +339,10 @@ export interface ArticleCitation {
   url: string;
 }
 
+export interface ArticleRelatedCarModel {
+  carModel: { slug: string; name: string; brand: { slug: string; name: string } };
+}
+
 export interface ArticleDetail {
   id: string;
   locale: string;
@@ -352,6 +356,7 @@ export interface ArticleDetail {
   story: { id: string; title: string } | null;
   images: ArticleHeroImage[];
   citations: ArticleCitation[];
+  carModels: ArticleRelatedCarModel[];
   qualityVerdict: "publish" | "review" | "reject" | null;
 }
 

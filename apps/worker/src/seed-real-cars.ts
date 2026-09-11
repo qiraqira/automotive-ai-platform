@@ -29,6 +29,54 @@ import { verifyImageMatch } from "./verify-image.js";
 // - https://www.automobile-catalog.com/car/2018/2727260/bmw_x5_xdrive40i.html
 //   (G05 xDrive40i launch spec)
 
+// Extracted 2026-09-11 when the Mercedes GLE section below needed the
+// exact same real-photo logic as BMW X5's — reuses the same Commons
+// search + AI vision-verification pipeline attachHeroImage() uses for
+// article photos, rather than hand-picking a URL (a wrong hand-picked
+// photo is exactly the "random SUV passed off as the real model"
+// failure the vertical-slice plan warns against). Skips (never
+// overwrites) if the CarModel already has a HERO image.
+async function attachVerifiedCommonsPhoto(carModelId: string, query: string, altText: string, visionContext: string): Promise<void> {
+  const existingHero = await prisma.carModelImage.findFirst({ where: { carModelId, role: "HERO" } });
+  if (existingHero) {
+    console.log(`  Photo (${altText}): HERO image already present, left untouched.`);
+    return;
+  }
+  const candidate = await searchCommonsImage(query);
+  if (!candidate) {
+    console.log(`  Photo (${altText}): no Commons candidate found.`);
+    return;
+  }
+  const verified = await verifyImageMatch(candidate.thumbUrl, visionContext);
+  if (!verified) {
+    console.log(`  Photo (${altText}): Commons candidate found but failed vision verification — skipped rather than risk a wrong photo.`);
+    return;
+  }
+  const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
+  const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+  const imageId = existingImage
+    ? existingImage.id
+    : (
+        await prisma.image.create({
+          data: {
+            originalUrl: candidate.thumbUrl,
+            sourceType: "CREATIVE_COMMONS",
+            rightsStatus: rightsStatusFor(candidate.licenseSlug),
+            author: candidate.artist,
+            attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
+            licenseId: await getOrCreateLicense(candidate),
+            width: candidate.width,
+            height: candidate.height,
+            mimeType: candidate.mime,
+            sha256,
+            generatedByAi: false,
+          },
+        })
+      ).id;
+  await prisma.carModelImage.create({ data: { carModelId, imageId, role: "HERO", position: 0, altText } });
+  console.log(`  Photo (${altText}): attached a real, vision-verified Commons photo.`);
+}
+
 async function main() {
   const bmw = await prisma.brand.upsert({
     where: { slug: "bmw" },
@@ -181,59 +229,98 @@ async function main() {
     });
   }
 
-  // --- Real photo (Wikimedia Commons, reusing the same search + AI
-  // vision-verification pipeline as attachHeroImage() in fetch-images.ts
-  // — a hand-picked URL risks exactly the "random SUV passed off as an
-  // X5" failure the vertical-slice plan explicitly warns against; running
-  // it through the same relevance + vision check as every article hero
-  // image is the honest way to attach one here too). Skipped if this
-  // CarModel already has a HERO image — never overwrites an editor's own
-  // later choice.
-  const existingHero = await prisma.carModelImage.findFirst({ where: { carModelId: x5.id, role: "HERO" } });
-  if (!existingHero) {
-    const candidate = await searchCommonsImage("BMW X5 G05");
-    if (candidate) {
-      const verified = await verifyImageMatch(candidate.thumbUrl, "BMW X5, a mid-size luxury SUV");
-      if (verified) {
-        const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
-        const existingImage = await prisma.image.findUnique({ where: { sha256 } });
-        const imageId = existingImage
-          ? existingImage.id
-          : (
-              await prisma.image.create({
-                data: {
-                  originalUrl: candidate.thumbUrl,
-                  sourceType: "CREATIVE_COMMONS",
-                  rightsStatus: rightsStatusFor(candidate.licenseSlug),
-                  author: candidate.artist,
-                  attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
-                  licenseId: await getOrCreateLicense(candidate),
-                  width: candidate.width,
-                  height: candidate.height,
-                  mimeType: candidate.mime,
-                  sha256,
-                  generatedByAi: false,
-                },
-              })
-            ).id;
-        await prisma.carModelImage.create({
-          data: { carModelId: x5.id, imageId, role: "HERO", position: 0, altText: "BMW X5" },
-        });
-        console.log("  Photo: attached a real, vision-verified Commons photo.");
-      } else {
-        console.log("  Photo: Commons candidate found but failed vision verification — skipped rather than risk a wrong photo.");
-      }
-    } else {
-      console.log("  Photo: no Commons candidate found.");
-    }
-  } else {
-    console.log("  Photo: HERO image already present, left untouched.");
-  }
+  await attachVerifiedCommonsPhoto(x5.id, "BMW X5 G05", "BMW X5", "BMW X5, a mid-size luxury SUV");
 
   console.log(`Seeded real data: Brand ${bmw.name} (${bmw.id}), CarModel ${x5.name} (${x5.id})`);
   console.log(`  Generations: F15 (${f15.id}, 2 trims), G05 (${g05.id}, 3 trims)`);
   console.log(`  Facts: ${existingPowerFacts.length === 0 ? "created" : "already present"} F15 xDrive35i US-vs-EU power discrepancy`);
   console.log(`  Crash test: ${existingCrashTest ? "already present" : "created"} Euro NCAP 2018 (G05)`);
+
+  // ============================================================
+  // Mercedes-Benz GLE (W167, 2018-present) — added 2026-09-11 so the
+  // BMW X5 vs Mercedes GLE comparison article (spec's Comparisons
+  // section) has two real CarModels to link to, not one real and one
+  // invented. Same "не выдумывать характеристики" bar as the X5 section
+  // above.
+  //
+  // Sources (fetched 2026-09-11):
+  // - https://en.wikipedia.org/wiki/Mercedes-Benz_GLE-Class (generations,
+  //   W167 trims/dimensions)
+  // - Mercedes-AMG GLE 63 S power figure: commonly cited 603 hp / 627
+  //   lb-ft for the bulk of the W167's production run (Edmunds/mbusa.com
+  //   model pages) — NOT the original 2018 US-launch figure (577 hp,
+  //   automobile-catalog.com) or the incoming 2027 update (per Mercedes-
+  //   AMG's own press materials), both of which are real but describe a
+  //   different point in this car's real facelift history, not a source
+  //   disagreement about the same spec.
+  // ============================================================
+  const mercedes = await prisma.brand.upsert({
+    where: { slug: "mercedes-benz" },
+    update: {},
+    create: { slug: "mercedes-benz", name: "Mercedes-Benz", country: "DE" },
+  });
+  const gle = await prisma.carModel.upsert({
+    where: { brandId_slug: { brandId: mercedes.id, slug: "gle" } },
+    update: {},
+    create: { brandId: mercedes.id, slug: "gle", name: "GLE" },
+  });
+  const w167 = await prisma.generation.upsert({
+    where: { carModelId_slug: { carModelId: gle.id, slug: "w167" } },
+    update: {},
+    create: { carModelId: gle.id, slug: "w167", name: "W167", startYear: 2018, endYear: null },
+  });
+
+  const gle450 = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: w167.id, slug: "gle450" } },
+    update: {},
+    create: { generationId: w167.id, slug: "gle450", name: "GLE 450" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: gle450.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: gle450.id, name: "3.0L I6 Turbo (M256)", powerKw: 270, powerHp: 362, fuel: "petrol" },
+    });
+  }
+
+  const amgGle63s = await prisma.trim.upsert({
+    where: { generationId_slug: { generationId: w167.id, slug: "amg-gle-63-s" } },
+    update: {},
+    create: { generationId: w167.id, slug: "amg-gle-63-s", name: "AMG GLE 63 S" },
+  });
+  if ((await prisma.engine.count({ where: { trimId: amgGle63s.id } })) === 0) {
+    await prisma.engine.create({
+      data: { trimId: amgGle63s.id, name: "4.0L V8 Biturbo (M177)", powerHp: 603, fuel: "petrol" },
+    });
+  }
+
+  // Real Euro NCAP result — source: https://www.euroncap.com/assessments/mercedes-benz/gle/0755/
+  // (applies to GLE 300d/350d/400d/450, both LHD and RHD).
+  const existingGleCrashTest = await prisma.crashTestResult.findFirst({
+    where: { carModelId: gle.id, generationId: w167.id, organization: "EURO_NCAP", testYear: 2019 },
+  });
+  if (!existingGleCrashTest) {
+    await prisma.crashTestResult.create({
+      data: {
+        carModelId: gle.id,
+        generationId: w167.id,
+        organization: "EURO_NCAP",
+        overallRating: "5 stars",
+        categoryScores: {
+          adult_occupant: "91%",
+          child_occupant: "90%",
+          pedestrian: "78%",
+          safety_assist: "78%",
+        },
+        testYear: 2019,
+        sourceUrl: "https://www.euroncap.com/assessments/mercedes-benz/gle/0755/",
+      },
+    });
+  }
+
+  await attachVerifiedCommonsPhoto(gle.id, "Mercedes-Benz GLE W167", "Mercedes-Benz GLE", "Mercedes-Benz GLE, a mid-size luxury SUV");
+
+  console.log(`Seeded real data: Brand ${mercedes.name} (${mercedes.id}), CarModel ${gle.name} (${gle.id})`);
+  console.log(`  Generation: W167 (${w167.id}, 2 trims: GLE 450, AMG GLE 63 S)`);
+  console.log(`  Crash test: ${existingGleCrashTest ? "already present" : "created"} Euro NCAP 2019 (W167)`);
 }
 
 main()

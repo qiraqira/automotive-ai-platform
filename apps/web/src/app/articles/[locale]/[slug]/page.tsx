@@ -188,6 +188,26 @@ export default async function ArticlePage({
         </p>
       )}
 
+      {article.carModels.length > 0 && (
+        // Real gap found and fixed 2026-09-11: ArticleCarModel has real
+        // data (entity-extractor.ts auto-links a NEWS article to a
+        // CarModel it precisely names; this project's COMPARISON
+        // articles link explicitly) but nothing ever rendered it — zero
+        // "Related cars" internal linking despite the data existing.
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Related cars</h2>
+          <ul>
+            {article.carModels.map(({ carModel }) => (
+              <li key={`${carModel.brand.slug}-${carModel.slug}`}>
+                <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
+                  {carModel.brand.name} {carModel.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {article.citations.length > 0 && (
         // Real gap found and fixed 2026-09-09, user's explicit request:
         // this section didn't exist at all — apps/worker/src/
