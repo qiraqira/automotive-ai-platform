@@ -18,6 +18,7 @@
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
     "reverify:hero-images": "tsx src/reverify-hero-images.ts",
+    "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
