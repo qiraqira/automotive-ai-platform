@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { computeRankingScore } from "@automotive/editorial";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, type FeaturedArticleSummary } from "@/lib/api";
+import {
+  getGuides,
+  getBrands,
+  getFeaturedArticles,
+  getFeaturedCars,
+  getStories,
+  type FeaturedArticleSummary,
+  type StorySummary,
+} from "@/lib/api";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -15,31 +24,57 @@ export const metadata: Metadata = {
   },
 };
 
-// Portal homepage (2026-09-11), replacing the old news-feed layout, per
-// the user's own explicit, repeated instruction: "не как новостная
-// лента была, а ... портал" / "Статьи на главной месте, новости нет. Но
-// дизайн легкий?" The old "Latest" Story feed and per-Topic news
-// sections are gone entirely — a news feed is exactly what this is no
-// longer meant to be. What's left is everything on the site that's
-// real, evergreen, and worth a reader's first look: real car models
-// with real photos, real comparisons/analysis, real guides, real
-// brands. "Light" design: plain type, generous whitespace, no cards/
-// shadows/gradients — this is still the same undecorated visual
-// language the rest of the site uses, just organized as a portal's
-// front page instead of a chronological feed.
+// Portal homepage (2026-09-11), replacing the old news-FEED layout, per
+// the user's own explicit instruction: "не как новостная лента была, а
+// ... портал" — the fix was to stop leading with a chronological feed,
+// not to remove news from the site. User's own correction the same day,
+// after seeing the result live: the real articles this pipeline writes
+// still belong on the homepage, just as one section among the portal's
+// others rather than the dominant, page-topping list it used to be.
+// "Light" design: plain type, generous whitespace, no cards/shadows/
+// gradients — the same undecorated visual language as the rest of the
+// site, just reordered as a portal's front page.
 function isLogoImage(images: FeaturedArticleSummary["images"]): boolean {
   const img = images[0]?.image;
   if (!img) return false;
   return img.rightsStatus === "EDITORIAL_ONLY" || img.originalUrl.toLowerCase().includes("logo");
 }
 
+function averageSourceTrust(story: StorySummary): number {
+  if (story.sources.length === 0) return 50;
+  const total = story.sources.reduce((sum, s) => sum + s.source.trustScore, 0);
+  return total / story.sources.length;
+}
+
+function rankStories(stories: StorySummary[]): StorySummary[] {
+  const now = new Date();
+  return [...stories].sort((a, b) => {
+    const scoreA = computeRankingScore({
+      importanceScore: a.importanceScore,
+      sourceQualityScore: averageSourceTrust(a),
+      publishedAt: new Date(a.lastUpdatedAt),
+      now,
+    });
+    const scoreB = computeRankingScore({
+      importanceScore: b.importanceScore,
+      sourceQualityScore: averageSourceTrust(b),
+      publishedAt: new Date(b.lastUpdatedAt),
+      now,
+    });
+    return scoreB - scoreA;
+  });
+}
+
 export default async function HomePage() {
-  const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands }] = await Promise.all([
-    getFeaturedCars(),
-    getFeaturedArticles(),
-    getGuides(),
-    getBrands(),
-  ]);
+  const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands }, { stories: unrankedStories }] =
+    await Promise.all([
+      getFeaturedCars(),
+      getFeaturedArticles(),
+      getGuides(),
+      getBrands(),
+      getStories({ limit: 20, hasArticle: true }),
+    ]);
+  const news = rankStories(unrankedStories).slice(0, 8);
 
   return (
     <>
@@ -77,6 +112,62 @@ export default async function HomePage() {
               </Link>
             ))}
           </div>
+        </section>
+      )}
+
+      {news.length > 0 && (
+        // Restored 2026-09-11 (same day as the portal rewrite, per the
+        // user's own follow-up): real news the pipeline actually wrote
+        // still needs a home on the homepage — just as one section here,
+        // not the page-topping feed it used to be. Same heroUrl/isLogo
+        // rendering as the old "Latest" section and the per-Topic pages.
+        <section style={{ marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+            Latest news
+          </h2>
+          <ul className="story-list">
+            {news.map((story) => {
+              const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
+              const isLogo =
+                story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
+                (heroUrl?.toLowerCase().includes("logo") ?? false);
+              return (
+                <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {heroUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                    <img
+                      src={heroUrl}
+                      alt=""
+                      style={{
+                        width: 96,
+                        height: 64,
+                        objectFit: isLogo ? "contain" : "cover",
+                        background: isLogo ? "#fff" : undefined,
+                        padding: isLogo ? 8 : undefined,
+                        flexShrink: 0,
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                  <div>
+                    <div className="story-meta">
+                      {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
+                      {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
+                      {story.primaryTopic ? (
+                        <>
+                          {" · "}
+                          <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
+                        </>
+                      ) : null}
+                    </div>
+                    <h3 style={{ fontSize: 18, margin: 0 }}>
+                      {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
+                    </h3>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 
