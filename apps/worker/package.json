@@ -19,6 +19,7 @@
     "replace:ai-images": "tsx src/replace-ai-images.ts",
     "reverify:hero-images": "tsx src/reverify-hero-images.ts",
     "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
+    "attach:unsplash-photos": "tsx src/attach-unsplash-photos.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
