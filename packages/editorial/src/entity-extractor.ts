@@ -8,6 +8,21 @@
 // And 7 Series ..." deliberately does NOT match (no exact "3 Series"
 // substring) — precision over recall, consistent with this project's other
 // conservative thresholds (e.g. ingest.ts's TITLE_SIMILARITY_THRESHOLD).
+//
+// Real gap found and fixed 2026-09-11, caught the first time this ever
+// ran against a real model short enough to be an ordinary word fragment:
+// after seeding the real Mercedes-Benz GLE (see seed-real-cars.ts),
+// checking this function against the real ingested corpus for a manual
+// verification pass found it would have matched "gle" as a plain
+// substring inside "Engwe's $900 Eagle" and "Glencore reaches new
+// milestone" — neither headline is about the GLE at all. "BMW"/"3
+// Series" never hit this because they either weren't tried as a bare
+// substring or were long/distinctive enough to avoid it by luck, not by
+// this function actually enforcing a boundary. Fixed with the same
+// word-boundary regex approach apps/worker/src/fetch-images.ts's
+// isRelevantTitle()/detectBrand() already use for the identical class of
+// problem (a short/common brand or model name embedded inside an
+// unrelated longer word).
 
 export interface CarModelCandidate {
   id: string;
@@ -16,11 +31,16 @@ export interface CarModelCandidate {
   matchTerms: string[];
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Returns the ids of every candidate whose model/trim name appears as a
- * substring of the title (case-insensitive). */
+ * whole-word (or whole-phrase) match in the title, case-insensitively —
+ * not merely a substring, so a short name like "GLE" doesn't match
+ * inside an unrelated word like "Eagle" or "Glencore". */
 export function extractCarModelMentions(title: string, candidates: CarModelCandidate[]): string[] {
-  const lower = title.toLowerCase();
   return candidates
-    .filter((candidate) => candidate.matchTerms.some((term) => lower.includes(term.toLowerCase())))
+    .filter((candidate) => candidate.matchTerms.some((term) => new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(title)))
     .map((candidate) => candidate.id);
 }
