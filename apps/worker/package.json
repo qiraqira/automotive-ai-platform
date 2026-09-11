@@ -22,6 +22,7 @@
     "attach:unsplash-photos": "tsx src/attach-unsplash-photos.ts",
     "self-host:unsplash-images": "tsx src/self-host-unsplash-images.ts",
     "upgrade:logo-images": "tsx src/upgrade-logo-images.ts",
+    "audit:published-quality": "tsx src/audit-published-quality.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
