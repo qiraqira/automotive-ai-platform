@@ -414,6 +414,7 @@ export interface ArticleBlock {
 }
 
 export interface ArticleHeroImage {
+  role: "HERO" | "GALLERY";
   altText: string | null;
   image: { originalUrl: string; attribution: string | null; width: number | null; height: number | null };
 }
@@ -424,8 +425,14 @@ export interface ArticleCitation {
   url: string;
 }
 
+export interface ArticleRelatedCarModelVideo {
+  title: string;
+  category: "OFFICIAL" | "CRASH_TEST" | "REVIEW";
+  youtubeId: string;
+}
+
 export interface ArticleRelatedCarModel {
-  carModel: { slug: string; name: string; brand: { slug: string; name: string } };
+  carModel: { slug: string; name: string; brand: { slug: string; name: string }; videos: ArticleRelatedCarModelVideo[] };
 }
 
 // Real gap found and fixed 2026-09-11 — backed by a real EntityRelation

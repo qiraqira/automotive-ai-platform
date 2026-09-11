@@ -172,6 +172,34 @@ export default async function ArticlePage({
         </figure>
       )}
 
+      {article.images.filter((img) => img.role === "GALLERY").length > 0 && (
+        // Real gap found and fixed 2026-09-11 (user's own request, first
+        // real use on the BMW X5 vs GLE rebuild): a comparison of two
+        // cars showing exactly one photo total never made sense — this
+        // renders every real GALLERY-role image (see GET /v1/articles's
+        // own comment) as a simple grid, same treatment as the "Explore
+        // models" homepage grid.
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 24 }}>
+          {article.images
+            .filter((img) => img.role === "GALLERY")
+            .map((img, i) => (
+              <figure key={i} style={{ margin: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                <img
+                  src={img.image.originalUrl}
+                  alt={img.altText ?? article.headline}
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
+                />
+                {img.image.attribution && (
+                  <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
+                    {img.image.attribution}
+                  </figcaption>
+                )}
+              </figure>
+            ))}
+        </div>
+      )}
+
       {article.keyTakeaway && (
         <div className="story-item" style={{ marginBottom: 24 }}>
           <strong>Key takeaway:</strong> {article.keyTakeaway}
@@ -226,6 +254,40 @@ export default async function ArticlePage({
         }
         return null;
       })}
+
+      {article.carModels.some(({ carModel }) => carModel.videos.length > 0) && (
+        // Real gap found and fixed 2026-09-11 (first real use on the BMW
+        // X5 vs GLE rebuild): every linked CarModel already has real
+        // OFFICIAL/CRASH_TEST video on its own model page (see GET
+        // /v1/articles's own comment) — a comparison piece is exactly
+        // where a reader most wants to see both cars' own official
+        // trailer and Euro NCAP footage side by side, not just a link
+        // away to each model page separately.
+        <div style={{ marginTop: 24, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare on video</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 8 }}>
+            {article.carModels.flatMap(({ carModel }) =>
+              carModel.videos.map((video) => (
+                <div key={video.youtubeId}>
+                  <div className="story-meta">
+                    {carModel.brand.name} {carModel.name} — {video.category === "OFFICIAL" ? "Official" : "Euro NCAP crash test"}
+                  </div>
+                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}`}
+                      title={video.title}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+                    />
+                  </div>
+                </div>
+              )),
+            )}
+          </div>
+        </div>
+      )}
 
       {article.story && (
         // No standalone Story detail page exists yet (see README's status
