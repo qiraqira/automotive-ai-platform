@@ -107,8 +107,16 @@ export default async function HomePage() {
             // usually square/circular with padding baked in — objectFit: "cover"
             // in this landscape 96x64 box crops its edges off. Show it whole
             // instead, on a neutral ground since many logo files have a
-            // transparent background.
-            const isLogo = story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY";
+            // transparent background. Checked live 2026-09-11: most of these
+            // logo fallbacks on production actually have rightsStatus other
+            // than EDITORIAL_ONLY (they came through the generic Commons/
+            // Openverse photo search matching a "*logo*" file by title, not
+            // through attachHeroImage's deliberate brand-logo path) — so the
+            // rightsStatus check alone misses ~75% of the real cases. The
+            // filename itself reliably says "logo" either way (Commons' own
+            // naming convention), so match on that too.
+            const isLogo =
+              story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
             return (
               <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 {heroUrl && (
@@ -155,7 +163,8 @@ export default async function HomePage() {
           <ul className="story-list">
             {topicStories.slice(0, 5).map((story) => {
               const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-              const isLogo = story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY";
+              const isLogo =
+                story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
               return (
                 <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   {heroUrl && (

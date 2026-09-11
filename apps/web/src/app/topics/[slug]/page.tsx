@@ -59,7 +59,12 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
           const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
           // Brand-logo fallback (fetch-images.ts's EDITORIAL_ONLY path) is usually
           // square/circular — objectFit: "cover" in this landscape box crops it.
-          const isLogo = story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY";
+          // Most real logo fallbacks on production come through the generic
+          // Commons/Openverse search matching a "*logo*" filename rather than
+          // the deliberate brand-logo path, so rightsStatus alone misses most
+          // of them — the filename match catches those too.
+          const isLogo =
+            story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
           return (
             <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
               {heroUrl && (
