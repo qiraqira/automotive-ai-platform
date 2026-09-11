@@ -21,6 +21,7 @@
     "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
     "attach:unsplash-photos": "tsx src/attach-unsplash-photos.ts",
     "self-host:unsplash-images": "tsx src/self-host-unsplash-images.ts",
+    "upgrade:logo-images": "tsx src/upgrade-logo-images.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

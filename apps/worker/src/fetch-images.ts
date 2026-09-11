@@ -386,7 +386,10 @@ export function buildSearchQueries(texts: string[]): string[] {
 // an actual named car/brand, per this file's own 2026-09-08 findings),
 // Openverse second (broader aggregated coverage, better for generic/
 // non-model-specific subjects).
-const IMAGE_PROVIDERS = [searchCommonsImage, searchOpenverseImage];
+// Exported 2026-09-11 so upgrade-logo-images.ts can run the same real
+// search+verify loop attachHeroImage() uses internally, without its
+// logo-fallback tail — see that file's own comment for why.
+export const IMAGE_PROVIDERS = [searchCommonsImage, searchOpenverseImage];
 
 // Last-resort fallback, user's explicit instruction 2026-09-11 after a
 // live AI-image-replacement run found a real photo for only 4 of 75
