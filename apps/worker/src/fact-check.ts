@@ -1,6 +1,6 @@
 import { prisma } from "@automotive/database";
-import { budgetLimits } from "@automotive/config";
-import { assertWithinBudget, recordExecution, handleBudgetExceeded, BudgetExceededError, createTextProvider } from "@automotive/ai";
+import { budgetLimits, env } from "@automotive/config";
+import { assertWithinBudget, recordExecution, handleBudgetExceeded, BudgetExceededError, createTextProvider, getStrongModelName } from "@automotive/ai";
 import { evaluateQualityGate, type QualityScores, type QualityGateResult, type QualityGateThresholds } from "@automotive/editorial";
 
 // Real gap closed 2026-09-09, user's explicit request ("реальная проверка
@@ -25,27 +25,28 @@ import { evaluateQualityGate, type QualityScores, type QualityGateResult, type Q
 // was the exact same cheap model (Haiku 4.5) that wrote the draft in
 // the first place, checking only against the same static source
 // excerpts already in the prompt — real, but not an independent check.
-// Now runs on Sonnet 5 with real web search enabled (verified working
-// live before this was wired up — see the removed test-websearch-combo.ts
-// commit) so a genuinely different, stronger model can catch a claim
-// that's wrong even though it matches the sources (a stale spec, a
-// renamed trim), not just a claim that contradicts them.
-const FACT_CHECK_MODEL = "claude-sonnet-5";
-// Lowered from 3 to 2, 2026-09-12: real data from the first full
-// corpus audit (136 real calls) showed the model averages 1.55
-// searches and used all 3 in only 6 cases (~4%) — the third search
-// almost never changes anything, so this trims the worst-case cost
-// ceiling and the token overhead of an extra search round-trip with
-// negligible real effect on what the check actually catches.
-const WEB_SEARCH_MAX_USES = 2;
-// Verified against platform.claude.com/docs/en/about-claude/pricing
-// before hardcoding: Sonnet 5 is $2/1M input tokens, $10/1M output —
-// exactly 2x Haiku 4.5's own $1/$5 rate already used elsewhere in this
-// codebase. Web search is billed separately, $10 per 1,000 real
-// searches ($0.01 each), on top of the tokens a search result itself
-// adds to the conversation.
-const SONNET_INPUT_COST_PER_M = 2;
-const SONNET_OUTPUT_COST_PER_M = 10;
+// Now runs on a stronger model (Sonnet 5, or GPT-5 if AI_DEFAULT_TEXT_PROVIDER
+// is switched to "openai" — see getStrongModelName()) with real web
+// search enabled (verified working live before this was wired up — see
+// the removed test-websearch-combo.ts commit) so a genuinely different,
+// stronger model can catch a claim that's wrong even though it matches
+// the sources (a stale spec, a renamed trim), not just a claim that
+// contradicts them.
+const FACT_CHECK_MODEL = getStrongModelName();
+// Lowered 3 -> 2 -> 1, 2026-09-12, user's own explicit cost-cutting
+// request: real data from the first full corpus audit (136 real calls)
+// showed the model averages 1.55 searches and used all 3 in only 6
+// cases (~4%) — most real value came from the first search, so this
+// trims the cost ceiling further at real, low risk to what the check
+// actually catches.
+const WEB_SEARCH_MAX_USES = 1;
+// Verified before hardcoding (platform.claude.com/docs/en/about-claude/pricing,
+// platform.openai.com pricing, both checked 2026-09-12): Sonnet 5 is
+// $2/$10 per 1M input/output tokens; GPT-5 is $1.25/$10. Both billed
+// separately from web search, $10 per 1,000 real searches ($0.01 each)
+// on either provider.
+const STRONG_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 1.25 : 2;
+const STRONG_MODEL_OUTPUT_COST_PER_M = 10;
 const WEB_SEARCH_COST_PER_CALL = 0.01;
 
 const RESPONSE_SCHEMA = {
@@ -143,8 +144,8 @@ export async function factCheckArticle(
     output = JSON.parse(completion.text) as FactCheckOutput;
 
     const realCostUsd =
-      (completion.tokensIn / 1_000_000) * SONNET_INPUT_COST_PER_M +
-      (completion.tokensOut / 1_000_000) * SONNET_OUTPUT_COST_PER_M +
+      (completion.tokensIn / 1_000_000) * STRONG_MODEL_INPUT_COST_PER_M +
+      (completion.tokensOut / 1_000_000) * STRONG_MODEL_OUTPUT_COST_PER_M +
       (completion.webSearchCount ?? 0) * WEB_SEARCH_COST_PER_CALL;
     await recordExecution({
       jobId: job.id,

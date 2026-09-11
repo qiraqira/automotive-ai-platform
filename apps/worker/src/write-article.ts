@@ -71,15 +71,22 @@ const DEFAULT_BATCH_SIZE = Number(process.env.WRITE_ARTICLE_BATCH_SIZE ?? 5);
 
 // Added 2026-09-12, user's own explicit request ("мы берем отовсюду все
 // данные... Каждый раз гугли" — pull data from everywhere, search every
-// time): kept deliberately small (2, not fact-check.ts's 3) — this runs
-// at real per-story volume (every new Story with no article yet, not
-// once per already-published article like the fact-check pass), so its
-// per-call cost matters more at scale. Verified against
-// platform.claude.com/docs/en/about-claude/pricing before hardcoding:
-// $10 per 1,000 real searches ($0.01 each), billed separately from
-// token cost.
-const WRITE_WEB_SEARCH_MAX_USES = 2;
+// time). Lowered 2 -> 1 the same tick, user's own explicit cost-cutting
+// follow-up — this runs at real per-story volume (every new Story with
+// no article yet, not once per already-published article like the
+// fact-check pass), so its per-call cost matters more at scale.
+// Verified against platform.claude.com/docs/en/about-claude/pricing
+// before hardcoding: $10 per 1,000 real searches ($0.01 each), billed
+// separately from token cost.
+const WRITE_WEB_SEARCH_MAX_USES = 1;
 const WEB_SEARCH_COST_PER_CALL = 0.01;
+// Real rates for whichever cheap/high-volume model createTextProvider()
+// actually resolves to (Haiku 4.5 by default, or GPT-5-mini if
+// AI_DEFAULT_TEXT_PROVIDER is switched to "openai") — verified before
+// hardcoding: Haiku 4.5 is $1/$5 per 1M input/output tokens, GPT-5-mini
+// is $0.25/$2.
+const CHEAP_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 0.25 : 1;
+const CHEAP_MODEL_OUTPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 2 : 5;
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -188,7 +195,9 @@ Before writing, use web search to find genuinely new, real, current context beyo
     result = JSON.parse(completion.text) as WriterOutput;
 
     const realCostUsd =
-      (completion.tokensIn / 1_000_000) * 1 + (completion.tokensOut / 1_000_000) * 5 + (completion.webSearchCount ?? 0) * WEB_SEARCH_COST_PER_CALL;
+      (completion.tokensIn / 1_000_000) * CHEAP_MODEL_INPUT_COST_PER_M +
+      (completion.tokensOut / 1_000_000) * CHEAP_MODEL_OUTPUT_COST_PER_M +
+      (completion.webSearchCount ?? 0) * WEB_SEARCH_COST_PER_CALL;
     await recordExecution({
       jobId: job.id,
       provider: provider.name,
@@ -436,7 +445,8 @@ async function updateOne(
     const latencyMs = Date.now() - start;
     result = JSON.parse(completion.text) as UpdateOutput;
 
-    const realCostUsd = (completion.tokensIn / 1_000_000) * 1 + (completion.tokensOut / 1_000_000) * 5;
+    const realCostUsd =
+      (completion.tokensIn / 1_000_000) * CHEAP_MODEL_INPUT_COST_PER_M + (completion.tokensOut / 1_000_000) * CHEAP_MODEL_OUTPUT_COST_PER_M;
     await recordExecution({
       jobId: job.id,
       provider: provider.name,
