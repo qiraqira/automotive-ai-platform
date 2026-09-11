@@ -133,10 +133,21 @@ export default async function HomePage() {
             {featuredCars.map((car) => (
               <Link key={`${car.brandSlug}-${car.modelSlug}`} href={`/cars/${car.brandSlug}/${car.modelSlug}`} style={{ display: "block" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                {/* Real gap found and fixed 2026-09-11 (user's own mobile
+                    screenshot): a fixed 120px height cropped fine at
+                    desktop's ~180-220px tile width, but the same grid
+                    collapses to ONE full-width column on a narrow phone
+                    screen (minmax(180px, 1fr)'s own responsive behavior)
+                    — a car photo stretched to 350-400px wide with a
+                    still-120px-tall crop cut off far more of the car
+                    than intended. `aspectRatio` scales the crop
+                    proportionally with the tile's actual width at any
+                    screen size instead of a screen-size-blind pixel
+                    height. */}
                 <img
                   src={car.imageUrl}
                   alt={`${car.brandName} ${car.modelName}`}
-                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
                 />
                 <div style={{ fontWeight: 600 }}>
                   {car.brandName} {car.modelName}

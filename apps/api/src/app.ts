@@ -484,9 +484,11 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
       blocks: { orderBy: { position: "asc" } },
       story: { select: { id: true, title: true } },
       // Real free-stock hero images (apps/worker/src/fetch-images.ts,
-      // Wikimedia Commons) — `role: "HERO"` since ArticleImage also
-      // supports INLINE/GALLERY/OG roles nothing writes yet.
-      images: { where: { role: "HERO" }, include: { image: true }, take: 1 },
+      // Wikimedia Commons). GALLERY joined 2026-09-11 for the first real
+      // caller of that role (the BMW X5 vs GLE comparison rebuild) — the
+      // schema has supported it since the initial scaffold, nothing ever
+      // wrote to it before. INLINE/OG remain genuinely unused.
+      images: { where: { role: { in: ["HERO", "GALLERY"] } }, include: { image: true }, orderBy: { position: "asc" } },
       // Real gap found and fixed 2026-09-09, user's explicit request
       // (they directly noticed published articles with no visible
       // source link): apps/worker/src/write-article.ts now creates a
@@ -505,7 +507,31 @@ app.get("/v1/articles/:locale/:slug", async (req, res) => {
       // already existing. Real internal linking (spec's "Related: Model
       // page" requirement) needs both the model's own name AND its real
       // /cars/:brand/:model URL, hence the nested brand.slug select.
-      carModels: { select: { carModel: { select: { slug: true, name: true, brand: { select: { slug: true, name: true } } } } } },
+      // `videos` joined 2026-09-11 (same pass as GALLERY images above) —
+      // a COMPARISON article's own linked CarModels already have real
+      // OFFICIAL/CRASH_TEST footage on their own model pages; nothing
+      // ever pulled it into the comparison article itself, even though
+      // that's exactly where a reader comparing two cars wants to see
+      // it. Capped at 2 per model (one OFFICIAL + one CRASH_TEST is the
+      // real, common case) rather than every REVIEW video too — this is
+      // the comparison's own supporting evidence, not a duplicate of the
+      // model page's full video list.
+      carModels: {
+        select: {
+          carModel: {
+            select: {
+              slug: true,
+              name: true,
+              brand: { select: { slug: true, name: true } },
+              videos: {
+                where: { category: { in: ["OFFICIAL", "CRASH_TEST"] } },
+                select: { title: true, category: true, youtubeId: true },
+                take: 2,
+              },
+            },
+          },
+        },
+      },
     },
   });
 
