@@ -419,9 +419,16 @@ async function main() {
   //   the harder protocol, not a real safety regression):
   //   https://www.euroncap.com/assessments/tesla/model+y/1181/
   // - World's-best-selling-vehicle fact: insideevs.com/motor1.com/
-  //   jato.com (2023, 1.23M units, first EV ever to top the global
-  //   yearly sales chart) + teslarati.com (held the title again in 2024
-  //   and 2025)
+  //   jato.com for the undisputed 2023 result (1.23M units, first EV
+  //   ever to top the global yearly sales chart). The 2024/2025 figures
+  //   were corrected same-day after checking independent analyst data
+  //   rather than only Tesla-friendly coverage — JATO Dynamics (via
+  //   jalopnik.com/electrek.co, reported by analyst Felipe Munoz) has
+  //   Toyota RAV4 actually winning 2024 by under 3,000 units (1.187M vs
+  //   1.185M), and Statista/focus2move.com show the same RAV4-ahead
+  //   pattern continuing into full-year 2025 — a real, current,
+  //   genuinely disputed race, not the clean "three years running" a
+  //   first pass at this took Tesla's own PR framing to mean.
   // ============================================================
   const tesla = await prisma.brand.upsert({
     where: { slug: "tesla" },
@@ -524,20 +531,23 @@ async function main() {
     await prisma.battery.create({ data: { trimId: juniperPerformance.id, capacityKwh: 79.0, rangeMiles: 306 } });
   }
 
-  // --- Real, dated fact: three consecutive years as the world's
-  // best-selling vehicle (not just best-selling EV) — genuinely notable,
-  // and the reason this model was picked as the third vertical slice.
+  // --- Real, dated fact, corrected same-day after a closer check of
+  // independent sales data (2026-09-11, later the same tick this was
+  // first seeded): the original wording here claimed an unqualified
+  // "three consecutive years" streak, sourced only from Tesla's own and
+  // Tesla-friendly coverage. Independent analyst data (JATO Dynamics,
+  // Statista/Focus2move) tells a real, more interesting story that
+  // wording flattened — kept as the fuller, hedged version rather than
+  // silently re-confirming the first draft.
   const existingSalesFact = await prisma.fact.findFirst({ where: { carModelId: modelY.id, attribute: "world_best_selling_vehicle" } });
+  const salesFactValue =
+    "First all-electric car ever to be the world's best-selling vehicle overall (any body style/powertrain) — undisputed in 2023 at 1.23M units. In 2024 and 2025, independent analyst data (JATO Dynamics, Statista/Focus2move) shows the Toyota RAV4 actually edged it out both years by a razor-thin margin (2024: RAV4 1.187M vs Model Y 1.185M, under 3,000 units) — despite Tesla's own PR continuing to claim the title for all three years.";
   if (!existingSalesFact) {
     await prisma.fact.create({
-      data: {
-        carModelId: modelY.id,
-        attribute: "world_best_selling_vehicle",
-        value: "World's best-selling vehicle overall (not just best-selling EV) for 2023, 2024 and 2025 — 1.23M units sold in 2023, the first time an all-electric car topped the global yearly sales chart for any body style or powertrain",
-        status: "CONFIRMED",
-        confidence: 0.9,
-      },
+      data: { carModelId: modelY.id, attribute: "world_best_selling_vehicle", value: salesFactValue, status: "CONFIRMED", confidence: 0.9 },
     });
+  } else if (existingSalesFact.value !== salesFactValue) {
+    await prisma.fact.update({ where: { id: existingSalesFact.id }, data: { value: salesFactValue } });
   }
 
   // --- Real Euro NCAP crash tests, one per generation ---
@@ -605,7 +615,7 @@ async function main() {
 
   console.log(`Seeded real data: Brand ${tesla.name} (${tesla.id}), CarModel ${modelY.name} (${modelY.id})`);
   console.log(`  Generations: 2020-2024 (${gen1.id}, 2 trims), Juniper (${juniper.id}, 4 trims)`);
-  console.log(`  Fact: ${existingSalesFact ? "already present" : "created"} world's-best-selling-vehicle fact`);
+  console.log(`  Fact: ${existingSalesFact ? "already present (checked for corrections)" : "created"} world's-best-selling-vehicle fact`);
   console.log(`  Crash tests: ${existingGen1CrashTest ? "already present" : "created"} Euro NCAP 2022 (gen1), ${existingJuniperCrashTest ? "already present" : "created"} Euro NCAP 2025 (Juniper)`);
 }
 

@@ -123,6 +123,40 @@ const ARTICLES: ArticleSpec[] = [
     carModelSlugs: [{ brandSlug: "bmw", modelSlug: "x5" }],
     scores: { qualityScore: 86, originalityScore: 90, factualScore: 88, sourceScore: 87, valueScore: 90, readabilityScore: 84 },
   },
+  {
+    slug: "tesla-model-y-worlds-best-selling-car-toyota-rav4",
+    type: "ANALYSIS",
+    contentPurpose: "ANALYSIS",
+    topicSlug: "electric-vehicles",
+    headline: "Tesla Model Y Was the World's Best-Seller in 2023. Toyota Has Quietly Been Beating It Ever Since",
+    subtitle: "Tesla still calls the Model Y the world's best-selling vehicle three years running. Independent sales analysts say the Toyota RAV4 actually took the title back in 2024 — by under 3,000 cars.",
+    keyTakeaway:
+      "The Model Y's 2023 win (1.23M units) is real and undisputed — the first time an all-electric car topped global sales for any body style. But independent analyst data (not Tesla's own figures) shows the Toyota RAV4 has actually out-sold it in both 2024 and 2025, each time by a margin under 0.3% of total volume — closer to a photo finish than the clean three-peat Tesla continues to claim.",
+    paragraphs: [
+      "In 2023, the Tesla Model Y did something no electric car had ever done: it became the single best-selling vehicle on the planet, outselling every gas, hybrid and diesel model of any body style. At 1.23 million units, a 64% jump over 2022, it beat the previous benchmark-setters (the Toyota RAV4 and Corolla) outright. That result isn't in dispute anywhere — it's confirmed by independent sales trackers, not just Tesla's own reporting.",
+      "What happened after 2023 is where the story gets genuinely contested. Tesla has continued to describe the Model Y as the world's best-selling vehicle for 2024 and 2025 as well — a clean three-year run. Independent analyst firms tracking the same global registration data tell a different, closer story.",
+      "For 2024, JATO Dynamics — a market-research firm that tracks vehicle registrations across dozens of countries — put the Toyota RAV4 ahead: 1.187 million units against the Model Y's 1.185 million, a gap of under 3,000 cars out of well over a million sold by each. JATO analyst Felipe Munoz pointed to a mid-year production pause (Tesla halted Model Y output at multiple plants to retool for the Juniper refresh) and reputational headwinds tied to CEO Elon Musk's political activity as real, identifiable reasons for the Model Y's 3% year-over-year decline, even as the RAV4 grew 11%.",
+      "The pattern didn't reverse in 2025. Full-year data compiled by Statista and Focus2move again shows the RAV4 finishing ahead, this time at roughly 1.01 million units to the Model Y's approximately 0.99 million — a similarly tight margin, and a second straight year where the independent count and Tesla's own claimed result don't match.",
+      "Both sides of this have a real basis. Tesla's claim isn't fabricated from nothing — global sales tallies genuinely differ by data source (registrations vs. deliveries, which countries and low-volume badge variants get counted, and timing cutoffs at year-end all move the count by exactly the kind of small numbers separating these two cars). But when the more commonly cited independent trackers agree with each other and disagree with the manufacturer's own framing, the honest way to report it is to show both, not to repeat whichever one is more flattering.",
+      "None of this changes what actually made the Model Y a genuine sales phenomenon in the first place: three global Gigafactories (Fremont, Shanghai, Berlin) built specifically to produce it at a scale no other EV maker matches, a starting price that's undercut most mainstream compact SUVs at various points since 2023, and enough real-world usability (see this model's own specs and crash-test results) that it competes directly with gas crossovers on their own terms, not just as a green alternative to them. Whether it's currently the single best-selling car on Earth or a very close second, it's unambiguously one of the two, and the race between it and the RAV4 is one of the most genuinely competitive stories in the entire auto industry right now.",
+    ],
+    citations: [
+      { label: "The Tesla Model Y Was The Best-Selling Car In The World In 2023 — InsideEVs", url: "https://insideevs.com/news/706169/tesla-model-y-best-selling-car-2023/" },
+      { label: "Tesla Model Y Dethroned As World's Best-Selling Car — Jalopnik", url: "https://www.jalopnik.com/1901871/tesla-model-y-no-longer-worlds-best-selling-car/" },
+      { label: "Tesla Model Y no longer the world's best selling car... with a possible asterisk — Electrek", url: "https://electrek.co/2025/07/03/tesla-model-y-no-longer-the-worlds-best-selling-car-with-a-possible-asterisk/" },
+      { label: "Best-selling car models worldwide 2025 — Statista", url: "https://www.statista.com/statistics/239229/most-sold-car-models-worldwide/" },
+    ],
+    carModelSlugs: [{ brandSlug: "tesla", modelSlug: "model-y" }],
+    specTable: {
+      headers: ["2023", "2024", "2025"],
+      rows: [
+        { label: "Model Y (units)", values: ["1.23M", "1.185M", "~0.99M"] },
+        { label: "Toyota RAV4 (units)", values: ["~1.07M", "1.187M", "~1.01M"] },
+        { label: "Independent-data winner", values: ["Model Y", "RAV4", "RAV4"] },
+      ],
+    },
+    scores: { qualityScore: 87, originalityScore: 89, factualScore: 90, sourceScore: 88, valueScore: 89, readabilityScore: 86 },
+  },
 ];
 
 async function main() {
