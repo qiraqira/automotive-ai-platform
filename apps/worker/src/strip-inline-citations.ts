@@ -1,15 +1,18 @@
 import { prisma } from "@automotive/database";
 
-// One-off cleanup (2026-09-12): the first 3 real regeneration runs (via
-// regenerate-news-articles.ts, before its prompt was fixed the same
-// tick — see write-article.ts's own updated prompt comment) went live
-// with GPT-5.6 Luna's raw web-search citation format still embedded in
-// the prose: " ([site.com](https://...))" — this platform's article
-// page renders TEXT blocks as plain text, not markdown, so that syntax
-// was showing up literally on the live page instead of as a link.
-// Strips exactly that pattern from every TEXT block site-wide (safe:
-// real prose doesn't naturally produce "([domain](url))"), not just
-// the 3 known-affected articles, in case any others slipped through.
+// Real, recurring cleanup (first run 2026-09-12, re-run same day after
+// the user found it live again on a freshly-written article): GPT-5.6
+// Luna's raw web-search citation format keeps leaking into prose even
+// after the writer prompt was told not to include it — the prompt-level
+// instruction reduces but doesn't reliably eliminate " ([site.com]
+// (https://...?utm_source=openai))" showing up in the drafted text.
+// This platform's article page renders TEXT blocks as plain text, not
+// markdown, so that syntax shows up literally and unreadable on the
+// live page instead of as a link. Strips exactly that pattern from
+// every TEXT block site-wide (safe: real prose doesn't naturally
+// produce "([domain](url))") and is meant to be re-run periodically —
+// no API calls, pure text cleanup — for as long as the pipeline is
+// paused and articles are being handled by hand.
 const CITATION_PATTERN = / ?\(\[[^\]]+\]\(https?:\/\/[^)]+\)\)/g;
 
 async function main() {

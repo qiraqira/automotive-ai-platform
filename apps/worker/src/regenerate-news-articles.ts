@@ -199,8 +199,21 @@ Before writing, use web search to find genuinely new, real, current context beyo
 
 async function main() {
   const limit = process.env.REGEN_LIMIT ? Number(process.env.REGEN_LIMIT) : undefined;
+  // Real, targeted retry (2026-09-12): the first full 142-article batch
+  // hit "insufficient_quota" (real OpenAI account balance exhausted)
+  // partway through, on these 45 real article IDs specifically — every
+  // other article in the corpus was already successfully processed
+  // (91 replaced, 6 kept), so a plain re-run would waste the newly
+  // added, limited balance re-checking those. REGEN_IDS restricts this
+  // run to exactly the IDs that never got a real result last time.
+  const ids = process.env.REGEN_IDS ? process.env.REGEN_IDS.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
   const articles = await prisma.article.findMany({
-    where: { status: "PUBLISHED", locale: "en", type: { in: ["NEWS", "BREAKING_NEWS"] } },
+    where: {
+      status: "PUBLISHED",
+      locale: "en",
+      type: { in: ["NEWS", "BREAKING_NEWS"] },
+      ...(ids ? { id: { in: ids } } : {}),
+    },
     ...(limit ? { take: limit } : {}),
     select: {
       id: true,
