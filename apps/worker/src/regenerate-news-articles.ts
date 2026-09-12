@@ -198,8 +198,10 @@ Before writing, use web search to find genuinely new, real, current context beyo
 }
 
 async function main() {
+  const limit = process.env.REGEN_LIMIT ? Number(process.env.REGEN_LIMIT) : undefined;
   const articles = await prisma.article.findMany({
     where: { status: "PUBLISHED", locale: "en", type: { in: ["NEWS", "BREAKING_NEWS"] } },
+    ...(limit ? { take: limit } : {}),
     select: {
       id: true,
       slug: true,
