@@ -3,6 +3,7 @@ import { budgetLimits, qualityGateThresholds } from "@automotive/config";
 import { assertWithinBudget, recordExecution, handleBudgetExceeded, BudgetExceededError, createTextProvider } from "@automotive/ai";
 import { evaluateQualityGate } from "@automotive/editorial";
 import { factCheckArticle } from "./fact-check.js";
+import { stripInlineCitations } from "./citation-cleanup.js";
 
 // Real, user-requested batch regeneration (2026-09-12): the corpus
 // audit (audit-published-quality.ts) found 124 of 151 published
@@ -106,7 +107,7 @@ ${storyData.summary ? `Known summary: ${storyData.summary}\n` : ""}
 Source headlines/excerpts (real ground truth from this platform's own ingestion):
 ${sourcesBlock}
 
-Before writing, use web search to find genuinely new, real, current context beyond what's in the sources above — other outlets' coverage of the same story, the real current spec/price/date if the story turns on one, or real relevant background. Only search for something that would actually change or enrich what you write; skip it if the sources above already fully cover the story. Never copy any source's wording verbatim, and never fabricate a fact beyond what the sources or a real search result actually state. Write plain prose paragraphs only — do NOT include inline hyperlinks, markdown link syntax like ([site.com](url)), or citation markers in the paragraph text itself; sourcing is tracked separately by this platform, not inline in the prose. Write a real, original automotive-news article synthesizing all of it.`;
+Before writing, use web search to find genuinely new, real, current context beyond what's in the sources above — other outlets' coverage of the same story, the real current spec/price/date if the story turns on one, or real relevant background. Only search for something that would actually change or enrich what you write; skip it if the sources above already fully cover the story. Never copy any source's wording verbatim, and never fabricate a fact beyond what the sources or a real search result actually state. CRITICAL FORMAT RULE: your web search tool automatically appends a citation like " ([site.com](https://...))" after sentences it informed — you MUST delete every one of these before writing your final paragraphs. The "paragraphs" field must contain ONLY plain prose: never a hyperlink, a markdown link \`[text](url)\`, or a "http"/"www" substring anywhere in it. If a sentence you're about to write ends with something like "([...](...))", that is the citation leaking through — delete it, don't keep any part of it. Sourcing is tracked separately by this platform, never inline in the prose. Write a real, original automotive-news article synthesizing all of it.`;
   const system =
     "You are a factual automotive news writer for an editorial platform with real web search available, whose core rule is: never reproduce a source's wording, only synthesize real facts into original prose. Stay strictly within the facts given or found via a real search — never invent a spec, date, price, or quote. Neutral, concise, journalistic tone, but genuinely informative rather than a bare rewrite of the shortest possible summary. Respond with JSON matching the given schema, and nothing else.";
 
@@ -138,6 +139,10 @@ Before writing, use web search to find genuinely new, real, current context beyo
       webSearch: { maxUses: WRITE_WEB_SEARCH_MAX_USES },
     });
     result = JSON.parse(completion.text) as WriterOutput;
+    // Guaranteed backstop, not just the prompt's own request (see
+    // citation-cleanup.ts's comment) — strip any leftover web-search
+    // citation syntax before this reaches fact-check or the DB.
+    result.paragraphs = result.paragraphs.map(stripInlineCitations);
     const realCostUsd =
       (completion.tokensIn / 1_000_000) * CHEAP_MODEL_INPUT_COST_PER_M +
       (completion.tokensOut / 1_000_000) * CHEAP_MODEL_OUTPUT_COST_PER_M +
