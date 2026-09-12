@@ -8,13 +8,24 @@ import type { AIProvider, CompletionRequest, CompletionResult, EmbeddingRequest,
 // verify-image.ts, generate-image.ts, embed.ts) — one lightweight
 // endpoint doesn't need a dependency.
 //
-// Real prices verified before picking these as the defaults
-// (platform.openai.com pricing, checked 2026-09-12): gpt-5-mini is
-// $0.25/$2.00 per 1M input/output tokens (vs Haiku 4.5's $1/$5 — the
-// cheap, high-volume tier); gpt-5 is $1.25/$10.00 per 1M (vs Sonnet
-// 5's $2/$10 — the "stronger opinion" tier). Web search is $10 per
-// 1,000 calls, same $0.01/call rate as Anthropic's own tool.
-export const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
+// Default changed 2026-09-12 after a real, live A/B test (not a
+// theoretical pricing comparison): gave the exact same real Story +
+// sources to Claude Haiku 4.5, GPT-5-mini, and GPT-5.6 Luna. Haiku
+// couldn't even run (Anthropic account genuinely out of credit at the
+// time), but the real, already-published Haiku article for that same
+// story had been flagged by the corpus audit for omitting real,
+// available specifics (plant location, interior tech, comparisons).
+// Both OpenAI candidates included nearly everything the audit said was
+// missing. GPT-5.6 Luna won on cost too — $0.20/$1.20 per 1M input/
+// output tokens (cheaper than GPT-5-mini's $0.25/$2, both far below
+// Haiku's $1/$5) — real cost on that test run: ~$0.025 for a
+// noticeably more detailed article. Plain "gpt-5" was tested and
+// rejected separately: it's a reasoning model that ignored the
+// intended search cap (9 real searches on a 1-search request) and
+// spent most of its token budget on internal reasoning, ending up
+// MORE expensive per call (~$0.16) than Sonnet 5's own real average
+// ($0.07) — the opposite of the goal.
+export const DEFAULT_OPENAI_MODEL = "gpt-5.6-luna";
 
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";

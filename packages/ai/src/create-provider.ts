@@ -11,8 +11,19 @@ import { NullProvider } from "./providers/null-provider.js";
 // provider's own cheap default) can ask for that without hardcoding a
 // provider-specific name — it stays in sync with whichever provider
 // AI_DEFAULT_TEXT_PROVIDER actually selects.
+//
+// openai branch changed 2026-09-12, user's own explicit follow-up
+// ("давай теперь все делать через дешевые модели openai... и проверять
+// все через них" — do everything through OpenAI's cheap models now,
+// including checking): plain "gpt-5" was tested and rejected (see
+// openai-provider.ts's own DEFAULT_OPENAI_MODEL comment — it ignored
+// the search cap and cost more per call than Sonnet 5 itself, the
+// opposite of the goal). GPT-5.6 Luna already proved itself on real
+// writing output in that same test, so it's used for both roles here
+// rather than reaching for a second, pricier OpenAI tier the user
+// didn't ask for.
 export function getStrongModelName(): string {
-  return env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? "gpt-5" : "claude-sonnet-5";
+  return env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? "gpt-5.6-luna" : "claude-sonnet-5";
 }
 
 // The one place that turns AI_DEFAULT_TEXT_PROVIDER + the matching API key

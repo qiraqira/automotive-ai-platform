@@ -81,12 +81,13 @@ const DEFAULT_BATCH_SIZE = Number(process.env.WRITE_ARTICLE_BATCH_SIZE ?? 5);
 const WRITE_WEB_SEARCH_MAX_USES = 1;
 const WEB_SEARCH_COST_PER_CALL = 0.01;
 // Real rates for whichever cheap/high-volume model createTextProvider()
-// actually resolves to (Haiku 4.5 by default, or GPT-5-mini if
-// AI_DEFAULT_TEXT_PROVIDER is switched to "openai") — verified before
-// hardcoding: Haiku 4.5 is $1/$5 per 1M input/output tokens, GPT-5-mini
-// is $0.25/$2.
-const CHEAP_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 0.25 : 1;
-const CHEAP_MODEL_OUTPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 2 : 5;
+// actually resolves to (Haiku 4.5 by default, or GPT-5.6 Luna — see
+// openai-provider.ts's own DEFAULT_OPENAI_MODEL comment for the real
+// A/B test behind that choice — if AI_DEFAULT_TEXT_PROVIDER is switched
+// to "openai") — verified before hardcoding: Haiku 4.5 is $1/$5 per 1M
+// input/output tokens, GPT-5.6 Luna is $0.20/$1.20.
+const CHEAP_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 0.2 : 1;
+const CHEAP_MODEL_OUTPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 1.2 : 5;
 
 const RESPONSE_SCHEMA = {
   type: "object",

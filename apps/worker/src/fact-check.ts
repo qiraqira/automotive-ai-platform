@@ -42,11 +42,12 @@ const FACT_CHECK_MODEL = getStrongModelName();
 const WEB_SEARCH_MAX_USES = 1;
 // Verified before hardcoding (platform.claude.com/docs/en/about-claude/pricing,
 // platform.openai.com pricing, both checked 2026-09-12): Sonnet 5 is
-// $2/$10 per 1M input/output tokens; GPT-5 is $1.25/$10. Both billed
-// separately from web search, $10 per 1,000 real searches ($0.01 each)
-// on either provider.
-const STRONG_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 1.25 : 2;
-const STRONG_MODEL_OUTPUT_COST_PER_M = 10;
+// $2/$10 per 1M input/output tokens; GPT-5.6 Luna (getStrongModelName()'s
+// real openai choice, see its own comment for why not plain "gpt-5") is
+// $0.20/$1.20. Both billed separately from web search, $10 per 1,000
+// real searches ($0.01 each) on either provider.
+const STRONG_MODEL_INPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 0.2 : 2;
+const STRONG_MODEL_OUTPUT_COST_PER_M = env.AI_DEFAULT_TEXT_PROVIDER === "openai" ? 1.2 : 10;
 const WEB_SEARCH_COST_PER_CALL = 0.01;
 
 const RESPONSE_SCHEMA = {
