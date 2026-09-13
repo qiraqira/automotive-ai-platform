@@ -18,6 +18,7 @@
     "seed:corolla": "tsx src/seed-corolla.ts",
     "seed:civic": "tsx src/seed-civic.ts",
     "seed:crv": "tsx src/seed-crv.ts",
+    "seed:model3": "tsx src/seed-model3.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
