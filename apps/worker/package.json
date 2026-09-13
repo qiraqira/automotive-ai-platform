@@ -24,6 +24,7 @@
     "backfill:gallery-photos": "tsx src/backfill-gallery-photos.ts",
     "seed:mustang": "tsx src/seed-mustang.ts",
     "seed:camaro": "tsx src/seed-camaro.ts",
+    "seed:charger": "tsx src/seed-charger.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
