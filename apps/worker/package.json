@@ -25,6 +25,8 @@
     "seed:mustang": "tsx src/seed-mustang.ts",
     "seed:camaro": "tsx src/seed-camaro.ts",
     "seed:charger": "tsx src/seed-charger.ts",
+    "backfill:article-photos": "tsx src/backfill-article-photos.ts",
+    "fetch:epa-mpg": "tsx src/fetch-epa-mpg.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",

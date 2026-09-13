@@ -6,6 +6,53 @@ import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/
 import { getCarModel, type CarEngine } from "@/lib/api";
 
 const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
+
+// Real gap found live 2026-09-14 (user's own screenshots): this page's
+// Facts section was rendering the raw `Fact.attribute` slug verbatim —
+// "starting_msrp_ecoboost_2026:", "first_generation_launch:" — the
+// internal identifier a script writes to, not something a reader should
+// ever see. A small acronym dictionary (rather than a full label per
+// attribute, which would need updating every time a new Fact is added)
+// covers the abbreviations that actually appear in this codebase's own
+// attribute names; anything else just gets underscores turned to spaces
+// and sentence-cased.
+const FACT_ATTRIBUTE_ACRONYMS: Record<string, string> = {
+  msrp: "MSRP",
+  iihs: "IIHS",
+  gtd: "GTD",
+  ev: "EV",
+  phev: "PHEV",
+  hev: "HEV",
+  ecoboost: "EcoBoost",
+  zl1: "ZL1",
+  gt: "GT",
+  ss: "SS",
+  rt: "R/T",
+  awd: "AWD",
+  fwd: "FWD",
+  rwd: "RWD",
+};
+
+function humanizeFactAttribute(attribute: string): string {
+  const label = attribute
+    .split("_")
+    .map((word) => FACT_ATTRIBUTE_ACRONYMS[word.toLowerCase()] ?? word)
+    .join(" ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// A short numeric Fact (e.g. attribute "starting_msrp_ecoboost_2026",
+// value "32995", unit "usd") read naturally as a price; anything else —
+// including this codebase's own longer, already-prose Fact values like
+// "Production of the sixth-generation Camaro ended December 14, 2023..."
+// — is shown as written rather than mangled by a formatter built for
+// short numbers.
+function formatFactValue(value: string, unit: string | null): string {
+  const isPlainNumber = /^-?\d+(\.\d+)?$/.test(value);
+  if (!isPlainNumber) return value;
+  if (unit === "usd") return `$${Number(value).toLocaleString("en-US")}`;
+  return unit ? `${Number(value).toLocaleString("en-US")} ${unit}` : Number(value).toLocaleString("en-US");
+}
 const CATEGORY_SCORE_LABEL: Record<string, string> = {
   adult_occupant: "Adult occupant",
   child_occupant: "Child occupant",
@@ -215,8 +262,8 @@ export default async function CarModelPage({
             {carModel.facts.map((fact) => (
               <li key={fact.id} className="story-item">
                 <span className="badge">{fact.status}</span>
-                {fact.attribute}: <strong>{fact.value}{fact.unit ? ` ${fact.unit}` : ""}</strong>
-                {fact.market ? ` (${fact.market.code})` : ""}
+                <strong>{humanizeFactAttribute(fact.attribute)}</strong>: {formatFactValue(fact.value, fact.unit)}
+                {fact.market ? ` (${fact.market.code} market)` : ""}
               </li>
             ))}
           </ul>
