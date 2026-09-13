@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildArticleJsonLd, safeJsonLdString, type Locale } from "@automotive/seo";
@@ -171,88 +172,121 @@ export default async function ArticlePage({
         </figure>
       )}
 
-      {article.images.filter((img) => img.role === "GALLERY").length > 0 && (
-        // Real gap found and fixed 2026-09-11 (user's own request, first
-        // real use on the BMW X5 vs GLE rebuild): a comparison of two
-        // cars showing exactly one photo total never made sense — this
-        // renders every real GALLERY-role image (see GET /v1/articles's
-        // own comment) as a simple grid, same treatment as the "Explore
-        // models" homepage grid.
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 24 }}>
-          {article.images
-            .filter((img) => img.role === "GALLERY")
-            .map((img, i) => (
-              <figure key={i} style={{ margin: 0 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
-                <img
-                  src={img.image.originalUrl}
-                  alt={img.altText ?? article.headline}
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
-                />
-                {img.image.attribution && (
-                  <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
-                    {img.image.attribution}
-                  </figcaption>
-                )}
-              </figure>
-            ))}
-        </div>
-      )}
-
       {article.keyTakeaway && (
         <div className="story-item" style={{ marginBottom: 24 }}>
           <strong>Key takeaway:</strong> {article.keyTakeaway}
         </div>
       )}
 
-      {article.blocks.map((block) => {
-        if (block.type === "TEXT" && block.data.text) {
-          return (
-            <p key={block.id} style={{ marginBottom: 16, lineHeight: 1.6 }}>
-              {block.data.text}
-            </p>
-          );
-        }
-        // Real gap closed 2026-09-11: ArticleBlockType.SPEC_TABLE existed
-        // in the schema since it first landed, but nothing ever rendered
-        // it — every COMPARISON article had to be written as prose-only
-        // TEXT blocks, even though a side-by-side spec table is exactly
-        // what a comparison piece should lead with. First real renderer,
-        // first real block using it (seed-real-articles.ts's BMW X5 vs
-        // Mercedes GLE piece).
-        if (block.type === "SPEC_TABLE" && block.data.headers && block.data.rows) {
-          const { headers, rows } = block.data;
-          return (
-            <div key={block.id} style={{ overflowX: "auto", marginBottom: 24 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", padding: "6px 12px 6px 0", borderBottom: "2px solid var(--line)" }} />
-                    {headers.map((h) => (
-                      <th key={h} style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.label}>
-                      <td style={{ padding: "6px 12px 6px 0", fontWeight: 700, borderBottom: "1px solid var(--line)" }}>{row.label}</td>
-                      {row.values.map((v, i) => (
-                        <td key={i} style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
-                          {v}
-                        </td>
+      {(() => {
+        // Real redesign 2026-09-14, user's own explicit ask after
+        // reading a live comparison piece: every GALLERY photo used to
+        // land in one flat grid before the body text even started,
+        // completely disconnected from what the text was actually
+        // discussing at that point — "скучный текст" with pictures
+        // parked off to the side, not pictures that go WITH the
+        // reading. Checked the actual research before changing this
+        // rather than guessing: Nielsen Norman Group's own carousel
+        // usability data (only ~1% of visitors interact with a
+        // carousel's first slide, engagement drops roughly 30% versus
+        // static content) rules out a click-through switcher as the
+        // fix; separate "scrollytelling"/long-form-engagement research
+        // instead supports images interspersed through the body text
+        // itself, breaking up long stretches of prose rather than
+        // clustering photos in one block a reader can skip past
+        // entirely. So: gallery photos are now spread evenly through
+        // the TEXT blocks instead of grouped in their own section — a
+        // comparison piece's own photo order (this project's own
+        // convention: each subject's photos in the order it's
+        // discussed) now roughly lines up with which car the nearby
+        // paragraphs are actually about, without needing new per-photo
+        // "which paragraph" metadata this schema doesn't have.
+        const galleryImages = article.images.filter((img) => img.role === "GALLERY");
+        const textBlockCount = article.blocks.filter((b) => b.type === "TEXT" && b.data.text).length;
+        // Standard even-spacing-of-M-dividers-among-N-items formula: for
+        // gallery image index i (0-based) of M total, insert it after
+        // the text block at this 0-based index.
+        const insertAfterTextIndex = new Map<number, typeof galleryImages>();
+        galleryImages.forEach((img, i) => {
+          const afterIndex = Math.min(textBlockCount - 1, Math.round(((i + 1) * textBlockCount) / (galleryImages.length + 1)) - 1);
+          if (afterIndex < 0) return;
+          const existing = insertAfterTextIndex.get(afterIndex) ?? [];
+          existing.push(img);
+          insertAfterTextIndex.set(afterIndex, existing);
+        });
+
+        let textBlockIndex = -1;
+        return article.blocks.map((block) => {
+          const elements: ReactNode[] = [];
+
+          if (block.type === "TEXT" && block.data.text) {
+            textBlockIndex += 1;
+            elements.push(
+              <p key={block.id} style={{ marginBottom: 16, lineHeight: 1.6 }}>
+                {block.data.text}
+              </p>,
+            );
+            for (const img of insertAfterTextIndex.get(textBlockIndex) ?? []) {
+              elements.push(
+                <figure key={`${block.id}-img-${img.image.originalUrl}`} style={{ margin: "8px 0 24px" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                  <img
+                    src={img.image.originalUrl}
+                    alt={img.altText ?? article.headline}
+                    style={{ width: "100%", aspectRatio: "3 / 2", objectFit: "cover", borderRadius: 4, display: "block" }}
+                  />
+                  {img.image.attribution && (
+                    <figcaption className="story-meta" style={{ marginTop: 4, fontSize: 11 }}>
+                      {img.image.attribution}
+                    </figcaption>
+                  )}
+                </figure>,
+              );
+            }
+          }
+
+          // Real gap closed 2026-09-11: ArticleBlockType.SPEC_TABLE existed
+          // in the schema since it first landed, but nothing ever rendered
+          // it — every COMPARISON article had to be written as prose-only
+          // TEXT blocks, even though a side-by-side spec table is exactly
+          // what a comparison piece should lead with. First real renderer,
+          // first real block using it (seed-real-articles.ts's BMW X5 vs
+          // Mercedes GLE piece).
+          if (block.type === "SPEC_TABLE" && block.data.headers && block.data.rows) {
+            const { headers, rows } = block.data;
+            elements.push(
+              <div key={block.id} style={{ overflowX: "auto", marginBottom: 24 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "6px 12px 6px 0", borderBottom: "2px solid var(--line)" }} />
+                      {headers.map((h) => (
+                        <th key={h} style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        }
-        return null;
-      })}
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.label}>
+                        <td style={{ padding: "6px 12px 6px 0", fontWeight: 700, borderBottom: "1px solid var(--line)" }}>{row.label}</td>
+                        {row.values.map((v, i) => (
+                          <td key={i} style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                            {v}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>,
+            );
+          }
+
+          return elements;
+        });
+      })()}
 
       {article.carModels.some(({ carModel }) => carModel.videos.length > 0) && (
         // Real gap found and fixed 2026-09-11 (first real use on the BMW
