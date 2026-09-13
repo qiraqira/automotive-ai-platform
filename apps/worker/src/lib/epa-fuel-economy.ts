@@ -29,6 +29,47 @@ export interface EpaMenuOption {
   text: string; // e.g. "Auto (AV-S10), 4 cyl, 2.0 L, SIDI & PFI"
 }
 
+/** Lists every real EPA "model" string for a make in a given year — real-world
+ * discovery (2026-09-14, BMW X5): EPA doesn't always file trims as sub-options
+ * of one base model name the way "Toyota"/"Corolla" does. For some makes each
+ * trim is its own full model string per year instead (e.g. year 2007's list
+ * includes "X5 3.0si" and "X5 4.8i" as two separate models, not "X5" with two
+ * options) — this is the reliable way to discover every real trim name that
+ * actually existed for a nameplate in a given year, and, combined with a year
+ * range, the complete real lineup across a nameplate's whole history without
+ * having to already know the trim names in advance. */
+export async function fetchEpaModelsForMakeYear(year: number, make: string): Promise<string[]> {
+  const url = `${BASE}/menu/model?year=${year}&make=${encodeURIComponent(make)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`EPA model-list fetch failed (${res.status}) for ${make} ${year}`);
+  const xml = await res.text();
+  const parsed = parser.parse(xml) as { menuItems?: { menuItem?: { value: string } | { value: string }[] } };
+  const items = parsed.menuItems?.menuItem;
+  if (!items) return [];
+  const list = Array.isArray(items) ? items : [items];
+  return list.map((item) => String(item.value));
+}
+
+/** Every real EPA model-name string containing `nameplateSubstring` (case-insensitive),
+ * across every year in [startYear, endYear] — e.g. fetchNameplateHistory("BMW", "X5", 1999, 2026)
+ * returns { 1999: [], 2000: ["X5"], ..., 2007: ["X5 3.0si", "X5 4.8i"], ... }. One HTTP call
+ * per year; makes/years fueleconomy.gov has nothing for simply come back as an empty array,
+ * not an error, so a full range can be swept without checking existence first. */
+export async function fetchNameplateHistory(
+  make: string,
+  nameplateSubstring: string,
+  startYear: number,
+  endYear: number,
+): Promise<Record<number, string[]>> {
+  const result: Record<number, string[]> = {};
+  for (let year = startYear; year <= endYear; year++) {
+    const models = await fetchEpaModelsForMakeYear(year, make);
+    const matches = models.filter((m) => m.toLowerCase().includes(nameplateSubstring.toLowerCase()));
+    if (matches.length > 0) result[year] = matches;
+  }
+  return result;
+}
+
 /** Lists every distinct engine/transmission configuration EPA has on file for a given
  * year/make/model — e.g. fetchEpaOptions(2024, "Toyota", "Corolla"). */
 export async function fetchEpaOptions(year: number, make: string, model: string): Promise<EpaMenuOption[]> {
