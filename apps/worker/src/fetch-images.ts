@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@automotive/database";
 import { verifyImageMatch } from "./verify-image.js";
+import { selfHostImage } from "./self-host-image.js";
 
 // Real image sourcing for Article hero images (spec's Image rights engine,
 // packages/database/prisma/schema.prisma's Image/ImageLicense/ArticleImage
@@ -485,28 +486,33 @@ export async function attachHeroImage(articleId: string, searchTexts: string[]):
       const verified = await verifyImageMatch(candidate.thumbUrl, context);
       if (!verified) continue;
 
-      // A different Article may have already picked the exact same file
-      // (two Stories about the same car model, or the same Openverse/
-      // Commons photo) — Image.sha256 is unique, so reuse the existing
-      // row instead of a duplicate-key error.
-      const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
-      const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+      // Self-hosted at attach-time, never hotlinked (see self-host-image.ts's
+      // own comment) — downloads and resaves before this Article ever links
+      // to it, matching the same rule self-host-unsplash-images.ts applies
+      // to Unsplash. A different Article may have already picked the exact
+      // same file (two Stories about the same car model, or the same
+      // Openverse/Commons photo); Image.sha256 is unique (now the sha256 of
+      // the resized local copy, not the remote original), so reuse the
+      // existing row instead of a duplicate-key error.
+      const hosted = await selfHostImage(candidate.thumbUrl);
+      const existingImage = await prisma.image.findUnique({ where: { sha256: hosted.sha256 } });
 
       const imageId = existingImage
         ? existingImage.id
         : (
             await prisma.image.create({
               data: {
-                originalUrl: candidate.thumbUrl,
+                originalUrl: hosted.localUrl,
+                localStorageUrl: hosted.localUrl,
                 sourceType: "CREATIVE_COMMONS",
                 rightsStatus: rightsStatusFor(candidate.licenseSlug),
                 author: candidate.artist,
                 attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
                 licenseId: await getOrCreateLicense(candidate),
-                width: candidate.width,
-                height: candidate.height,
-                mimeType: candidate.mime,
-                sha256,
+                width: hosted.width,
+                height: hosted.height,
+                mimeType: "image/jpeg",
+                sha256: hosted.sha256,
                 generatedByAi: false,
               },
             })
@@ -535,23 +541,24 @@ export async function attachHeroImage(articleId: string, searchTexts: string[]):
   if (brand) {
     const logo = await searchBrandLogo(brand);
     if (logo) {
-      const { sha256 } = await hashRemoteImage(logo.thumbUrl);
-      const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+      const hosted = await selfHostImage(logo.thumbUrl);
+      const existingImage = await prisma.image.findUnique({ where: { sha256: hosted.sha256 } });
       const imageId = existingImage
         ? existingImage.id
         : (
             await prisma.image.create({
               data: {
-                originalUrl: logo.thumbUrl,
+                originalUrl: hosted.localUrl,
+                localStorageUrl: hosted.localUrl,
                 sourceType: "CREATIVE_COMMONS",
                 rightsStatus: rightsStatusFor(logo.licenseSlug),
                 author: logo.artist,
                 attribution: `Official ${brand} logo, via ${logo.provider} — used for identification, not a photo of the specific vehicle/event.`,
                 licenseId: await getOrCreateLicense(logo),
-                width: logo.width,
-                height: logo.height,
-                mimeType: logo.mime,
-                sha256,
+                width: hosted.width,
+                height: hosted.height,
+                mimeType: "image/jpeg",
+                sha256: hosted.sha256,
                 generatedByAi: false,
               },
             })

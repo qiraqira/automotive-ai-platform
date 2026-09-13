@@ -16,6 +16,7 @@
     "backfill:car-mentions": "tsx src/backfill-car-mentions.ts",
     "seed:real-cars": "tsx src/seed-real-cars.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
+    "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
     "reverify:hero-images": "tsx src/reverify-hero-images.ts",
     "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
