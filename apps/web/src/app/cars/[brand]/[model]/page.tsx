@@ -178,6 +178,36 @@ export default async function CarModelPage({
         </figure>
       )}
 
+      {carModel.images.filter((img) => img.role === "GALLERY").length > 0 && (
+        // Added 2026-09-13: the API's own `images` include (no role
+        // filter, ordered by position) already returned every GALLERY
+        // row — this page just never rendered anything but the single
+        // HERO one. Same grid treatment as the article page's own
+        // GALLERY section (see apps/web/src/app/articles/[locale]/
+        // [slug]/page.tsx), so a car model with several real, sourced
+        // photos (front/rear/interior, different generations) actually
+        // shows more than one image.
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 24 }}>
+          {carModel.images
+            .filter((img) => img.role === "GALLERY")
+            .map((img) => (
+              <figure key={img.id} style={{ margin: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                <img
+                  src={img.image.originalUrl}
+                  alt={img.altText ?? `${carModel.brand.name} ${carModel.name}`}
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
+                />
+                {img.image.attribution && (
+                  <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
+                    {img.image.attribution}
+                  </figcaption>
+                )}
+              </figure>
+            ))}
+        </div>
+      )}
+
       {carModel.facts.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 16 }}>Facts</h2>
