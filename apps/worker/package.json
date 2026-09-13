@@ -15,6 +15,7 @@
     "backfill:citations": "tsx src/backfill-citations.ts",
     "backfill:car-mentions": "tsx src/backfill-car-mentions.ts",
     "seed:real-cars": "tsx src/seed-real-cars.ts",
+    "seed:corolla": "tsx src/seed-corolla.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
