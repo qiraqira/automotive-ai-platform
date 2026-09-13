@@ -15,8 +15,16 @@ const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", I
 // attribute, which would need updating every time a new Fact is added)
 // covers the abbreviations that actually appear in this codebase's own
 // attribute names; anything else just gets underscores turned to spaces
-// and sentence-cased.
-const FACT_ATTRIBUTE_ACRONYMS: Record<string, string> = {
+// and sentence-cased. Second real gap found the same pass, live on
+// Corolla/Civic/CR-V/Model 3/Camaro's own crash-test sections: IIHS's
+// own categoryScores keys (`small_overlap_front`, `moderate_overlap_front`,
+// `front_crash_prevention_pedestrian`, ...) hit the exact same bug one
+// section further down the page, via a separate 4-entry
+// CATEGORY_SCORE_LABEL map that only ever covered Euro NCAP's own 4
+// category names — every IIHS category fell through to the raw key.
+// One shared humanizer now covers both call sites instead of two
+// separate, inconsistently-maintained label maps.
+const SLUG_ACRONYMS: Record<string, string> = {
   msrp: "MSRP",
   iihs: "IIHS",
   gtd: "GTD",
@@ -33,10 +41,10 @@ const FACT_ATTRIBUTE_ACRONYMS: Record<string, string> = {
   rwd: "RWD",
 };
 
-function humanizeFactAttribute(attribute: string): string {
-  const label = attribute
+function humanizeSlug(slug: string): string {
+  const label = slug
     .split("_")
-    .map((word) => FACT_ATTRIBUTE_ACRONYMS[word.toLowerCase()] ?? word)
+    .map((word) => SLUG_ACRONYMS[word.toLowerCase()] ?? word)
     .join(" ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
@@ -53,13 +61,6 @@ function formatFactValue(value: string, unit: string | null): string {
   if (unit === "usd") return `$${Number(value).toLocaleString("en-US")}`;
   return unit ? `${Number(value).toLocaleString("en-US")} ${unit}` : Number(value).toLocaleString("en-US");
 }
-const CATEGORY_SCORE_LABEL: Record<string, string> = {
-  adult_occupant: "Adult occupant",
-  child_occupant: "Child occupant",
-  pedestrian: "Pedestrian",
-  safety_assist: "Safety assist",
-};
-
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
@@ -262,7 +263,7 @@ export default async function CarModelPage({
             {carModel.facts.map((fact) => (
               <li key={fact.id} className="story-item">
                 <span className="badge">{fact.status}</span>
-                <strong>{humanizeFactAttribute(fact.attribute)}</strong>: {formatFactValue(fact.value, fact.unit)}
+                <strong>{humanizeSlug(fact.attribute)}</strong>: {formatFactValue(fact.value, fact.unit)}
                 {fact.market ? ` (${fact.market.code} market)` : ""}
               </li>
             ))}
@@ -309,7 +310,7 @@ export default async function CarModelPage({
                 {test.categoryScores && (
                   <div className="story-meta">
                     {Object.entries(test.categoryScores)
-                      .map(([key, value]) => `${CATEGORY_SCORE_LABEL[key] ?? key}: ${value}`)
+                      .map(([key, value]) => `${humanizeSlug(key)}: ${value}`)
                       .join(" · ")}
                   </div>
                 )}
