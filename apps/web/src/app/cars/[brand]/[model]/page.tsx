@@ -101,11 +101,23 @@ export async function generateMetadata({
   const path = `/cars/${brand}/${model}`;
   const alternates = buildHreflangAlternates(SITE_URL, path);
   const canonicalUrl = buildLocaleUrl(SITE_URL, "en", path);
+  // Paused 2026-09-14, user's own explicit call: the catalog is still
+  // rough/uneven (most models nowhere near the BMW X5's own completeness
+  // standard) and finishing it broadly is a real, multi-month task —
+  // not something to keep exposing to search engines mid-build.
+  // `follow: true` so crawling can still flow through to whatever these
+  // pages link to; only indexing/ranking this specific page is paused.
+  // Reversible: drop this once the catalog is ready to be discoverable
+  // again (see this same date's commit on sitemap.ts and the homepage's
+  // own "Explore models" section, paused the same way).
+  const robots = { index: false, follow: true };
+
   const base: Metadata = {
     alternates: {
       canonical: canonicalUrl,
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),
     },
+    robots,
   };
 
   const result = await getCarModel(brand, model);

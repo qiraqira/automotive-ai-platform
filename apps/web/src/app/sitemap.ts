@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
-import { getCarModelSlugs, getTopicSlugs, getArticleSlugs, getBrands } from "@/lib/api";
+// getCarModelSlugs import removed while the catalog is paused/unlisted
+// (2026-09-14) — re-add it alongside the commented-out sitemap entries
+// below when the catalog is ready to be discoverable again.
+import { getTopicSlugs, getArticleSlugs, getBrands } from "@/lib/api";
 
 // spec §29-31: a real sitemap enumerating actual indexable pages, not a
 // static stub. Topic pages were a real gap fixed 2026-09-07: they
@@ -44,12 +47,10 @@ const ABOUT_PATHS = [
 // emitting an empty `<lastmod>`) is substituted for `null` below rather
 // than passing it through directly.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [{ carModels }, { topics }, { articles }, { brands }] = await Promise.all([
-    getCarModelSlugs(),
-    getTopicSlugs(),
-    getArticleSlugs(),
-    getBrands(),
-  ]);
+  // getCarModelSlugs() deliberately not called here while the catalog
+  // is paused/unlisted (see the commented-out `...carModels.map` below)
+  // — no point fetching data this run never uses.
+  const [{ topics }, { articles }, { brands }] = await Promise.all([getTopicSlugs(), getArticleSlugs(), getBrands()]);
 
   return [
     { url: SITE_URL, changeFrequency: "hourly", priority: 1 },
@@ -89,12 +90,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.7,
     })),
-    ...carModels.map((car) => ({
-      url: `${SITE_URL}/cars/${car.brandSlug}/${car.modelSlug}`,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-      lastModified: car.lastModified ?? undefined,
-    })),
+    // Car catalog pages deliberately excluded from the sitemap 2026-09-14
+    // — user's own explicit call: the catalog is still rough/uneven in
+    // coverage (most models nowhere near the BMW X5's own completeness
+    // standard) and building it out fully is a real, multi-month task,
+    // not something to keep exposing to search engines mid-build. This
+    // is a paused, reversible decision — un-comment `...carModels.map`
+    // (still fetched above, untouched) once the catalog is ready to be
+    // discoverable again, and see this same date's commit on the car
+    // model page's own `generateMetadata` for the matching noindex.
+    // ...carModels.map((car) => ({
+    //   url: `${SITE_URL}/cars/${car.brandSlug}/${car.modelSlug}`,
+    //   changeFrequency: "daily" as const,
+    //   priority: 0.7,
+    //   lastModified: car.lastModified ?? undefined,
+    // })),
     ...topics.map((topic) => ({
       url: `${SITE_URL}/topics/${topic.slug}`,
       changeFrequency: "hourly" as const,

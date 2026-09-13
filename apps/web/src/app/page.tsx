@@ -145,7 +145,18 @@ export default async function HomePage() {
         </section>
       )}
 
-      {featuredCars.length > 0 && (
+      {
+        // Paused 2026-09-14, user's own explicit call: the catalog is
+        // still rough/uneven (most models nowhere near the BMW X5's own
+        // completeness standard) and finishing it broadly is a real,
+        // multi-month task — not something to keep featuring
+        // prominently on the homepage mid-build. Reversible: flip this
+        // back to `featuredCars.length > 0` once the catalog is ready to
+        // showcase again (see this same date's commit on sitemap.ts and
+        // the car model page's own generateMetadata for the matching
+        // sitemap-exclusion/noindex, paused the same way).
+        false &&
+          featuredCars.length > 0 && (
         // Real gap found and fixed 2026-09-11: four (now five) fully-built
         // model pages existed with zero visual entry point anywhere on the
         // site — only reachable via an article's own cross-link or a
