@@ -53,6 +53,12 @@ interface ManualArticleSpec {
   paragraphs: string[];
   citations: CitationSpec[];
   heroImage?: HeroImageSpec;
+  // Added 2026-09-13, user's explicit ask for "many good photos" per
+  // article — rendered by the article page's existing GALLERY section
+  // (already built 2026-09-11 for the X5 vs GLE rebuild; this was simply
+  // never wired up to the manual-publish path since every manual
+  // article until now shipped with only a hero photo).
+  galleryImages?: HeroImageSpec[];
   topicSlug?: string;
   carModelSlugs?: { brandSlug: string; modelSlug: string }[];
   specTable?: { headers: string[]; rows: { label: string; values: string[] }[] };
@@ -71,7 +77,12 @@ interface ManualArticleSpec {
   importanceScore?: number;
 }
 
-async function attachHeroImageFromSpec(articleId: string, spec: HeroImageSpec): Promise<void> {
+async function attachHeroImageFromSpec(
+  articleId: string,
+  spec: HeroImageSpec,
+  role: "HERO" | "GALLERY" = "HERO",
+  position = 0,
+): Promise<void> {
   const hosted = await selfHostImage(spec.sourceUrl);
   const existingImage = await prisma.image.findUnique({ where: { sha256: hosted.sha256 } });
 
@@ -104,7 +115,7 @@ async function attachHeroImageFromSpec(articleId: string, spec: HeroImageSpec): 
       ).id;
 
   await prisma.articleImage.create({
-    data: { articleId, imageId, role: "HERO", position: 0, altText: spec.altText },
+    data: { articleId, imageId, role, position, altText: spec.altText },
   });
 }
 
@@ -174,9 +185,17 @@ async function publishOne(spec: ManualArticleSpec): Promise<void> {
 
   if (spec.heroImage) {
     try {
-      await attachHeroImageFromSpec(article.id, spec.heroImage);
+      await attachHeroImageFromSpec(article.id, spec.heroImage, "HERO", 0);
     } catch (err) {
       console.error(`"${spec.slug}": hero image self-host failed — ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  for (const [i, galleryImage] of (spec.galleryImages ?? []).entries()) {
+    try {
+      await attachHeroImageFromSpec(article.id, galleryImage, "GALLERY", i + 1);
+    } catch (err) {
+      console.error(`"${spec.slug}": gallery image #${i + 1} self-host failed — ${err instanceof Error ? err.message : err}`);
     }
   }
 
