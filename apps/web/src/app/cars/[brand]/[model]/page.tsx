@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
+import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildCarJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
 import { getCarModel, type CarEngine, type CarTrim } from "@/lib/api";
 
@@ -124,13 +124,22 @@ export async function generateMetadata({
       description,
       url: canonicalUrl,
       siteName: SITE_NAME,
-      images: heroImage ? [{ url: heroImage.image.originalUrl }] : undefined,
+      // Real dimensions added 2026-09-14 (SEO pass) — this project
+      // already captures every self-hosted photo's real width/height
+      // (see self-host-image.ts) but never passed it through here,
+      // leaving every social unfurl to guess the aspect ratio instead
+      // of being told it up front.
+      images: heroImage
+        ? [{ url: heroImage.image.originalUrl, width: heroImage.image.width ?? undefined, height: heroImage.image.height ?? undefined }]
+        : undefined,
     },
     twitter: {
       card: heroImage ? "summary_large_image" : "summary",
       title: `${title} | ${SITE_NAME}`,
       description,
-      images: heroImage ? [heroImage.image.originalUrl] : undefined,
+      images: heroImage
+        ? [{ url: heroImage.image.originalUrl, width: heroImage.image.width ?? undefined, height: heroImage.image.height ?? undefined }]
+        : undefined,
     },
   };
 }
@@ -214,12 +223,56 @@ export default async function CarModelPage({
 
   const heroImage = carModel.images.find((img) => img.role === "HERO");
 
+  // Real structured-data gap closed 2026-09-14 (SEO pass): this page
+  // had a BreadcrumbList and nothing describing the actual subject —
+  // see packages/seo/src/car.ts's own header for why `Car` and only
+  // real, sourced fields. Current generation = the one still in
+  // production (no endYear) if one exists, else whichever started most
+  // recently — never invented, both real fields already on `carModel`.
+  const currentGeneration = [...carModel.generations].sort((a, b) => (b.startYear ?? 0) - (a.startYear ?? 0))[0];
+  const currentGenerationInProduction = carModel.generations.find((gen) => gen.endYear == null) ?? currentGeneration;
+  const fuelTypes = Array.from(
+    new Set(
+      carModel.generations
+        .flatMap((gen) => gen.trims)
+        .flatMap((trim) => trim.engines)
+        .map((engine) => (engine.fuel ? (FUEL_LABEL[engine.fuel.toLowerCase()] ?? engine.fuel) : null))
+        .filter((f): f is string => f != null),
+    ),
+  );
+  const { description: carDescription } = buildCarPageCopy(carModel);
+  // JSON-LD I write by hand here isn't run through Next's own Metadata
+  // object, so its `metadataBase`-driven relative-URL resolution (the
+  // reason og:image already renders as a full https:// URL) doesn't
+  // apply — a bare "/uploads/..." path needs resolving to absolute here
+  // explicitly, or structured-data validators reject it.
+  const absoluteHeroImageUrl = heroImage?.image.originalUrl
+    ? heroImage.image.originalUrl.startsWith("http")
+      ? heroImage.image.originalUrl
+      : `${SITE_URL}${heroImage.image.originalUrl}`
+    : undefined;
+  const carJsonLd = buildCarJsonLd({
+    brandName: carModel.brand.name,
+    modelName: carModel.name,
+    description: carDescription,
+    url: `${SITE_URL}/cars/${brand}/${model}`,
+    imageUrl: absoluteHeroImageUrl,
+    fuelTypes,
+    currentModelName: currentGenerationInProduction?.name,
+    modelDate: currentGenerationInProduction?.startYear ? String(currentGenerationInProduction.startYear) : undefined,
+  });
+
   return (
     <article>
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: safeJsonLdString(carJsonLd) }}
       />
       <div className="story-meta">
         <Link href={`/brands/${brand}`}>{carModel.brand.name}</Link>
