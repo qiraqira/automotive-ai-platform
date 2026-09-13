@@ -17,9 +17,37 @@
 
 const WIKI_API = "https://en.wikipedia.org/w/api.php";
 
-export async function fetchWikitext(pageTitle: string): Promise<string> {
+/** Full-text searches Wikipedia's own search index (the same one the site search box
+ * uses) — for research-nameplate.ts's own generation-discovery pass: search for
+ * `"{brand} {model}" generation` and try fetching each result's infobox rather than
+ * guessing exact "(E53)"-style page titles in advance. */
+export async function searchWikipediaTitles(query: string, limit = 10): Promise<string[]> {
+  const url = `${WIKI_API}?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=${limit}&format=json`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`Wikipedia search failed (${res.status}) for "${query}"`);
+  const json = (await res.json()) as { query?: { search?: { title: string }[] } };
+  return (json.query?.search ?? []).map((r) => r.title);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Real gap found live 2026-09-14: research-nameplate.ts fetching a dozen
+// candidate pages in a tight sequential loop started drawing real HTTP
+// 429s from Wikipedia partway through a run, silently losing every
+// remaining candidate's data. One retry after a real backoff delay
+// (honoring a `Retry-After` header if Wikipedia sends one) is enough in
+// practice at this request volume — this is still a handful of requests
+// per nameplate researched, not the kind of sustained load that needs a
+// real rate limiter.
+export async function fetchWikitext(pageTitle: string, attempt = 1): Promise<string> {
   const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(pageTitle)}&prop=wikitext&section=0&format=json`;
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  if (res.status === 429 && attempt === 1) {
+    const retryAfterHeader = Number(res.headers.get("Retry-After"));
+    const delayMs = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0 ? retryAfterHeader * 1000 : 3000;
+    await sleep(delayMs);
+    return fetchWikitext(pageTitle, 2);
+  }
   if (!res.ok) throw new Error(`Wikipedia API fetch failed (${res.status}) for "${pageTitle}"`);
   const json = (await res.json()) as { parse?: { wikitext?: { "*": string } }; error?: { info: string } };
   if (json.error) throw new Error(`Wikipedia API error for "${pageTitle}": ${json.error.info}`);

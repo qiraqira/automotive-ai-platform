@@ -55,16 +55,29 @@ export async function fetchEpaModelsForMakeYear(year: number, make: string): Pro
  * returns { 1999: [], 2000: ["X5"], ..., 2007: ["X5 3.0si", "X5 4.8i"], ... }. One HTTP call
  * per year; makes/years fueleconomy.gov has nothing for simply come back as an empty array,
  * not an error, so a full range can be swept without checking existence first. */
+// Real bug found live 2026-09-14 (Ford F-150 research run): EPA spells
+// the base truck "F150" (no hyphen) but the electric variant
+// "F-150 Lightning" (with one) — a plain substring match on "F-150"
+// silently found only the Lightning trims across the whole 1990-2026
+// sweep and missed every regular gas F-150 for every year, with no
+// error to signal the gap. Stripping hyphens/spaces before comparing
+// makes "F-150" and "F150" (and "CR-V" / "CRV", "e-tron" / "etron", the
+// same real-world inconsistency for other nameplates) match each other.
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[\s-]/g, "");
+}
+
 export async function fetchNameplateHistory(
   make: string,
   nameplateSubstring: string,
   startYear: number,
   endYear: number,
 ): Promise<Record<number, string[]>> {
+  const needle = normalizeForMatch(nameplateSubstring);
   const result: Record<number, string[]> = {};
   for (let year = startYear; year <= endYear; year++) {
     const models = await fetchEpaModelsForMakeYear(year, make);
-    const matches = models.filter((m) => m.toLowerCase().includes(nameplateSubstring.toLowerCase()));
+    const matches = models.filter((m) => normalizeForMatch(m).includes(needle));
     if (matches.length > 0) result[year] = matches;
   }
   return result;
