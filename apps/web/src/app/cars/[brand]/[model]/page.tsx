@@ -291,25 +291,64 @@ export default async function CarModelPage({
                 )}
               </figure>
             ))}
-          <ul className="story-list">
-            {gen.trims.map((trim) => (
-              <li key={trim.id} className="story-item">
-                <h3 style={{ fontSize: 18, margin: "0 0 6px" }}>{trim.name}</h3>
-                {trim.engines.map((engine) => (
-                  <div key={engine.id} className="story-meta">
-                    {engine.name}
-                    {formatEnginePower(engine) ? ` — ${formatEnginePower(engine)}` : ""}
-                  </div>
-                ))}
-                {trim.batteries.map((battery) => (
-                  <div key={battery.id} className="story-meta">
-                    {battery.capacityKwh != null ? `${battery.capacityKwh} kWh battery` : "Battery"}
-                    {formatBatteryRange(battery) ? ` — ${formatBatteryRange(battery)} range` : ""}
-                  </div>
-                ))}
-              </li>
-            ))}
-          </ul>
+          {gen.trims.length > 0 &&
+            (() => {
+              // Real redesign 2026-09-14, user's own explicit ask: a
+              // real spec table (the shape every other automotive
+              // catalog uses) reads far better than a bare bulleted
+              // list once a generation has a dozen-plus trims (see BMW
+              // X5's own G05 section) — same table styling as the
+              // article page's own SPEC_TABLE block, for one consistent
+              // look across the site. The Battery/Range column only
+              // appears for generations that actually have an
+              // electrified trim, so a plain gas-only generation's
+              // table doesn't carry two empty columns.
+              const hasBattery = gen.trims.some((trim) => trim.batteries.length > 0);
+              return (
+                <div style={{ overflowX: "auto", marginBottom: 12 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "left", padding: "6px 12px 6px 0", borderBottom: "2px solid var(--line)" }}>Trim</th>
+                        <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Engine</th>
+                        <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Power</th>
+                        {hasBattery && (
+                          <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Battery / Range</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gen.trims.map((trim) => {
+                        const battery = trim.batteries[0];
+                        return (
+                          <tr key={trim.id}>
+                            <td style={{ padding: "6px 12px 6px 0", borderBottom: "1px solid var(--line)", fontWeight: 600 }}>{trim.name}</td>
+                            <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                              {trim.engines.map((e) => e.name).join("; ") || "—"}
+                            </td>
+                            <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                              {trim.engines.map((e) => formatEnginePower(e)).filter(Boolean).join("; ") || "—"}
+                            </td>
+                            {hasBattery && (
+                              <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                                {battery
+                                  ? [
+                                      battery.capacityKwh != null ? `${battery.capacityKwh} kWh` : null,
+                                      formatBatteryRange(battery) ? `${formatBatteryRange(battery)} range` : null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" — ") || "—"
+                                  : "—"}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
         </section>
       ))}
 
