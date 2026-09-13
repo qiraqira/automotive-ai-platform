@@ -168,6 +168,12 @@ export interface CarModelImage {
   id: string;
   role: "HERO" | "INLINE" | "GALLERY" | "OG";
   altText: string | null;
+  // Added 2026-09-14 alongside the schema column of the same name: lets
+  // the car model page show a photo inside the specific Generation
+  // section it belongs to, instead of every photo landing in one
+  // undifferentiated gallery with no visible link to which generation
+  // is which. `null` means a model-level photo (most HERO images).
+  generationId: string | null;
   image: { originalUrl: string; attribution: string | null; width: number | null; height: number | null };
 }
 

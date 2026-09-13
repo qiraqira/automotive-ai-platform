@@ -31,6 +31,7 @@
     "backfill:x5-history": "tsx src/backfill-x5-history.ts",
     "backfill:x5-trims-2": "tsx src/backfill-x5-trims-2.ts",
     "backfill:x5-photos-g65": "tsx src/backfill-x5-photos-and-g65.ts",
+    "backfill:x5-image-generations": "tsx src/backfill-x5-image-generations.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",

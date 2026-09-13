@@ -27,6 +27,8 @@ async function main() {
   if (!brand) throw new Error("BMW brand not found.");
   const x5 = await prisma.carModel.findUnique({ where: { brandId_slug: { brandId: brand.id, slug: "x5" } } });
   if (!x5) throw new Error("X5 CarModel not found.");
+  const genBySlug = async (slug: string) => (await prisma.generation.findFirst({ where: { carModelId: x5.id, slug } }))?.id;
+  const [e53Id, e70Id, f15Id, g05Id] = await Promise.all([genBySlug("e53"), genBySlug("e70"), genBySlug("f15"), genBySlug("g05")]);
 
   // --- Self-host the existing G05 hero (was hotlinked) + reposition,
   // then add one real gallery photo per older generation. ---
@@ -49,6 +51,7 @@ async function main() {
         },
         "HERO",
         0,
+        g05Id,
       );
     }
   }
@@ -66,6 +69,7 @@ async function main() {
     },
     "GALLERY",
     1,
+    e53Id,
   );
   await attachCarModelPhoto(
     x5.id,
@@ -80,6 +84,7 @@ async function main() {
     },
     "GALLERY",
     2,
+    e70Id,
   );
   await attachCarModelPhoto(
     x5.id,
@@ -94,6 +99,7 @@ async function main() {
     },
     "GALLERY",
     3,
+    f15Id,
   );
 
   // --- G65, fifth generation (officially revealed June 30, 2026) ---

@@ -709,14 +709,25 @@ model CarModel {
 // attribution discipline as article hero images, not a separate,
 // weaker-tracked path.
 model CarModelImage {
-  id         String           @id @default(cuid())
-  carModelId String
-  carModel   CarModel         @relation(fields: [carModelId], references: [id], onDelete: Cascade)
-  imageId    String
-  image      Image            @relation(fields: [imageId], references: [id])
-  role       ArticleImageRole
-  position   Int              @default(0)
-  altText    String?
+  id           String           @id @default(cuid())
+  carModelId   String
+  carModel     CarModel         @relation(fields: [carModelId], references: [id], onDelete: Cascade)
+  // Real gap found live 2026-09-14 (user's own direct question: "did you
+  // put a photo on each generation?"): this had no way to say a photo
+  // belongs to a specific Generation, so a model page with photos of
+  // several generations could only show them as one undifferentiated
+  // gallery blob with no visible link to which generation each one is —
+  // a reader had no way to tell an E53 photo from an F15 one without
+  // reading hover-only alt text. Nullable: a photo can still be
+  // attached to the CarModel in general (the current-generation HERO
+  // most model pages lead with) without naming one specific generation.
+  generationId String?
+  generation   Generation?      @relation(fields: [generationId], references: [id], onDelete: SetNull)
+  imageId      String
+  image        Image            @relation(fields: [imageId], references: [id])
+  role         ArticleImageRole
+  position     Int              @default(0)
+  altText      String?
 
   @@map("car_model_images")
 }
@@ -793,6 +804,7 @@ model Generation {
   endYear     Int?
   trims       Trim[]
   crashTests  CrashTestResult[]
+  images      CarModelImage[]
 
   @@unique([carModelId, slug])
   @@map("generations")

@@ -226,18 +226,16 @@ export default async function CarModelPage({
         </figure>
       )}
 
-      {carModel.images.filter((img) => img.role === "GALLERY").length > 0 && (
-        // Added 2026-09-13: the API's own `images` include (no role
-        // filter, ordered by position) already returned every GALLERY
-        // row — this page just never rendered anything but the single
-        // HERO one. Same grid treatment as the article page's own
-        // GALLERY section (see apps/web/src/app/articles/[locale]/
-        // [slug]/page.tsx), so a car model with several real, sourced
-        // photos (front/rear/interior, different generations) actually
-        // shows more than one image.
+      {carModel.images.filter((img) => img.role === "GALLERY" && !img.generationId).length > 0 && (
+        // Model-level gallery photos only (no specific generation named)
+        // — anything tied to one Generation renders inside that
+        // generation's own section below instead, per the real gap the
+        // user found live 2026-09-14: a flat, undifferentiated gallery
+        // of several generations' worth of photos gave a reader no way
+        // to tell which car in the gallery was which generation.
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 24 }}>
           {carModel.images
-            .filter((img) => img.role === "GALLERY")
+            .filter((img) => img.role === "GALLERY" && !img.generationId)
             .map((img) => (
               <figure key={img.id} style={{ margin: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
@@ -276,6 +274,23 @@ export default async function CarModelPage({
           <h2 style={{ fontSize: 16 }}>
             {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
           </h2>
+          {carModel.images
+            .filter((img) => img.generationId === gen.id)
+            .map((img) => (
+              <figure key={img.id} style={{ margin: "0 0 12px", maxWidth: 480 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
+                <img
+                  src={img.image.originalUrl}
+                  alt={img.altText ?? `${carModel.brand.name} ${carModel.name} — ${gen.name}`}
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
+                />
+                {img.image.attribution && (
+                  <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
+                    {img.image.attribution}
+                  </figcaption>
+                )}
+              </figure>
+            ))}
           <ul className="story-list">
             {gen.trims.map((trim) => (
               <li key={trim.id} className="story-item">

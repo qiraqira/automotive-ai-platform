@@ -24,7 +24,13 @@ export interface CarPhotoSpec {
   altText: string;
 }
 
-export async function attachCarModelPhoto(carModelId: string, spec: CarPhotoSpec, role: ArticleImageRole, position = 0): Promise<void> {
+export async function attachCarModelPhoto(
+  carModelId: string,
+  spec: CarPhotoSpec,
+  role: ArticleImageRole,
+  position = 0,
+  generationId?: string,
+): Promise<void> {
   const existing = await prisma.carModelImage.findFirst({ where: { carModelId, role, position } });
   if (existing) {
     console.log(`  Photo (${role}#${position}): already present, left untouched.`);
@@ -63,6 +69,6 @@ export async function attachCarModelPhoto(carModelId: string, spec: CarPhotoSpec
         })
       ).id;
 
-  await prisma.carModelImage.create({ data: { carModelId, imageId, role, position, altText: spec.altText } });
+  await prisma.carModelImage.create({ data: { carModelId, imageId, role, position, altText: spec.altText, generationId } });
   console.log(`  Photo (${role}#${position}): attached (human-verified, not AI-verified — no OpenAI call).`);
 }
