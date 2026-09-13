@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
-import { getCarModel, type CarEngine } from "@/lib/api";
+import { getCarModel, type CarEngine, type CarTrim } from "@/lib/api";
 
 const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
 
@@ -160,6 +161,32 @@ function formatBatteryRange(battery: { rangeKm: number | null; rangeMiles: numbe
   return null;
 }
 
+// Real number, not a raw fuel-string dump: "petrol"/"phev" read as
+// programmer enum values, not copy — same "never show a raw internal
+// value to a reader" rule the Facts/crash-test-category fix already
+// applied here, extended to the new spec table's own Fuel column.
+const FUEL_LABEL: Record<string, string> = {
+  petrol: "Gasoline",
+  gasoline: "Gasoline",
+  diesel: "Diesel",
+  hybrid: "Hybrid",
+  phev: "Plug-in Hybrid",
+  electric: "Electric",
+};
+function formatFuel(engine: CarEngine): string {
+  return engine.fuel ? (FUEL_LABEL[engine.fuel.toLowerCase()] ?? engine.fuel) : "—";
+}
+
+// Sort key for showing trims lowest-to-highest power (the order every
+// real manufacturer brochure uses — base, mid, performance) instead of
+// raw database insertion order, which reads as arbitrary once a
+// generation has a dozen-plus trims added across several separate
+// backfill passes. A trim with no recorded power sorts first (treated
+// as 0) rather than landing in an unpredictable spot.
+function trimPowerHp(trim: CarTrim): number {
+  return Math.max(0, ...trim.engines.map((e) => e.powerHp ?? (e.powerKw != null ? e.powerKw * 1.34102 : 0)));
+}
+
 // spec §24 car page. Photos/crash-test ratings landed 2026-09-11 (vertical-
 // slice plan) — pricing/competitors/comparisons still come once those data
 // sources exist rather than being faked here.
@@ -269,11 +296,35 @@ export default async function CarModelPage({
         </section>
       )}
 
+      {carModel.generations.length > 0 && (
+        <section style={{ marginBottom: 8 }}>
+          <h2 style={{ fontSize: 16 }}>Generations &amp; specifications</h2>
+          {carModel.generations.length > 2 && (
+            // Jump-to nav, added 2026-09-14 (user's own ask for more
+            // "where is what" orientation) — genuinely useful once a
+            // nameplate has several generations (BMW X5: 5) rather than
+            // making a reader scroll past ones they don't care about,
+            // and the per-generation anchor ids double as real in-page
+            // targets search engines can link straight to.
+            <nav aria-label="Jump to a generation" style={{ marginBottom: 16 }}>
+              {carModel.generations.map((gen, i) => (
+                <span key={gen.id}>
+                  {i > 0 && " · "}
+                  <a href={`#gen-${gen.id}`}>
+                    {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
+                  </a>
+                </span>
+              ))}
+            </nav>
+          )}
+        </section>
+      )}
+
       {carModel.generations.map((gen) => (
-        <section key={gen.id} style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>
+        <section key={gen.id} id={`gen-${gen.id}`} style={{ marginBottom: 32, scrollMarginTop: 16 }}>
+          <h3 style={{ fontSize: 18 }}>
             {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
-          </h2>
+          </h3>
           {carModel.images
             .filter((img) => img.generationId === gen.id)
             .map((img) => (
@@ -302,35 +353,47 @@ export default async function CarModelPage({
               // look across the site. The Battery/Range column only
               // appears for generations that actually have an
               // electrified trim, so a plain gas-only generation's
-              // table doesn't carry two empty columns.
+              // table doesn't carry two empty columns. Sorted lowest-
+              // to-highest power (real brochure order) instead of raw
+              // insertion order, which reads as arbitrary once trims
+              // were added across several separate backfill passes.
+              // Zebra-striped and unit-labeled headers per the user's
+              // own "make it clearer what's where" follow-up.
               const hasBattery = gen.trims.some((trim) => trim.batteries.length > 0);
+              const sortedTrims = [...gen.trims].sort((a, b) => trimPowerHp(a) - trimPowerHp(b));
+              const th: CSSProperties = { textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" };
               return (
-                <div style={{ overflowX: "auto", marginBottom: 12 }}>
+                <div style={{ overflowX: "auto", marginBottom: 4 }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <caption style={{ captionSide: "bottom", textAlign: "left", marginTop: 6, fontSize: 11 }} className="story-meta">
+                      {sortedTrims.length} trim{sortedTrims.length === 1 ? "" : "s"} for the {gen.name} generation
+                      {gen.startYear ? ` (${gen.startYear}–${gen.endYear ?? "present"})` : ""}, sorted by power.
+                    </caption>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: "left", padding: "6px 12px 6px 0", borderBottom: "2px solid var(--line)" }}>Trim</th>
-                        <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Engine</th>
-                        <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Power</th>
-                        {hasBattery && (
-                          <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" }}>Battery / Range</th>
-                        )}
+                        <th style={{ ...th, paddingLeft: 0 }}>Trim</th>
+                        <th style={th}>Engine</th>
+                        <th style={th}>Fuel</th>
+                        <th style={th}>Power (hp)</th>
+                        {hasBattery && <th style={th}>Battery / EV range</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {gen.trims.map((trim) => {
+                      {sortedTrims.map((trim, i) => {
                         const battery = trim.batteries[0];
+                        const td: CSSProperties = {
+                          padding: "6px 12px",
+                          borderBottom: "1px solid var(--line)",
+                          background: i % 2 === 1 ? "var(--surface-alt, rgba(128,128,128,0.06))" : undefined,
+                        };
                         return (
                           <tr key={trim.id}>
-                            <td style={{ padding: "6px 12px 6px 0", borderBottom: "1px solid var(--line)", fontWeight: 600 }}>{trim.name}</td>
-                            <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
-                              {trim.engines.map((e) => e.name).join("; ") || "—"}
-                            </td>
-                            <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
-                              {trim.engines.map((e) => formatEnginePower(e)).filter(Boolean).join("; ") || "—"}
-                            </td>
+                            <td style={{ ...td, paddingLeft: 0, fontWeight: 600 }}>{trim.name}</td>
+                            <td style={td}>{trim.engines.map((e) => e.name).join("; ") || "—"}</td>
+                            <td style={td}>{trim.engines.map((e) => formatFuel(e)).join("; ") || "—"}</td>
+                            <td style={td}>{trim.engines.map((e) => formatEnginePower(e)).filter(Boolean).join("; ") || "—"}</td>
                             {hasBattery && (
-                              <td style={{ padding: "6px 12px", borderBottom: "1px solid var(--line)" }}>
+                              <td style={td}>
                                 {battery
                                   ? [
                                       battery.capacityKwh != null ? `${battery.capacityKwh} kWh` : null,
