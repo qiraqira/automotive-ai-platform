@@ -16,6 +16,7 @@ body {
   background: var(--surface);
   color: var(--ink);
   font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
   line-height: 1.5;
 }
 
@@ -27,6 +28,26 @@ a {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+/* Real readability gap found 2026-09-14 (user's own request to research
+   what actually reads best and keeps people on the page): `.wrap` is
+   960px wide with no separate constraint on flowing body text, which at
+   this serif font's real average character width works out to well
+   over 100 characters per line — Baymard's and Bringhurst's own
+   readability research (and WCAG's own accessibility guidance) put the
+   comfortable range at 50-75 characters, ~80 as a hard upper bound.
+   Longer lines measurably increase eye-tracking fatigue and hurt
+   comprehension/retention on exactly the kind of long-form reading this
+   site is built around. Scoped to flowing text specifically (`article`
+   wraps both the article page and the car model page, so this reaches
+   news, comparison/analysis articles, and catalog pages alike) rather
+   than the whole `.wrap` container, so tables, photo grids, and figures
+   still use the full width they already need. `em`-based so the measure
+   stays correct regardless of the base font-size above ever changing. */
+article p,
+article li {
+  max-width: 38em;
 }
 
 header.site {
