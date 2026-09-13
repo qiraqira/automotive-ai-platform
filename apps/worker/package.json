@@ -22,6 +22,7 @@
     "fetch:iihs": "tsx src/fetch-iihs-rating.ts",
     "fetch:infobox": "tsx src/fetch-car-infobox.ts",
     "backfill:gallery-photos": "tsx src/backfill-gallery-photos.ts",
+    "seed:mustang": "tsx src/seed-mustang.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
