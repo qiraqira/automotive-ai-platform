@@ -166,6 +166,20 @@ async function publishOne(spec: ManualArticleSpec): Promise<void> {
       },
     });
     storyId = story.id;
+
+    // Real gap found and fixed 2026-09-14: GET /v1/brands/:slug's own
+    // "Latest news" section finds a brand's news exclusively through
+    // EntityRelation (Story -> CarModel) — the same edge the automated
+    // ingest pipeline creates via entity-extractor.ts — but this script
+    // only ever created the ArticleCarModel link, never this one. A
+    // manually-published news piece with real carModelSlugs (e.g. the
+    // Tesla Model 3 250,000-mile piece) would silently never show up on
+    // that model's own brand page despite being squarely about it.
+    for (const carModel of carModels) {
+      await prisma.entityRelation.create({
+        data: { fromType: ENTITY_TYPE.STORY, fromId: story.id, toType: ENTITY_TYPE.CAR_MODEL, toId: carModel.id, relation: "mentions" },
+      });
+    }
   }
 
   const article = await prisma.article.create({
