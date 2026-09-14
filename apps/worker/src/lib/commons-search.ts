@@ -44,6 +44,52 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
 }
 
+/** Looks up ONE exact Commons file by name (e.g. from a Wikipedia infobox's own `image`
+ * field, already stripped of any "File:"/"Image:" prefix) rather than searching — this is
+ * the article's own Wikipedia-editor-curated lead photo for that exact page, so there is no
+ * candidate list to pick from and no separate human-review step needed the way a fuzzy
+ * `searchCommonsCandidates()` result would require. Returns null if the file doesn't exist,
+ * isn't a real photo (svg/logo/diagram), or carries a license outside `ALLOWED_LICENSE_PREFIXES`. */
+export async function fetchCommonsFileInfo(filename: string): Promise<CommonsCandidate | null> {
+  const title = `File:${filename.replace(/^(File|Image):/i, "")}`;
+  const url = new URL(COMMONS_API);
+  url.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    titles: title,
+    prop: "imageinfo",
+    iiprop: "url|size|mime|extmetadata",
+    iiurlwidth: "800",
+  }).toString();
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000), headers: { "User-Agent": USER_AGENT } });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { query?: { pages?: Record<string, CommonsPage> } };
+  const page = Object.values(data.query?.pages ?? {})[0];
+  const info = page?.imageinfo?.[0];
+  if (!page || !info) return null;
+  if (info.mime !== "image/jpeg" && info.mime !== "image/png") return null;
+  if (/logo|diagram|badge|emblem|icon|\bmap\b/i.test(page.title)) return null;
+
+  const meta = info.extmetadata ?? {};
+  const licenseSlug = (meta.License?.value ?? "").toLowerCase();
+  if (!ALLOWED_LICENSE_PREFIXES.some((p) => licenseSlug.startsWith(p))) return null;
+
+  return {
+    title: page.title,
+    pageUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, "_"))}`,
+    thumbUrl: info.thumburl ?? info.url,
+    fullUrl: info.url,
+    width: info.width,
+    height: info.height,
+    licenseSlug,
+    licenseShortName: meta.LicenseShortName?.value ?? licenseSlug,
+    licenseUrl: meta.LicenseUrl?.value ?? "https://creativecommons.org/licenses/",
+    artist: stripHtml(meta.Artist?.value ?? "Unknown"),
+    attributionRequired: (meta.AttributionRequired?.value ?? "true") !== "false",
+  };
+}
+
 export async function searchCommonsCandidates(query: string, limit = 6): Promise<CommonsCandidate[]> {
   const url = new URL(COMMONS_API);
   url.search = new URLSearchParams({
