@@ -297,11 +297,17 @@ export async function getOrCreateLicense(candidate: ImageCandidate): Promise<str
   });
   if (existing) return existing.id;
 
-  // A brand logo (searchBrandLogo's "logo" sentinel) is trademark fair-use
-  // for editorial identification, not a CC grant — real news use (this
-  // case) is fine, but claiming "modification allowed" the same way a
-  // CC-BY photo does would misrepresent actual trademark rights.
-  const isLogo = candidate.licenseSlug === "logo";
+  // A brand logo (searchBrandLogo's "logo" sentinel) and a manufacturer's
+  // own press-kit photo ("official-press" — publish-manual-article.ts's
+  // HeroImageSpec.licenseSlug already documented this as a valid value,
+  // but nothing here ever actually branched on it, so it silently fell
+  // through to the same "commercial use + modification allowed" grant a
+  // real CC-BY photo gets) are both editorial fair-use, not a CC grant —
+  // real news use (this case) is fine, but claiming a manufacturer's own
+  // photography can be freely modified/resold the way a CC-BY photo can
+  // would misrepresent its actual rights. Found and fixed 2026-09-14
+  // while sourcing a real Audi press photo for a news article.
+  const isEditorialOnly = candidate.licenseSlug === "logo" || candidate.licenseSlug === "official-press";
   const created = await prisma.imageLicense.create({
     data: {
       provider: candidate.provider,
@@ -311,21 +317,35 @@ export async function getOrCreateLicense(candidate: ImageCandidate): Promise<str
       // Every CC license this function otherwise accepts (see
       // ALLOWED_LICENSE_PREFIXES) permits both commercial use and
       // modification — NC/ND variants are filtered out before this is
-      // ever called — so `true` is accurate there; the logo case is
-      // handled separately above.
-      commercialUseAllowed: true,
-      modificationAllowed: !isLogo,
+      // ever called — so `true` is accurate there; logo/official-press
+      // are handled separately above.
+      commercialUseAllowed: !isEditorialOnly,
+      modificationAllowed: !isEditorialOnly,
     },
   });
   return created.id;
 }
 
-export function rightsStatusFor(licenseSlug: string): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" | "EDITORIAL_ONLY" {
+export function rightsStatusFor(
+  licenseSlug: string,
+): "PUBLIC_DOMAIN" | "CC_BY_SA" | "CC_BY" | "EDITORIAL_ONLY" | "OFFICIAL_USE_ALLOWED" {
   // A brand logo (searchBrandLogo's own "logo" sentinel slug) is neither
   // truly Creative-Commons-licensed content nor safe to imply otherwise —
   // it's used here for the same reason any real newsroom uses it: brand
   // identification, under trademark fair-use, not a CC grant.
   if (licenseSlug === "logo") return "EDITORIAL_ONLY";
+  // A manufacturer's own press-kit photo is a real, full car photo, not
+  // a logo — using EDITORIAL_ONLY here would also make isLogoImage()
+  // (apps/web's homepage/topic/brand thumbnail heuristic, which reads
+  // rightsStatus === "EDITORIAL_ONLY" as "this is a logo, contain-fit
+  // it with a white background") wrongly treat every press photo as a
+  // logo thumbnail. ImageRightsStatus already has a distinct, more
+  // accurate value for exactly this case. Found and fixed 2026-09-14
+  // while sourcing a real Audi press photo for a news article — the
+  // "official-press" slug was already documented as a valid
+  // HeroImageSpec.licenseSlug value but nothing here had ever actually
+  // branched on it before now.
+  if (licenseSlug === "official-press") return "OFFICIAL_USE_ALLOWED";
   if (licenseSlug.startsWith("cc0") || licenseSlug.startsWith("pd")) return "PUBLIC_DOMAIN";
   if (licenseSlug.startsWith("cc-by-sa")) return "CC_BY_SA";
   return "CC_BY";
