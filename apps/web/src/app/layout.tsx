@@ -9,7 +9,14 @@ import "./globals.css";
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
-const SITE_DESCRIPTION = "Global automotive news, research, and knowledge graph.";
+// Rewritten 2026-09-14 alongside the homepage's own HOME_DESCRIPTION —
+// "knowledge graph" is internal engineering language, not a phrase any
+// real reader searches for, and the old copy never said "comparisons",
+// "reviews" or "auto news" at all despite those being this site's real
+// content and real target search phrases. This is the fallback used by
+// every page that doesn't set its own (car pages, topic pages, /about/*,
+// search) — see this const's own longer comment below.
+const SITE_DESCRIPTION = "Car comparisons, reviews and auto news — every figure sourced and checked.";
 
 // Real, site-wide gap found and fixed 2026-09-09 (user directly asked
 // "will Google rank this?" while reviewing the site — checked live and

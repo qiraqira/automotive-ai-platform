@@ -30,11 +30,18 @@ describe("buildLocaleUrl", () => {
 });
 
 describe("buildHreflangAlternates", () => {
-  it("returns en, es, and x-default (pointing at English, the canonical primary locale)", () => {
+  // Real gap found and fixed 2026-09-14: /es/ pages don't exist anywhere
+  // in apps/web yet, so an "es" alternate here 404s on every real page —
+  // a genuine Search Console "hreflang points to a 404" error, not just
+  // a theoretical one. buildHreflangAlternates() now gates the "es" entry
+  // behind the module-private ES_LOCALE_LIVE flag (currently false) —
+  // this test asserts today's real, correct behavior (en + x-default
+  // only); flipping that flag once /es/ pages are real is the one change
+  // that should ever make this test's expectation change too.
+  it("returns en and x-default only while the Spanish edition isn't live yet", () => {
     const alternates = buildHreflangAlternates(SITE, "/cars/bmw/3-series");
     expect(alternates).toEqual([
       { hreflang: "en", href: "https://DOMAIN.COM/cars/bmw/3-series" },
-      { hreflang: "es", href: "https://DOMAIN.COM/es/cars/bmw/3-series" },
       { hreflang: "x-default", href: "https://DOMAIN.COM/cars/bmw/3-series" },
     ]);
   });

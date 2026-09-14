@@ -11,8 +11,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const path = "/news";
   const alternates = buildHreflangAlternates(SITE_URL, path);
   return {
-    title: "News",
-    description: "Every published automotive news story on this site, newest first — real reporting, sourced and checked before it's written up.",
+    // "Auto News" (2026-09-14, same keyword-core pass as the homepage's
+    // own HOME_TITLE) rather than the bare "News" — matches how a reader
+    // actually searches, and this page is exactly that: every published
+    // auto news story.
+    title: "Auto News",
+    description: "Every published auto news story on this site, newest first — real reporting, sourced and checked before it's written up.",
     alternates: {
       canonical: buildLocaleUrl(SITE_URL, "en", path),
       languages: Object.fromEntries(alternates.map((a) => [a.hreflang, a.href])),

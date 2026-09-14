@@ -14,19 +14,27 @@ const HOMEPAGE_ARTICLE_LIMIT = 7;
 // description before, silently inheriting layout.tsx's generic
 // site-wide default on every page that didn't override it — a real,
 // meaningful gap once the homepage itself became a page with real,
-// specific content (car specs, comparisons, guides) worth describing
-// on its own rather than falling back to the site-wide tagline. The
-// copy below accurately describes the sections actually rendered
-// further down this file (Explore models -> real specs, Comparisons &
-// analysis -> real comparisons) — see SEO.md's homepage rule.
-// "Auto news" phrase added 2026-09-12, user's own explicit request — the
-// homepage genuinely does include a real news section (see below), so
-// this isn't a claim disconnected from the page's actual content, just
-// wording that also matches how a reader searching "auto news" phrases
-// it, not only "automotive news".
-const HOME_TITLE = "Car Specs, Models, Comparisons & Auto News";
+// specific content worth describing on its own rather than falling back
+// to the site-wide tagline. See SEO.md's homepage rule.
+//
+// Rewritten 2026-09-14, user's own explicit ask to build a real keyword
+// core and check it against what the homepage actually leads with now.
+// The old title ("Car Specs, Models, Comparisons & Auto News") was
+// written when the catalog ("Explore models" -> specs/generations) was
+// still the homepage's second section — it's since been paused and
+// hidden (see this same date's "Explore models" gate below), so leading
+// the title with "Specs, Models" no longer matches what a visitor
+// actually lands on. What the site's real published content overwhelm-
+// ingly is now: COMPARISON/ANALYSIS pieces (a "Tesla Model 3 vs Toyota
+// Corolla" piece is, in substance, a car review — the word "review"
+// itself never appeared anywhere in the old title/description despite
+// that being real, high-intent search volume in this vertical) and real
+// NEWS. "Auto news" (not just "automotive news") kept from the
+// 2026-09-12 fix for the same reason as before: it's how people actually
+// phrase the search.
+const HOME_TITLE = "Car Comparisons, Reviews & Auto News";
 const HOME_DESCRIPTION =
-  "Explore car specifications, generations, safety ratings and comparisons. Research models by brand, compare engines and powertrains, and follow the latest auto news.";
+  "In-depth car comparisons and reviews with real specs and safety ratings, plus the latest auto news — every figure sourced and checked.";
 
 export const metadata: Metadata = {
   // Verified live: unlike every nested route (car/brand/guides/topics
@@ -86,10 +94,15 @@ export default async function HomePage() {
   return (
     <>
       <section style={{ marginBottom: 40 }}>
-        <h1 style={{ fontSize: 32, margin: "0 0 12px" }}>Real cars, real numbers, no filler</h1>
+        {/* H1 rewritten 2026-09-14 alongside HOME_TITLE/HOME_DESCRIPTION
+            above — same reasoning: carries the real target keywords
+            ("car comparisons", "auto news") instead of a pure tagline,
+            while the subtitle below is the one line that actually says
+            "reviews" out loud. */}
+        <h1 style={{ fontSize: 32, margin: "0 0 12px" }}>Car comparisons and auto news, backed by real numbers</h1>
         <p style={{ fontSize: 17, color: "var(--ink-dim)", maxWidth: 640, lineHeight: 1.5 }}>
-          Specs, generations, crash-test ratings and side-by-side comparisons — every figure sourced and checked,
-          every photo the real car — plus real auto news, checked the same way, as it happens.
+          In-depth comparisons and reviews — every spec, safety rating and price checked, every photo the real car —
+          plus real auto news, covered the same way, as it happens.
         </p>
       </section>
 

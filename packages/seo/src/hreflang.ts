@@ -36,6 +36,18 @@ export function buildLocaleUrl(siteUrl: string, locale: Locale, path: string): s
   return cleanPath ? `${base}/es/${cleanPath}` : `${base}/es`;
 }
 
+// Real gap found and fixed 2026-09-14 during an SEO pass: every page on
+// the site declares an "es" hreflang alternate per spec §30's planned
+// Spanish edition, but /es/* pages don't exist yet anywhere in apps/web
+// — every one of those alternates 404s. That doesn't block Google from
+// indexing the real English page, but it does surface as a real
+// "hreflang points to a 404" error in Search Console's International
+// Targeting report, right as this site is about to be submitted there
+// for the first time. Gated behind a single flag here — flipping it to
+// true once /es/ pages are real is the only change needed, with zero
+// changes at any of this function's 28 call sites across apps/web.
+const ES_LOCALE_LIVE = false;
+
 /** Builds the full hreflang set for a page: one entry per supported
  * locale plus x-default pointing at English (the canonical primary
  * locale, spec §2). Order doesn't matter for correctness but is kept
@@ -44,7 +56,7 @@ export function buildLocaleUrl(siteUrl: string, locale: Locale, path: string): s
 export function buildHreflangAlternates(siteUrl: string, path: string): HreflangAlternate[] {
   return [
     { hreflang: "en", href: buildLocaleUrl(siteUrl, "en", path) },
-    { hreflang: "es", href: buildLocaleUrl(siteUrl, "es", path) },
+    ...(ES_LOCALE_LIVE ? [{ hreflang: "es", href: buildLocaleUrl(siteUrl, "es", path) }] : []),
     { hreflang: "x-default", href: buildLocaleUrl(siteUrl, "en", path) },
   ];
 }
