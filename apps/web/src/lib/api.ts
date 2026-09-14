@@ -360,8 +360,16 @@ export interface BrandDetail {
   models: { slug: string; name: string; generationCount: number }[];
 }
 
+export interface BrandRelatedArticle {
+  slug: string;
+  headline: string;
+  subtitle: string | null;
+  type: string;
+}
+
 export interface BrandWithRelated {
   brand: BrandDetail;
+  relatedArticles: BrandRelatedArticle[];
   relatedStories: RelatedStorySummary[];
 }
 

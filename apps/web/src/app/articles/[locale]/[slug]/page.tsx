@@ -152,25 +152,59 @@ export default async function ArticlePage({
       <h1 style={{ fontSize: 32, margin: "4px 0 8px" }}>{article.headline}</h1>
       {article.subtitle && <p style={{ fontSize: 18, color: "var(--ink-dim)", margin: "0 0 24px" }}>{article.subtitle}</p>}
 
-      {article.images[0] && (
-        <figure style={{ margin: "0 0 24px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>
-              deliberately, see next.config.mjs's own comment on why this
-              app skips next/image */}
-          <img
-            src={article.images[0].image.originalUrl}
-            alt={article.images[0].altText ?? article.headline}
-            width={article.images[0].image.width ?? undefined}
-            height={article.images[0].image.height ?? undefined}
-            style={{ width: "100%", height: "auto", display: "block" }}
-          />
-          {article.images[0].image.attribution && (
-            <figcaption className="story-meta" style={{ marginTop: 4 }}>
-              {article.images[0].image.attribution}
-            </figcaption>
-          )}
-        </figure>
-      )}
+      {(() => {
+        // Side-by-side hero (2026-09-14), user's own explicit ask: a
+        // comparison article almost never has one real photo with both
+        // compared cars in frame, so a single hero photo can only ever
+        // favor one side. publish-manual-article.ts's heroImagePair
+        // attaches two HERO-role images (position 0 and 1) for exactly
+        // this case; a single-subject article still attaches one HERO
+        // image, so this falls through to the original full-width figure.
+        const heroImages = article.images.filter((img) => img.role === "HERO");
+        if (heroImages.length >= 2) {
+          const [left, right] = heroImages;
+          return (
+            <figure style={{ margin: "0 0 24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[left, right].map((img) => (
+                  // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                  <img
+                    key={img.image.originalUrl}
+                    src={img.image.originalUrl}
+                    alt={img.altText ?? article.headline}
+                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
+                  />
+                ))}
+              </div>
+              {(left.image.attribution || right.image.attribution) && (
+                <figcaption className="story-meta" style={{ marginTop: 4 }}>
+                  {[left.image.attribution, right.image.attribution].filter(Boolean).join(" · ")}
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
+        if (!heroImages[0]) return null;
+        return (
+          <figure style={{ margin: "0 0 24px" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>
+                deliberately, see next.config.mjs's own comment on why this
+                app skips next/image */}
+            <img
+              src={heroImages[0].image.originalUrl}
+              alt={heroImages[0].altText ?? article.headline}
+              width={heroImages[0].image.width ?? undefined}
+              height={heroImages[0].image.height ?? undefined}
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            {heroImages[0].image.attribution && (
+              <figcaption className="story-meta" style={{ marginTop: 4 }}>
+                {heroImages[0].image.attribution}
+              </figcaption>
+            )}
+          </figure>
+        );
+      })()}
 
       {article.keyTakeaway && (
         <div className="story-item" style={{ marginBottom: 24 }}>

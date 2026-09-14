@@ -53,6 +53,17 @@ interface ManualArticleSpec {
   paragraphs: string[];
   citations: CitationSpec[];
   heroImage?: HeroImageSpec;
+  // Added 2026-09-14, user's own explicit ask: a single hero photo can
+  // only ever show one of the two compared cars, which is exactly the
+  // "лопсided" problem this project already fixed once at the article-
+  // photo-count level (see backfill-article-photos.ts's own comment) —
+  // a real two-subject photo (both cars in one frame) essentially never
+  // exists for two different nameplates, so the fix is a side-by-side
+  // pair instead: two HERO-role images (position 0 and 1) rendered in a
+  // 2-column grid by the article page instead of one full-width photo.
+  // Mutually exclusive with `heroImage` — a COMPARISON spec should pass
+  // exactly one of the two.
+  heroImagePair?: [HeroImageSpec, HeroImageSpec];
   // Added 2026-09-13, user's explicit ask for "many good photos" per
   // article — rendered by the article page's existing GALLERY section
   // (already built 2026-09-11 for the X5 vs GLE rebuild; this was simply
@@ -188,6 +199,16 @@ async function publishOne(spec: ManualArticleSpec): Promise<void> {
       await attachHeroImageFromSpec(article.id, spec.heroImage, "HERO", 0);
     } catch (err) {
       console.error(`"${spec.slug}": hero image self-host failed — ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  if (spec.heroImagePair) {
+    for (const [i, heroImage] of spec.heroImagePair.entries()) {
+      try {
+        await attachHeroImageFromSpec(article.id, heroImage, "HERO", i);
+      } catch (err) {
+        console.error(`"${spec.slug}": hero image pair #${i} self-host failed — ${err instanceof Error ? err.message : err}`);
+      }
     }
   }
 

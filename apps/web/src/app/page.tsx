@@ -7,6 +7,9 @@ import { rankStories } from "@/lib/ranking";
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
+// Cap added 2026-09-14 — see the section below's own longer comment.
+const HOMEPAGE_ARTICLE_LIMIT = 7;
+
 // SEO pass (2026-09-11): the homepage never set its own title/
 // description before, silently inheriting layout.tsx's generic
 // site-wide default on every page that didn't override it — a real,
@@ -91,7 +94,7 @@ export default async function HomePage() {
       </section>
 
       {featuredArticles.length > 0 && (
-        // Real gap found and fixed 2026-09-11: the site's 5 hand-authored
+        // Real gap found and fixed 2026-09-11: the site's hand-authored
         // COMPARISON/ANALYSIS pieces had no listing endpoint or homepage
         // section at all (see GET /v1/featured-articles's own comment) —
         // exactly the kind of evergreen content a portal's front page
@@ -102,45 +105,85 @@ export default async function HomePage() {
         // analysis) belongs before even the model grid on a page whose
         // whole point is not being a news feed. "See all" links to the
         // new /comparisons index page (apps/web/src/app/comparisons/page.tsx).
+        //
+        // Lead-story layout + hard cap (2026-09-14), user's own explicit
+        // ask: this list had no cap at all (the API's own `take: 200` is
+        // for /comparisons' real "see everything" page, not this one) —
+        // it would have grown unbounded as more pieces get published.
+        // Capped to HOMEPAGE_ARTICLE_LIMIT here, client-side only (same
+        // pattern the Guides section below already uses), so /comparisons
+        // stays the actual full list. The newest piece also now renders
+        // as a real "portal lead story" — big photo, headline, and the
+        // article's own first paragraph — instead of the same small
+        // thumbnail row as everything else, addressing the user's own
+        // worry that pausing the catalog would leave the homepage looking
+        // like a bare, uniform feed rather than a real portal front page.
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
             <Link href="/comparisons">Comparisons &amp; analysis</Link>
           </h2>
-          <ul className="story-list">
-            {featuredArticles.map((article) => {
-              const heroUrl = article.images[0]?.image.originalUrl;
-              const isLogo = isLogoImage(article.images);
-              return (
-                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {heroUrl && (
+          {(() => {
+            const shown = featuredArticles.slice(0, HOMEPAGE_ARTICLE_LIMIT);
+            const [lead, ...rest] = shown;
+            const leadHeroUrl = lead.images[0]?.image.originalUrl;
+            const leadIsLogo = isLogoImage(lead.images);
+            return (
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  {leadHeroUrl && !leadIsLogo && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                     <img
-                      src={heroUrl}
+                      src={leadHeroUrl}
                       alt=""
-                      style={{
-                        width: 96,
-                        height: 64,
-                        objectFit: isLogo ? "contain" : "cover",
-                        background: isLogo ? "#fff" : undefined,
-                        padding: isLogo ? 8 : undefined,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                      }}
+                      style={{ width: "100%", maxHeight: 360, objectFit: "cover", borderRadius: 6, marginBottom: 12, display: "block" }}
                     />
                   )}
-                  <div>
-                    <div className="story-meta">{article.type}</div>
-                    <h3 style={{ fontSize: 18, margin: 0 }}>
-                      <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-                    </h3>
-                    {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  <div className="story-meta">{lead.type}</div>
+                  <h3 style={{ fontSize: 26, margin: "4px 0 8px", lineHeight: 1.25 }}>
+                    <Link href={`/articles/${lead.locale}/${lead.slug}`}>{lead.headline}</Link>
+                  </h3>
+                  {lead.subtitle && <p style={{ fontSize: 16, color: "var(--ink-dim)", maxWidth: "38em", margin: 0 }}>{lead.subtitle}</p>}
+                </div>
+                {rest.length > 0 && (
+                  <ul className="story-list">
+                    {rest.map((article) => {
+                      const heroUrl = article.images[0]?.image.originalUrl;
+                      const isLogo = isLogoImage(article.images);
+                      return (
+                        <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          {heroUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                            <img
+                              src={heroUrl}
+                              alt=""
+                              style={{
+                                width: 96,
+                                height: 64,
+                                objectFit: isLogo ? "contain" : "cover",
+                                background: isLogo ? "#fff" : undefined,
+                                padding: isLogo ? 8 : undefined,
+                                flexShrink: 0,
+                                borderRadius: 4,
+                              }}
+                            />
+                          )}
+                          <div>
+                            <div className="story-meta">{article.type}</div>
+                            <h3 style={{ fontSize: 18, margin: 0 }}>
+                              <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
+                            </h3>
+                            {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
           <p className="story-meta">
-            <Link href="/comparisons">See all comparisons &amp; analysis →</Link>
+            <Link href="/comparisons">See all {featuredArticles.length} comparisons &amp; analysis →</Link>
           </p>
         </section>
       )}

@@ -1142,6 +1142,39 @@ app.get("/v1/brands/:slug", async (req, res) => {
         })
       : [];
 
+  // Added 2026-09-14, user's own explicit ask: a brand page listed the
+  // brand's Models and its news, but never its own already-written
+  // COMPARISON/ANALYSIS pieces — exactly the evergreen content the
+  // homepage now leads with (see GET /v1/featured-articles), just
+  // scoped to this one brand. Linked the same way the car-model page
+  // already finds its own comparisons: via ArticleCarModel, not a text
+  // match on the brand name (entity-extractor.ts's own module comment
+  // explains why a bare brand-name match is unreliable).
+  const relatedArticles =
+    modelIds.length > 0
+      ? await prisma.article.findMany({
+          where: {
+            status: "PUBLISHED",
+            locale: "en",
+            type: { in: ["COMPARISON", "ANALYSIS"] },
+            carModels: { some: { carModelId: { in: modelIds } } },
+          },
+          orderBy: { publishedAt: "desc" },
+          select: {
+            slug: true,
+            headline: true,
+            subtitle: true,
+            type: true,
+            factualScore: true,
+            sourceScore: true,
+            qualityScore: true,
+            originalityScore: true,
+            valueScore: true,
+            readabilityScore: true,
+          },
+        })
+      : [];
+
   res.json({
     brand: {
       id: brand.id,
@@ -1150,6 +1183,9 @@ app.get("/v1/brands/:slug", async (req, res) => {
       country: brand.country,
       models: brand.models.map((m) => ({ slug: m.slug, name: m.name, generationCount: m.generations.length })),
     },
+    relatedArticles: relatedArticles
+      .filter((a) => !isRejectedByQualityGate(a))
+      .map(({ slug, headline, subtitle, type }) => ({ slug, headline, subtitle, type })),
     // Real regression found and fixed 2026-09-11 (user reported it live,
     // with a screenshot, the same day) — see GET /v1/stories' own
     // updated comment: nulling `articleSlug` but keeping the story left

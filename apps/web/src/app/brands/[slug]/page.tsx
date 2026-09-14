@@ -34,14 +34,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // brief's "only mention information that actually exists" rule.
   const result = await getBrand(slug);
   if (!result) return base;
-  const { brand, relatedStories } = result;
+  const { brand, relatedArticles, relatedStories } = result;
   const parts = ["Models"];
   if (brand.models.some((m) => m.generationCount > 0)) parts.push("Generations");
+  if (relatedArticles.length > 0) parts.push("Comparisons");
   if (relatedStories.length > 0) parts.push("News");
   const title = `${brand.name} Cars: ${parts.join(", ").replace(/, ([^,]*)$/, " & $1")}`;
   const description = `${brand.name} car specifications and generations${
-    relatedStories.length > 0 ? ", plus the latest " + brand.name + " news" : ""
-  } — sourced and checked on ${SITE_NAME}.`;
+    relatedArticles.length > 0 ? ", real " + brand.name + " comparisons" : ""
+  }${relatedStories.length > 0 ? ", plus the latest " + brand.name + " news" : ""} — sourced and checked on ${SITE_NAME}.`;
 
   return {
     ...base,
@@ -56,7 +57,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const result = await getBrand(slug);
   if (!result) notFound();
-  const { brand, relatedStories } = result;
+  const { brand, relatedArticles, relatedStories } = result;
 
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: SITE_URL },
@@ -86,6 +87,26 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                     — {m.generationCount} generation{m.generationCount === 1 ? "" : "s"}
                   </span>
                 )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {relatedArticles.length > 0 && (
+        // Added 2026-09-14, user's own explicit ask: a brand hub should
+        // surface the real comparisons/analysis pieces already written
+        // about this brand's own models, not just its catalog page links
+        // and raw news — see GET /v1/brands/:slug's own comment for how
+        // this is found (ArticleCarModel, not a name match).
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16 }}>{brand.name} comparisons &amp; analysis</h2>
+          <ul className="story-list">
+            {relatedArticles.map((article) => (
+              <li key={article.slug} className="story-item">
+                <div className="story-meta">{article.type}</div>
+                <Link href={`/articles/en/${article.slug}`}>{article.headline}</Link>
+                {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
               </li>
             ))}
           </ul>
