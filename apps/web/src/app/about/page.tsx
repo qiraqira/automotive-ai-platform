@@ -31,7 +31,6 @@ export const metadata: Metadata = {
 const LINKS = [
   { href: "/about/editorial-policy", label: "Editorial Policy" },
   { href: "/about/how-we-use-ai", label: "How we use AI" },
-  { href: "/about/sources", label: "Sources" },
   { href: "/about/corrections", label: "Corrections" },
   { href: "/about/contact", label: "Contact" },
 ];

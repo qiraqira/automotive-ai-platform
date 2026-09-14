@@ -143,7 +143,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/about">About</a>
               <a href="/about/editorial-policy">Editorial Policy</a>
               <a href="/about/how-we-use-ai">How we use AI</a>
-              <a href="/about/sources">Sources</a>
               <a href="/about/corrections">Corrections</a>
               <a href="/about/contact">Contact</a>
             </div>

@@ -31,7 +31,6 @@ const ABOUT_PATHS = [
   "/about",
   "/about/editorial-policy",
   "/about/how-we-use-ai",
-  "/about/sources",
   "/about/corrections",
   "/about/contact",
 ];
@@ -113,10 +112,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     ...ABOUT_PATHS.map((path) => ({
       url: `${SITE_URL}${path}`,
-      // /about/sources lists the real, currently-monitored source roster
-      // (a live DB read, changes as sources are added/removed) — the
-      // other 5 are static policy/mission text that rarely changes.
-      changeFrequency: (path === "/about/sources" ? "weekly" : "monthly") as "weekly" | "monthly",
+      changeFrequency: "monthly" as const,
       priority: 0.4,
     })),
   ];
