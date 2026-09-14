@@ -167,11 +167,46 @@ async function seedEpaTrims(generationId: string, epaMake: string, epaModel: str
 // 13/32 right on the first pass. Rather than requiring every entry's title
 // to be hand-verified (exactly the per-model token cost this pipeline
 // exists to avoid), fall back to Wikipedia's own search index — the same
-// discovery approach research-nameplate.ts already uses — and accept the
-// first candidate whose infobox plausibly names this brand.
-async function resolveInfobox(entry: CatalogSeedEntry): Promise<{ infobox: CarInfobox; usedFallback: boolean } | { error: string }> {
+// discovery approach research-nameplate.ts already uses.
+//
+// Real bug found live 2026-09-14, first fallback-enabled run: a
+// brand-only relevance check (matching research-nameplate.ts's own
+// `looksRelevant`, which is only ever a sort hint there for a
+// human-reviewed report, never an auto-accept gate) let "Tesla
+// Model S" silently resolve to "Tesla Cybercab" — a real, different
+// Tesla model — because both mention "Tesla". The same run also
+// resolved "Chevrolet Silverado" (intended: fourth generation, current)
+// to "Chevrolet Silverado (second generation)" (2007-2013) — correct
+// model, wrong era. Fixed two ways: (1) the model name itself, not just
+// the brand, must appear in the *candidate title* (not just infobox
+// prose, which can mention a related-but-wrong model in passing); (2)
+// the generation slug/name attached to the database is now always
+// derived from what was ACTUALLY fetched (the resolved title's own
+// parenthetical qualifier, if any) rather than trusting this entry's
+// pre-set generationSlug/generationName, which described the title this
+// session originally guessed — possibly not the one actually resolved.
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[\s-]/g, "");
+}
+
+function deriveGenerationLabel(resolvedTitle: string): { slug: string; name: string } {
+  const qualifierMatch = /\(([^)]+)\)\s*$/.exec(resolvedTitle);
+  const qualifier = qualifierMatch?.[1]?.trim();
+  if (!qualifier) return { slug: "overview", name: "Overview" };
+  const slug = qualifier
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const name = qualifier.replace(/\b\w/g, (c) => c.toUpperCase());
+  return { slug: slug || "overview", name };
+}
+
+async function resolveInfobox(
+  entry: CatalogSeedEntry,
+): Promise<{ infobox: CarInfobox; resolvedTitle: string; usedFallback: boolean } | { error: string }> {
   try {
-    return { infobox: await fetchCarInfobox(entry.wikipediaTitle), usedFallback: false };
+    const infobox = await fetchCarInfobox(entry.wikipediaTitle);
+    return { infobox, resolvedTitle: entry.wikipediaTitle, usedFallback: false };
   } catch {
     // fall through to search-based discovery below
   }
@@ -182,21 +217,25 @@ async function resolveInfobox(entry: CatalogSeedEntry): Promise<{ infobox: CarIn
       ...(await searchWikipediaTitles(`${entry.brandName} ${entry.modelName}`, 4)),
     ]),
   );
-  const brandWords = entry.brandName.toLowerCase().split(/\s+/);
+  const brandNeedle = normalizeForMatch(entry.brandName);
+  const modelNeedle = normalizeForMatch(entry.modelName);
   for (const title of candidates) {
     await sleep(250); // proactive spacing across candidate fetches, same rationale as research-nameplate.ts
+    const titleNorm = normalizeForMatch(title);
+    // Both the brand AND the model name must appear in the candidate's own
+    // title — not just somewhere in its infobox prose, which routinely
+    // mentions sibling/related models (an unrelated Tesla product's page
+    // still says "Tesla" as manufacturer).
+    if (!titleNorm.includes(brandNeedle) || !titleNorm.includes(modelNeedle)) continue;
     let infobox: CarInfobox;
     try {
       infobox = await fetchCarInfobox(title);
     } catch {
       continue;
     }
-    const haystack = `${infobox.clean.manufacturer ?? ""} ${infobox.clean.name ?? ""} ${title}`.toLowerCase();
-    if (brandWords.some((w) => haystack.includes(w))) {
-      return { infobox, usedFallback: true };
-    }
+    return { infobox, resolvedTitle: title, usedFallback: true };
   }
-  return { error: `no Wikipedia infobox found for "${entry.wikipediaTitle}" or any search fallback` };
+  return { error: `no Wikipedia infobox found for "${entry.wikipediaTitle}" or any search fallback matching both brand and model in the title` };
 }
 
 async function seedOne(entry: CatalogSeedEntry): Promise<{ ok: boolean; note: string }> {
@@ -216,23 +255,33 @@ async function seedOne(entry: CatalogSeedEntry): Promise<{ ok: boolean; note: st
     return { ok: false, note: resolved.error };
   }
   const infobox = resolved.infobox.clean;
-  const fallbackNote = resolved.usedFallback ? ` (via search: "${resolved.infobox.pageTitle}")` : "";
+  const fallbackNote = resolved.usedFallback ? ` (via search: "${resolved.resolvedTitle}")` : "";
+
+  // When the fallback resolved a DIFFERENT page than this entry's own guess,
+  // the pre-set generationSlug/generationName described the guess, not what
+  // was actually fetched — using it here would repeat this file's own
+  // Silverado bug (real second-generation data mislabeled "Fourth
+  // Generation"). Only trust the pre-set label on a direct hit; derive an
+  // honest one from the resolved title itself otherwise.
+  const { slug: generationSlug, name: generationName } = resolved.usedFallback
+    ? deriveGenerationLabel(resolved.resolvedTitle)
+    : { slug: entry.generationSlug, name: entry.generationName };
 
   const { startYear, endYear } = parseProductionYears(infobox.production);
   const generation = await prisma.generation.upsert({
-    where: { carModelId_slug: { carModelId: carModel.id, slug: entry.generationSlug } },
+    where: { carModelId_slug: { carModelId: carModel.id, slug: generationSlug } },
     update: {},
     create: {
       carModelId: carModel.id,
-      slug: entry.generationSlug,
-      name: entry.generationName,
+      slug: generationSlug,
+      name: generationName,
       startYear,
       endYear,
     },
   });
 
   const factsCreated = await upsertFactsFromInfobox(carModel.id, infobox);
-  const photoAttached = await attachInfoboxPhoto(carModel.id, generation.id, infobox, `${entry.brandName} ${entry.modelName} (${entry.generationName})`);
+  const photoAttached = await attachInfoboxPhoto(carModel.id, generation.id, infobox, `${entry.brandName} ${entry.modelName} (${generationName})`);
 
   let trimsCreated = 0;
   if (entry.epaMake && entry.epaModel) {
