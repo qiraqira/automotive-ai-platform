@@ -26,8 +26,21 @@ export async function generateMetadata(): Promise<Metadata> {
 // topic feed's EntityRelation match; four fully-built model pages
 // (specs, generations, crash tests, real videos) were otherwise
 // unreachable from normal browsing. Same index-page pattern as /guides.
+// Popular-first + alphabetical split (2026-09-14), user's own explicit
+// ask: as more brands eventually get real coverage, a single flat list
+// (alphabetical or not) either buries the brands with the most actual
+// content or has no ordering logic at all. Split into a "Popular" list
+// (ranked by real published-article count, ties broken alphabetically)
+// and a plain "All brands" A-Z list for everything else — no client-side
+// toggle, consistent with this site's plain, JS-optional pages.
+const POPULAR_BRAND_LIMIT = 4;
+
 export default async function BrandsIndexPage() {
   const { brands } = await getBrands();
+  const ranked = [...brands].sort((a, b) => b.contentCount - a.contentCount || a.name.localeCompare(b.name));
+  const popular = ranked.filter((b) => b.contentCount > 0).slice(0, POPULAR_BRAND_LIMIT);
+  const popularSlugs = new Set(popular.map((b) => b.slug));
+  const rest = brands.filter((b) => !popularSlugs.has(b.slug)).sort((a, b) => a.name.localeCompare(b.name));
 
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: SITE_URL },
@@ -48,17 +61,37 @@ export default async function BrandsIndexPage() {
         Brands
       </h2>
       <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>Every manufacturer on this site</h1>
-      <ul className="story-list">
-        {brands.map((brand) => (
-          <li key={brand.slug} className="story-item">
-            <h3 style={{ fontSize: 18, margin: 0 }}>
-              <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
-            </h3>
-            {brand.country && <p className="story-meta" style={{ marginTop: 4 }}>{brand.country}</p>}
-          </li>
-        ))}
-        {brands.length === 0 && <p>No brands added yet.</p>}
-      </ul>
+
+      {popular.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Popular brands</h2>
+          <ul className="story-list">
+            {popular.map((brand) => (
+              <li key={brand.slug} className="story-item">
+                <h3 style={{ fontSize: 18, margin: 0 }}>
+                  <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
+                </h3>
+                {brand.country && <p className="story-meta" style={{ marginTop: 4 }}>{brand.country}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div>
+        <h2 style={{ fontSize: 16, marginBottom: 12 }}>All brands</h2>
+        <ul className="story-list">
+          {rest.map((brand) => (
+            <li key={brand.slug} className="story-item">
+              <h3 style={{ fontSize: 18, margin: 0 }}>
+                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
+              </h3>
+              {brand.country && <p className="story-meta" style={{ marginTop: 4 }}>{brand.country}</p>}
+            </li>
+          ))}
+          {brands.length === 0 && <p>No brands added yet.</p>}
+        </ul>
+      </div>
     </section>
   );
 }

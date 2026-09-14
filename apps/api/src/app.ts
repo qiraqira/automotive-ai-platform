@@ -1946,9 +1946,35 @@ app.patch("/v1/users/:id/status", requirePermission("MANAGE_USERS"), async (req,
 // reusing `MANAGE_SYSTEM_SETTINGS` on `/v1/redirects` — avoid a schema
 // migration for one small CMS feature).
 
+// Added contentCount 2026-09-14, user's own explicit ask: with more
+// brands eventually covered by real news/articles than a homepage-sized
+// list should show at once, the /brands index needs a real "popular
+// first" ordering, not always alphabetical — and "popular" here means
+// real published content this site has actually written about that
+// brand's models, not follower counts or anything this project doesn't
+// track. Counts distinct PUBLISHED articles (COMPARISON/ANALYSIS/NEWS)
+// linked to any of the brand's models via ArticleCarModel.
 app.get("/v1/brands", async (_req, res) => {
-  const brands = await prisma.brand.findMany({ orderBy: { name: "asc" } });
-  res.json({ brands });
+  const brands = await prisma.brand.findMany({ orderBy: { name: "asc" }, include: { models: { select: { id: true } } } });
+  const modelIds = brands.flatMap((b) => b.models.map((m) => m.id));
+  const counts =
+    modelIds.length > 0
+      ? await prisma.articleCarModel.findMany({
+          where: { carModelId: { in: modelIds }, article: { status: "PUBLISHED", locale: "en" } },
+          select: { carModelId: true, articleId: true },
+        })
+      : [];
+  res.json({
+    brands: brands.map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      name: b.name,
+      country: b.country,
+      contentCount: new Set(
+        counts.filter((c) => b.models.some((m) => m.id === c.carModelId)).map((c) => c.articleId),
+      ).size,
+    })),
+  });
 });
 
 // Real gap found and fixed 2026-09-07: every slug field below (Brand,

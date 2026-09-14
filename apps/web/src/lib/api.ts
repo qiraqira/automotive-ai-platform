@@ -317,6 +317,7 @@ export interface Brand {
   slug: string;
   name: string;
   country: string | null;
+  contentCount: number;
 }
 
 // Real gap found and fixed 2026-09-07: every real Brand/CarModel in this

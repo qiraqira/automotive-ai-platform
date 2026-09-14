@@ -35,14 +35,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const result = await getBrand(slug);
   if (!result) return base;
   const { brand, relatedArticles, relatedStories } = result;
-  const parts = ["Models"];
-  if (brand.models.some((m) => m.generationCount > 0)) parts.push("Generations");
-  if (relatedArticles.length > 0) parts.push("Comparisons");
+  const parts: string[] = [];
+  if (relatedArticles.length > 0) parts.push("Comparisons & Analysis");
   if (relatedStories.length > 0) parts.push("News");
-  const title = `${brand.name} Cars: ${parts.join(", ").replace(/, ([^,]*)$/, " & $1")}`;
-  const description = `${brand.name} car specifications and generations${
-    relatedArticles.length > 0 ? ", real " + brand.name + " comparisons" : ""
-  }${relatedStories.length > 0 ? ", plus the latest " + brand.name + " news" : ""} — sourced and checked on ${SITE_NAME}.`;
+  const title = parts.length > 0 ? `${brand.name}: ${parts.join(" & ")}` : `${brand.name} Cars`;
+  const description = `Real ${brand.name} coverage on ${SITE_NAME}${
+    relatedArticles.length > 0 ? " — comparisons and analysis" : ""
+  }${relatedStories.length > 0 ? (relatedArticles.length > 0 ? " plus the latest news" : " — the latest news") : ""}, sourced and checked.`;
 
   return {
     ...base,
@@ -73,25 +72,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       />
       {brand.country && <div className="story-meta">{formatCountryName(brand.country)}</div>}
       <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{brand.name}</h1>
-
-      {brand.models.length > 0 && (
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Models</h2>
-          <ul className="story-list">
-            {brand.models.map((m) => (
-              <li key={m.slug} className="story-item">
-                <Link href={`/cars/${slug}/${m.slug}`}>{m.name}</Link>
-                {m.generationCount > 0 && (
-                  <span className="story-meta">
-                    {" "}
-                    — {m.generationCount} generation{m.generationCount === 1 ? "" : "s"}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* "Models" section removed 2026-09-14, user's own explicit call:
+          the catalog is paused and still rough — a brand hub should lead
+          with the real articles/news/analysis already written about
+          this brand, not link out to an unfinished, noindexed /cars/...
+          page. brand.models is still fetched (see GET /v1/brands/:slug)
+          purely to find this brand's own ArticleCarModel-linked content
+          below, not for display. */}
 
       {relatedArticles.length > 0 && (
         // Added 2026-09-14, user's own explicit ask: a brand hub should

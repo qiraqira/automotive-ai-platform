@@ -256,49 +256,83 @@ export default async function HomePage() {
           <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
             Latest news
           </h2>
-          <ul className="story-list">
-            {news.map((story) => {
-              const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-              const isLogo =
-                story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
-                (heroUrl?.toLowerCase().includes("logo") ?? false);
-              return (
-                <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {heroUrl && (
+          {(() => {
+            // Same portal-lead treatment as Comparisons & analysis above
+            // (2026-09-14, user's own explicit ask): the newest news item
+            // gets a big photo + headline instead of the same 96x64
+            // thumbnail row as everything else.
+            const [lead, ...rest] = news;
+            const leadHeroUrl = lead.articles[0]?.images[0]?.image.originalUrl;
+            const leadIsLogo =
+              lead.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
+              (leadHeroUrl?.toLowerCase().includes("logo") ?? false);
+            const renderMeta = (story: (typeof news)[number]) => (
+              <div className="story-meta">
+                {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
+                {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
+                {story.primaryTopic ? (
+                  <>
+                    {" · "}
+                    <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
+                  </>
+                ) : null}
+              </div>
+            );
+            return (
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  {leadHeroUrl && !leadIsLogo && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                     <img
-                      src={heroUrl}
+                      src={leadHeroUrl}
                       alt=""
-                      style={{
-                        width: 96,
-                        height: 64,
-                        objectFit: isLogo ? "contain" : "cover",
-                        background: isLogo ? "#fff" : undefined,
-                        padding: isLogo ? 8 : undefined,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                      }}
+                      style={{ width: "100%", maxHeight: 360, objectFit: "cover", borderRadius: 6, marginBottom: 12, display: "block" }}
                     />
                   )}
-                  <div>
-                    <div className="story-meta">
-                      {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                      {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                      {story.primaryTopic ? (
-                        <>
-                          {" · "}
-                          <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
-                        </>
-                      ) : null}
-                    </div>
-                    <h3 style={{ fontSize: 18, margin: 0 }}>
-                      {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
-                    </h3>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  {renderMeta(lead)}
+                  <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
+                    {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
+                  </h3>
+                </div>
+                {rest.length > 0 && (
+                  <ul className="story-list">
+                    {rest.map((story) => {
+                      const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
+                      const isLogo =
+                        story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
+                        (heroUrl?.toLowerCase().includes("logo") ?? false);
+                      return (
+                        <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          {heroUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                            <img
+                              src={heroUrl}
+                              alt=""
+                              style={{
+                                width: 96,
+                                height: 64,
+                                objectFit: isLogo ? "contain" : "cover",
+                                background: isLogo ? "#fff" : undefined,
+                                padding: isLogo ? 8 : undefined,
+                                flexShrink: 0,
+                                borderRadius: 4,
+                              }}
+                            />
+                          )}
+                          <div>
+                            {renderMeta(story)}
+                            <h3 style={{ fontSize: 18, margin: 0 }}>
+                              {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
+                            </h3>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
           <p className="story-meta">
             <Link href="/news">See all news →</Link>
           </p>
