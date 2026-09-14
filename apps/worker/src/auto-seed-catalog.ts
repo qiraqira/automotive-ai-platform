@@ -1,6 +1,6 @@
 import { prisma } from "@automotive/database";
 import { readFile } from "node:fs/promises";
-import { fetchCarInfobox } from "./lib/wikipedia-car.js";
+import { fetchCarInfobox, searchWikipediaTitles, type CarInfobox } from "./lib/wikipedia-car.js";
 import { fetchCommonsFileInfo } from "./lib/commons-search.js";
 import { fetchEpaOptions, fetchEpaVehicle, type EpaVehicleRecord } from "./lib/epa-fuel-economy.js";
 import { attachCarModelPhoto } from "./lib/attach-car-photo.js";
@@ -118,8 +118,17 @@ async function attachInfoboxPhoto(carModelId: string, generationId: string, info
   return true;
 }
 
-async function seedEpaTrims(generationId: string, epaMake: string, epaModel: string, year: number): Promise<number> {
-  const options = await fetchEpaOptions(year, epaMake, epaModel);
+async function seedEpaTrims(generationId: string, epaMake: string, epaModel: string, preferredYear: number): Promise<number> {
+  // EPA's fueleconomy.gov reliably lags the actual calendar year by more than
+  // one model year in practice (found live 2026-09-14: neither 2025 nor 2026
+  // Toyota Camry returned anything, 2024 did) — walk backward from the
+  // preferred year rather than trusting a single hardcoded offset.
+  let options: Awaited<ReturnType<typeof fetchEpaOptions>> = [];
+  let year = preferredYear;
+  for (let tries = 0; tries < 4 && options.length === 0; tries++, year--) {
+    options = await fetchEpaOptions(year, epaMake, epaModel);
+  }
+  if (options.length === 0) return 0;
   let created = 0;
   for (const opt of options.slice(0, 8)) {
     // cap: some nameplates carry 15+ near-duplicate EPA configs (every
@@ -153,6 +162,43 @@ async function seedEpaTrims(generationId: string, epaMake: string, epaModel: str
   return created;
 }
 
+// A hardcoded chassis-code/generation title guess (e.g. "Toyota Highlander
+// (XU70)") is often wrong — this session's own curated model list got only
+// 13/32 right on the first pass. Rather than requiring every entry's title
+// to be hand-verified (exactly the per-model token cost this pipeline
+// exists to avoid), fall back to Wikipedia's own search index — the same
+// discovery approach research-nameplate.ts already uses — and accept the
+// first candidate whose infobox plausibly names this brand.
+async function resolveInfobox(entry: CatalogSeedEntry): Promise<{ infobox: CarInfobox; usedFallback: boolean } | { error: string }> {
+  try {
+    return { infobox: await fetchCarInfobox(entry.wikipediaTitle), usedFallback: false };
+  } catch {
+    // fall through to search-based discovery below
+  }
+
+  const candidates = Array.from(
+    new Set([
+      ...(await searchWikipediaTitles(`${entry.brandName} ${entry.modelName} generation`, 6)),
+      ...(await searchWikipediaTitles(`${entry.brandName} ${entry.modelName}`, 4)),
+    ]),
+  );
+  const brandWords = entry.brandName.toLowerCase().split(/\s+/);
+  for (const title of candidates) {
+    await sleep(250); // proactive spacing across candidate fetches, same rationale as research-nameplate.ts
+    let infobox: CarInfobox;
+    try {
+      infobox = await fetchCarInfobox(title);
+    } catch {
+      continue;
+    }
+    const haystack = `${infobox.clean.manufacturer ?? ""} ${infobox.clean.name ?? ""} ${title}`.toLowerCase();
+    if (brandWords.some((w) => haystack.includes(w))) {
+      return { infobox, usedFallback: true };
+    }
+  }
+  return { error: `no Wikipedia infobox found for "${entry.wikipediaTitle}" or any search fallback` };
+}
+
 async function seedOne(entry: CatalogSeedEntry): Promise<{ ok: boolean; note: string }> {
   const brand = await prisma.brand.upsert({
     where: { slug: entry.brandSlug },
@@ -165,12 +211,12 @@ async function seedOne(entry: CatalogSeedEntry): Promise<{ ok: boolean; note: st
     create: { brandId: brand.id, slug: entry.modelSlug, name: entry.modelName },
   });
 
-  let infobox: Record<string, string> | null = null;
-  try {
-    infobox = (await fetchCarInfobox(entry.wikipediaTitle)).clean;
-  } catch (err) {
-    return { ok: false, note: `infobox fetch failed: ${err instanceof Error ? err.message : String(err)}` };
+  const resolved = await resolveInfobox(entry);
+  if ("error" in resolved) {
+    return { ok: false, note: resolved.error };
   }
+  const infobox = resolved.infobox.clean;
+  const fallbackNote = resolved.usedFallback ? ` (via search: "${resolved.infobox.pageTitle}")` : "";
 
   const { startYear, endYear } = parseProductionYears(infobox.production);
   const generation = await prisma.generation.upsert({
@@ -202,7 +248,7 @@ async function seedOne(entry: CatalogSeedEntry): Promise<{ ok: boolean; note: st
 
   return {
     ok: true,
-    note: `facts=${factsCreated} photo=${photoAttached ? "yes" : "no"} trims=${trimsCreated}`,
+    note: `facts=${factsCreated} photo=${photoAttached ? "yes" : "no"} trims=${trimsCreated}${fallbackNote}`,
   };
 }
 
