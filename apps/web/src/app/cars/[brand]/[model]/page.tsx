@@ -377,7 +377,8 @@ export default async function CarModelPage({
                 <span key={gen.id}>
                   {i > 0 && " · "}
                   <a href={`#gen-${gen.id}`}>
-                    {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
+                    {gen.name}
+                    {gen.startYear ? ` (${gen.startYear}–${gen.endYear ?? "present"})` : ""}
                   </a>
                 </span>
               ))}
@@ -389,7 +390,16 @@ export default async function CarModelPage({
       {carModel.generations.map((gen) => (
         <section key={gen.id} id={`gen-${gen.id}`} style={{ marginBottom: 32, scrollMarginTop: 16 }}>
           <h3 style={{ fontSize: 18 }}>
-            {gen.name} ({gen.startYear ?? "?"}–{gen.endYear ?? "present"})
+            {gen.name}
+            {/* Real gap found live 2026-09-15 (Acura RDX's own Fourth
+                generation, no infobox/header year on its own Wikipedia
+                section — a genuinely brand-new section that hasn't been
+                filled in yet): a bare "?" for a missing start year is
+                exactly the "unexplained figure" this project's own
+                quality bar forbids — omit the whole year range instead
+                of guessing or showing a placeholder, same pattern the
+                trim-table caption below already used. */}
+            {gen.startYear ? ` (${gen.startYear}–${gen.endYear ?? "present"})` : ""}
           </h3>
           {carModel.images
             .filter((img) => img.generationId === gen.id)
