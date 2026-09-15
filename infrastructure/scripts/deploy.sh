@@ -46,11 +46,22 @@ git fetch origin
 echo "==> Fast-forwarding working tree (refuses and stops if history diverged locally — never force; investigate by hand instead)"
 git merge --ff-only origin/main
 
-echo "==> Applying any pending migrations (prisma migrate deploy — never migrate dev, never db:seed, against this real DATABASE_URL)"
-docker compose "${COMPOSE_FILES[@]}" run --rm api npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
-
 echo "==> Rebuilding the 3 app images from the updated source (a bare 'exec' would run the STALE code baked into the last image — see README's own 'Docker Compose' row for how this was found live)"
 docker compose "${COMPOSE_FILES[@]}" build api worker web
+
+# Real bug found live 2026-09-15, first deploy that actually bundled a
+# schema migration with other code changes: this step used to run
+# BEFORE the build step above, via `docker compose run --rm api ...` —
+# since the Dockerfile COPIES the repo into the image at build time
+# (no bind mount), that `run` used the OLD, not-yet-rebuilt api image,
+# whose baked-in prisma/migrations/ directory didn't have the new
+# migration file yet. It reported "No pending migrations to apply" and
+# silently did nothing; the new column had to be applied by hand,
+# after the fact, once the image really did exist. Migrate must run
+# AFTER build (still before `up -d --force-recreate` below, so the old
+# containers are never left running against a newer schema mid-swap).
+echo "==> Applying any pending migrations (prisma migrate deploy — never migrate dev, never db:seed, against this real DATABASE_URL)"
+docker compose "${COMPOSE_FILES[@]}" run --rm api npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
 
 echo "==> Recreating the 3 app containers with the new images"
 docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate api worker web
