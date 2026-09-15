@@ -67,6 +67,17 @@ function normalizeForMatch(s: string): string {
   return s.toLowerCase().replace(/[\s-]/g, "");
 }
 
+// Real data-contamination bug found live 2026-09-15 reviewing Jeep
+// Cherokee: a plain substring match let "Cherokee" match EPA's own
+// "Grand Cherokee L" model string too (it genuinely contains
+// "cherokee" as a substring) — Jeep Cherokee's own trim table silently
+// filled up with real Grand Cherokee trims, a completely different
+// vehicle. `startsWith` instead of `includes` fixes this (a real
+// nameplate's own EPA model string is always prefixed by the nameplate
+// itself, never by an unrelated qualifier word in front of it) while
+// still matching legitimate real suffix variants this project already
+// relies on — "F150"/"F150 Lightning", "Santa Fe"/"Santa Fe Sport",
+// "Titan"/"Titan XD" all still start with the base nameplate.
 export async function fetchNameplateHistory(
   make: string,
   nameplateSubstring: string,
@@ -77,7 +88,7 @@ export async function fetchNameplateHistory(
   const result: Record<number, string[]> = {};
   for (let year = startYear; year <= endYear; year++) {
     const models = await fetchEpaModelsForMakeYear(year, make);
-    const matches = models.filter((m) => normalizeForMatch(m).includes(needle));
+    const matches = models.filter((m) => normalizeForMatch(m).startsWith(needle));
     if (matches.length > 0) result[year] = matches;
   }
   return result;
