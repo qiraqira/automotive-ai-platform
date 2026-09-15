@@ -70,10 +70,18 @@ export async function fetchFullWikitext(pageTitle: string): Promise<string> {
   return fetchWikitextImpl(pageTitle, true);
 }
 
-/** Extracts the first `{{Infobox automobile ... }}` (brace-depth-aware, since field
- * values routinely contain their own nested templates like {{unbulleted list|...}}). */
+/** Wikipedia uses two infobox templates for cars: {{Infobox automobile}} for
+ * conventional models, {{Infobox electric vehicle}} for EVs (found live seeding
+ * Tesla Model S — its page has no {{Infobox automobile}} at all). Field names
+ * overlap enough (manufacturer, production, class, platform, assembly, image,
+ * related, designer, body_style, layout) that the same parser handles both;
+ * EV-only fields like motor/battery/electric_range just pass through unused. */
+const INFOBOX_TEMPLATE_RE = /\{\{\s*Infobox (?:automobile|electric vehicle)/i;
+
+/** Extracts the first `{{Infobox automobile|electric vehicle ... }}` (brace-depth-aware,
+ * since field values routinely contain their own nested templates like {{unbulleted list|...}}). */
 function extractInfoboxBlock(wikitext: string): string | null {
-  const start = wikitext.search(/\{\{\s*Infobox automobile/i);
+  const start = wikitext.search(INFOBOX_TEMPLATE_RE);
   if (start === -1) return null;
   let depth = 0;
   for (let i = start; i < wikitext.length - 1; i++) {
@@ -145,8 +153,8 @@ export function cleanWikitext(raw: string): string {
 /** Splits an infobox block into { fieldName: rawWikitextValue } pairs, depth-aware so a
  * field's own nested `{{...}}` content doesn't get mistaken for the next `| field =`. */
 export function parseInfoboxFields(infoboxBlock: string): Record<string, string> {
-  // Drop the outer "{{Infobox automobile" ... trailing "}}"
-  const inner = infoboxBlock.replace(/^\{\{\s*Infobox automobile/i, "").replace(/\}\}$/, "");
+  // Drop the outer "{{Infobox automobile|electric vehicle" ... trailing "}}"
+  const inner = infoboxBlock.replace(/^\{\{\s*Infobox (?:automobile|electric vehicle)/i, "").replace(/\}\}$/, "");
   const fields: Record<string, string> = {};
   let depth = 0;
   let currentField: string | null = null;
