@@ -357,6 +357,38 @@ export async function getCarModel(brandSlug: string, modelSlug: string): Promise
   return res.json();
 }
 
+// Added 2026-09-16 alongside GET /v1/compare — see that endpoint's own
+// comment for why this is a separate lean shape rather than reusing
+// CarModelDetail (which carries related-stories/articles/every historical
+// generation a comparison view never shows).
+export interface CompareCar {
+  brandSlug: string;
+  brandName: string;
+  modelSlug: string;
+  modelName: string;
+  heroImageUrl: string | null;
+  heroImageWidth: number | null;
+  heroImageHeight: number | null;
+  generation: {
+    name: string;
+    startYear: number | null;
+    endYear: number | null;
+    trims: { name: string; engineName: string | null; fuel: string | null }[];
+  } | null;
+  facts: { attribute: string; value: string; unit: string | null }[];
+}
+
+export async function getCompare(aBrand: string, aModel: string, bBrand: string, bModel: string): Promise<{ cars: [CompareCar, CompareCar] } | null> {
+  const qs = new URLSearchParams({ aBrand, aModel, bBrand, bModel });
+  const res = await fetch(`${API_INTERNAL_URL}/v1/compare?${qs}`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API /v1/compare returned ${res.status}`);
+  return res.json();
+}
+
 export interface BrandDetail {
   id: string;
   slug: string;

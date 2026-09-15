@@ -1129,6 +1129,91 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
   });
 });
 
+// --- Compare (spec-by-spec side-by-side of two real cars) ---
+//
+// Added 2026-09-16, user's own explicit ask after reviewing homepage-
+// engagement research together (Reuters Institute Digital News Report:
+// audiences want tools/format that serve their own task, not just more
+// curated articles) — this project already has real, checked trim/
+// engine data for every one of the 222 catalogReviewedAt models; the
+// only real gap was no way to put two of them side by side without an
+// editor first writing a bespoke "X vs Y" article. Deliberately its own
+// lean query rather than reusing GET /v1/cars/:brandSlug/:modelSlug
+// twice — that endpoint also pulls related stories, entity relations
+// and quality-gate-filtered articles a comparison view never shows,
+// which would mean 2x the real work for data this page throws away.
+// Only the current-production generation's trims are returned (not
+// every historical generation) — a comparison is a buyer's tool, and a
+// buyer comparing two cars today wants today's trims, not 1998's.
+const compareQuerySchema = z.object({
+  aBrand: z.string().min(1),
+  aModel: z.string().min(1),
+  bBrand: z.string().min(1),
+  bModel: z.string().min(1),
+});
+
+async function fetchCompareCar(brandSlug: string, modelSlug: string) {
+  const carModel = await prisma.carModel.findFirst({
+    where: { slug: modelSlug, brand: { slug: brandSlug }, catalogReviewedAt: { not: null } },
+    select: {
+      slug: true,
+      name: true,
+      brand: { select: { slug: true, name: true } },
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, width: true, height: true } } }, take: 1 },
+      facts: { select: { attribute: true, value: true, unit: true }, orderBy: { validFrom: "desc" }, take: 8 },
+      generations: {
+        include: { trims: { orderBy: { id: "asc" }, take: 8, include: { engines: { orderBy: { id: "asc" }, take: 1 } } } },
+      },
+    },
+  });
+  if (!carModel) return null;
+  // Picks the "current" generation to compare: an ongoing one
+  // (endYear: null) wins outright; otherwise the highest real
+  // startYear. Done in application code, not a Prisma `orderBy`,
+  // because Postgres's own NULLS FIRST default for `desc` would put a
+  // generation with no startYear at all (a real, if rare, live case —
+  // see this file's own car-model page comment on Acura RDX) ahead of
+  // a genuinely current one instead of last.
+  const openGenerations = carModel.generations.filter((g) => g.endYear == null);
+  const generation =
+    (openGenerations.length > 0 ? openGenerations : carModel.generations)
+      .slice()
+      .sort((a, b) => (b.startYear ?? -1) - (a.startYear ?? -1))[0] ?? null;
+  return {
+    brandSlug: carModel.brand.slug,
+    brandName: carModel.brand.name,
+    modelSlug: carModel.slug,
+    modelName: carModel.name,
+    heroImageUrl: carModel.images[0]?.image.originalUrl ?? null,
+    heroImageWidth: carModel.images[0]?.image.width ?? null,
+    heroImageHeight: carModel.images[0]?.image.height ?? null,
+    generation: generation
+      ? {
+          name: generation.name,
+          startYear: generation.startYear,
+          endYear: generation.endYear,
+          trims: generation.trims.map((t) => ({ name: t.name, engineName: t.engines[0]?.name ?? null, fuel: t.engines[0]?.fuel ?? null })),
+        }
+      : null,
+    facts: carModel.facts,
+  };
+}
+
+app.get("/v1/compare", async (req, res) => {
+  const parsed = compareQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "invalid_query" });
+    return;
+  }
+  const { aBrand, aModel, bBrand, bModel } = parsed.data;
+  const [a, b] = await Promise.all([fetchCompareCar(aBrand, aModel), fetchCompareCar(bBrand, bModel)]);
+  if (!a || !b) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  res.json({ cars: [a, b] });
+});
+
 // --- Brands (public brand hub page) ---
 //
 // Direct continuation of the vertical-slice plan (BMW -> X5, step 2):

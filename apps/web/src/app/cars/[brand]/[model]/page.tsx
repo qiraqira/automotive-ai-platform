@@ -6,6 +6,7 @@ import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildCa
 import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
 import { getCarModel, type CarEngine, type CarTrim } from "@/lib/api";
 import { clampedAspectRatio } from "@/lib/image-aspect";
+import CinematicVideo from "@/components/CinematicVideo";
 
 const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
 
@@ -234,6 +235,17 @@ export default async function CarModelPage({
 
   const heroImage = carModel.images.find((img) => img.role === "HERO");
 
+  // Added 2026-09-16, user's own ask: one real curated video (never
+  // CRASH_TEST — those already render right next to their own rating
+  // further down, a cinematic autoplay treatment there would just be a
+  // second, competing home for the same video) gets the cinematic
+  // treatment right under the hero photo. OFFICIAL preferred over
+  // REVIEW since a manufacturer reveal/walkaround reads as the natural
+  // "next real thing to look at" after the hero photo; not every model
+  // has one yet — CarVideo is curated, not auto-fetched (see that
+  // model's own schema comment), so this is often null.
+  const heroVideo = carModel.videos.find((v) => v.category === "OFFICIAL") ?? carModel.videos.find((v) => v.category === "REVIEW") ?? null;
+
   // Real structured-data gap closed 2026-09-14 (SEO pass): this page
   // had a BreadcrumbList and nothing describing the actual subject —
   // see packages/seo/src/car.ts's own header for why `Car` and only
@@ -315,6 +327,12 @@ export default async function CarModelPage({
             </figcaption>
           )}
         </figure>
+      )}
+
+      {heroVideo && (
+        <div style={{ marginBottom: 32 }}>
+          <CinematicVideo youtubeId={heroVideo.youtubeId} title={heroVideo.title} label={heroVideo.category === "OFFICIAL" ? "Official video" : "Review"} />
+        </div>
       )}
 
       {carModel.images.filter((img) => img.role === "GALLERY" && !img.generationId).length > 0 && (
@@ -568,9 +586,11 @@ export default async function CarModelPage({
 
       {(["OFFICIAL", "CRASH_TEST", "REVIEW"] as const).map((category) => {
         // Skip any video already embedded inline next to its own
-        // CrashTestResult rating above — same video, shown once, not
-        // twice on the same page.
+        // CrashTestResult rating above, or already given the cinematic
+        // hero treatment right under the hero photo — same video, shown
+        // once, not twice on the same page.
         const inlineVideoIds = new Set(carModel.crashTests.map((t) => t.video?.id).filter(Boolean));
+        if (heroVideo) inlineVideoIds.add(heroVideo.id);
         const categoryVideos = carModel.videos.filter((v) => v.category === category && !inlineVideoIds.has(v.id));
         if (categoryVideos.length === 0) return null;
         const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash test videos" : "Reviews";

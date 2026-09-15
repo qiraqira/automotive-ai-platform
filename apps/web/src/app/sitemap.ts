@@ -71,6 +71,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // page is already listed via `brands` below; this only adds the
     // index page itself.
     { url: `${SITE_URL}/brands`, changeFrequency: "weekly", priority: 0.6 },
+    // /compare (2026-09-16) — the picker page itself, same "index page
+    // only" reasoning as the others above: a specific `?a=...&b=...`
+    // comparison is one of 222×221 possible pairs, not something worth
+    // (or feasible) enumerating here.
+    { url: `${SITE_URL}/compare`, changeFrequency: "monthly", priority: 0.5 },
     // Real articles — the site's actual news content, and the highest
     // real priority of anything here besides the homepage itself.
     ...articles.map((article) => ({

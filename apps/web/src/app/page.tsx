@@ -322,6 +322,49 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* Added 2026-09-16, user's own ask after reading homepage-
+          engagement research together (Reuters Institute Digital News
+          Report: audiences want a format/tool that serves their own
+          task, not just another curated feed) — replaces "Explore
+          models" (paused above) as the homepage's real interactive
+          entry point into the catalog: a live compare tool over 222
+          real, reviewed cars, not a link into a static grid. */}
+      <section
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 40,
+          padding: "20px 24px",
+          borderRadius: 8,
+          background: "var(--surface-alt, rgba(128,128,128,0.06))",
+        }}
+      >
+        <div>
+          <h2 style={{ fontSize: 20, margin: "0 0 4px" }}>Which one should you buy?</h2>
+          <p className="story-meta" style={{ margin: 0 }}>
+            Pick any two cars in the catalog — real trims, engines and specs, side by side.
+          </p>
+        </div>
+        <Link
+          href="/compare"
+          style={{
+            flexShrink: 0,
+            padding: "10px 20px",
+            fontSize: 15,
+            fontWeight: 600,
+            borderRadius: 6,
+            background: "var(--accent, #1a1a1a)",
+            color: "#fff",
+            textDecoration: "none",
+          }}
+        >
+          Compare two cars →
+        </Link>
+      </section>
+
       {news.length > 0 && (
         // Restored 2026-09-11 (same day as the portal rewrite, per the
         // user's own follow-up): real news the pipeline actually wrote
