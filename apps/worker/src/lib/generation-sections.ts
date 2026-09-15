@@ -21,6 +21,16 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, "").trim();
 }
 
+/** A short leading code (letters/digits, 1-4 chars — "B5", "W204", "E90") followed by a
+ * parenthetical that itself contains a real year — the chassis-code section-naming
+ * convention some articles (Audi's B5/B6/B7/... A4 generations, for one) use instead of
+ * the word "generation". Deliberately tight: requires the year INSIDE the parens, not
+ * just anywhere in the header, so an unrelated header like "Production (2020s)" — code-
+ * shaped only by accident — still can't match without a paren-wrapped year of its own. */
+function isChassisCodeHeader(cleaned: string): boolean {
+  return /^[A-Za-z]{0,2}\d{1,4}[A-Za-z]?\s*\([^)]*\b(19|20)\d{2}\b[^)]*\)/.test(cleaned);
+}
+
 /** Same brace-depth-aware block extractor as wikipedia-car.ts's own (private) one, but
  * scoped to search from a given offset — needed here since each generation section's
  * infobox must be found within THAT section's own text, not the whole article's first one. */
@@ -121,7 +131,16 @@ export async function discoverGenerationSections(pageTitle: string): Promise<Gen
     // already strips that (used for infobox fields elsewhere in this
     // file) but was never applied to header text itself until now.
     const cleaned = cleanWikitext(stripHtml(raw.replace(/^==+/, "").replace(/==+\s*$/, "")));
-    if (!/generation/i.test(cleaned)) continue;
+    // Real gap found live 2026-09-15 (Audi A4): some articles — mostly
+    // German brands with a well-known chassis-code naming culture —
+    // title each generation's section by chassis code alone, with no
+    // word "generation" anywhere ("== B5 (''Typ'' 8D; 1994) ==", "== B7
+    // (...) ==", "== B8 (...) =="). isChassisCodeHeader() catches this
+    // second real convention: a short code, then a parenthetical
+    // containing a real year — deliberately narrow (a short leading
+    // token, a paren, a year inside it) so it doesn't also swallow
+    // unrelated level-2 headers like "Motorsport" or "Production".
+    if (!/generation/i.test(cleaned) && !isChassisCodeHeader(cleaned)) continue;
     genHeaders.push({ headerText: cleaned, matchEnd: h.matchEnd });
   }
   if (genHeaders.length < 2) return [];
