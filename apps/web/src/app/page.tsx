@@ -251,13 +251,15 @@ export default async function HomePage() {
         // text as a trim name), so this stayed off until every model got
         // the same hand review the X5/GLE/F-150/Mustang/RAV4/Model Y did.
         //
-        // Re-enabled 2026-09-16: the multi-session catalog pass this
-        // pause was waiting on is done — all 222 CarModel rows now carry
-        // the real `catalogReviewedAt` flag GET /v1/featured-cars itself
-        // already gates on, set only after live-verifying each model's
-        // generations, trims and photos (never a bulk sweep). Nothing
-        // unreviewed can appear here even if the catalog grows again.
-        featuredCars.length > 0 && (
+        // Re-enabled 2026-09-16 (the >=2-generations gap above is fully
+        // closed — every model now carries a real, hand-verified
+        // `catalogReviewedAt`), then paused again the same day on the
+        // user's own direct follow-up ask ("Explore models раздел пока
+        // убираем с главной" — take it off the homepage for now). Not a
+        // quality-gate issue this time, just not wanted here right now;
+        // data/flag both stay correct for whenever it comes back.
+        false &&
+          featuredCars.length > 0 && (
         // Real gap found and fixed 2026-09-11: four (now five) fully-built
         // model pages existed with zero visual entry point anywhere on the
         // site — only reachable via an article's own cross-link or a
@@ -356,7 +358,13 @@ export default async function HomePage() {
             );
             return (
               <>
-                <div style={{ marginBottom: 24 }}>
+                {/* Side-by-side lead layout, 2026-09-16 (user's own
+                    direct ask: "картиночки большие, у главной новости,
+                    левее" — a big image, on the left, for the lead news
+                    item). Was a stacked image-then-text column before;
+                    `flexWrap: "wrap"` keeps it readable on a narrow
+                    screen by falling back to the same stacked order. */}
+                <div style={{ marginBottom: 24, display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
                   {leadHeroUrl && !leadIsLogo && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                     <img
@@ -365,21 +373,23 @@ export default async function HomePage() {
                       // Ratio fixed 2026-09-16 alongside the "Comparisons"
                       // lead image above — see that one's own comment.
                       style={{
-                        width: "100%",
+                        width: 440,
+                        maxWidth: "100%",
+                        flexShrink: 0,
                         aspectRatio: String(clampedAspectRatio(lead.articles[0]?.images[0]?.image.width, lead.articles[0]?.images[0]?.image.height)),
-                        maxHeight: 500,
                         objectFit: "contain",
                         background: "var(--surface-alt, rgba(128,128,128,0.06))",
                         borderRadius: 6,
-                        marginBottom: 12,
                         display: "block",
                       }}
                     />
                   )}
-                  {renderMeta(lead)}
-                  <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
-                    {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
-                  </h3>
+                  <div style={{ flex: "1 1 280px", minWidth: 240 }}>
+                    {renderMeta(lead)}
+                    <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
+                      {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
+                    </h3>
+                  </div>
                 </div>
                 {rest.length > 0 && (
                   <ul className="story-list">
