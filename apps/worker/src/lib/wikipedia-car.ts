@@ -184,7 +184,20 @@ export function parseProductionYears(raw: string | undefined): { startYear: numb
   if (years.length === 0) return { startYear: null, endYear: null };
   const startYear = Math.min(...years);
   const isOngoing = /present/i.test(raw);
-  const endYear = isOngoing ? null : years.length > 1 ? Math.max(...years) : null;
+  // Real bug found live 2026-09-15 (BMW X3, header "Fourth generation
+  // (G45/NA5; 2024/2025)" — two distinct per-market launch years
+  // separated by "/", not a production range): treating ANY two years
+  // found in the string as start/end wrongly read this as "discontinued
+  // 2025" for a nameplate still in production. A real range needs an
+  // actual range separator (en/em dash or hyphen) present SOMEWHERE in
+  // the string — not necessarily adjacent to the years, since real
+  // infobox text like "August 2017 – August 2024" puts a month name
+  // between the dash and each year — "2024/2025", "2024, 2025" etc.
+  // have no such separator and fall back to leaving endYear unset
+  // (safer than a fabricated end date) rather than guessing from raw
+  // min/max.
+  const hasRangeSeparator = /[–—-]/.test(raw) || /\bto\b/i.test(raw);
+  const endYear = isOngoing || !hasRangeSeparator ? null : years.length > 1 ? Math.max(...years) : null;
   return { startYear, endYear };
 }
 
