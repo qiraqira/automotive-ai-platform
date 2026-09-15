@@ -4,7 +4,8 @@ import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
 import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories } from "@/lib/api";
 import { rankStories } from "@/lib/ranking";
 import { clampedAspectRatio } from "@/lib/image-aspect";
-import { isLogoImage, LeadMedia, ListRowMedia } from "@/components/ArticleMedia";
+import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
+import CinematicVideo from "@/components/CinematicVideo";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -175,7 +176,11 @@ export default async function HomePage() {
                       only images[0] left no visual sense two different
                       cars were even being discussed. See LeadMedia's own
                       comment above. */}
-                  <LeadMedia images={lead.images} isLogo={leadIsLogo} fallbackAlt={lead.headline} />
+                  {/* Widened 2026-09-16, user's own direct ask ("хотелось
+                      бы на главной картинки побольше... особенно в самой
+                      большой новости превью" — bigger pictures, especially
+                      the lead preview): 440 -> 640. */}
+                  <LeadMedia images={lead.images} isLogo={leadIsLogo} fallbackAlt={lead.headline} width={640} />
                   <div className="story-meta">{lead.type}</div>
                   <h3 style={{ fontSize: 26, margin: "4px 0 8px", lineHeight: 1.25 }}>
                     <Link href={`/articles/${lead.locale}/${lead.slug}`}>{lead.headline}</Link>
@@ -183,25 +188,28 @@ export default async function HomePage() {
                   {lead.subtitle && <p style={{ fontSize: 16, color: "var(--ink-dim)", maxWidth: "38em", margin: 0 }}>{lead.subtitle}</p>}
                 </div>
                 {rest.length > 0 && (
-                  <ul className="story-list">
+                  // Grid of real photo cards, 2026-09-16 — was a plain
+                  // list with a 96x64 icon-sized thumbnail (ListRowMedia),
+                  // same user ask as the lead's own width above: bigger
+                  // pictures make the secondary stories feel like real
+                  // content, not an afterthought list. Same light-design
+                  // language as every other grid on the site (see the
+                  // homepage's own header comment on that) — no cards,
+                  // shadows or borders, just a bigger real photo per item.
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "24px 20px" }}>
                     {rest.map((article) => {
                       const isLogo = isLogoImage(article.images);
                       return (
-                        <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          {/* ListRowMedia — same "who vs whom" fix as
-                              LeadMedia above, at the small 96×64 size. */}
-                          <ListRowMedia images={article.images} isLogo={isLogo} fallbackAlt={article.headline} />
-                          <div>
-                            <div className="story-meta">{article.type}</div>
-                            <h3 style={{ fontSize: 18, margin: 0 }}>
-                              <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-                            </h3>
-                            {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
-                          </div>
-                        </li>
+                        <div key={article.slug}>
+                          <LeadMedia images={article.images} isLogo={isLogo} fallbackAlt={article.headline} width="100%" />
+                          <div className="story-meta">{article.type}</div>
+                          <h3 style={{ fontSize: 17, margin: "2px 0 0", lineHeight: 1.3 }}>
+                            <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
+                          </h3>
+                        </div>
                       );
                     })}
-                  </ul>
+                  </div>
                 )}
               </>
             );
@@ -292,13 +300,28 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Added 2026-09-16, user's own ask after reading homepage-
-          engagement research together (Reuters Institute Digital News
-          Report: audiences want a format/tool that serves their own
-          task, not just another curated feed) — replaces "Explore
-          models" (paused above) as the homepage's real interactive
-          entry point into the catalog: a live compare tool over 222
-          real, reviewed cars, not a link into a static grid. */}
+      {/* Added 2026-09-16, user's own ask ("жду как сделать сайт главную
+          страницу намного вкуснее и интереснее"): a real video "moment"
+          instead of pure text/photo lists all the way down — same
+          CinematicVideo component (real curated CarVideo, muted/looping,
+          loads only once scrolled to, real unmute) already built for the
+          car-model page, its first use anywhere else. Reuters Institute
+          Digital News Report's own finding on video engagement
+          (2026-09-16 research pass, same one behind the compare tool
+          above) is the grounding — a portal that's only ever text and
+          still photos is leaving real engagement on the table. One real
+          video, not several — a "moment," the same way the reference
+          page the user linked (mk.qira.ru/3) uses exactly one. */}
+      <section style={{ marginBottom: 40 }}>
+        <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
+          Watch
+        </h2>
+        <CinematicVideo youtubeId="vCniiK7BSNQ" title="2026 Toyota RAV4 Reveal: Ready for Every Road!" label="Official video" />
+        <p className="story-meta" style={{ margin: 0 }}>
+          <Link href="/cars/toyota/rav4">See the Toyota RAV4's real specs and trims →</Link>
+        </p>
+      </section>
+
       <section
         style={{
           display: "flex",
@@ -385,30 +408,32 @@ export default async function HomePage() {
                     a two-column layout. Same fix as the "Comparisons"
                     lead above — see that one's own comment. */}
                 <div style={{ marginBottom: 24 }}>
-                  <LeadMedia images={leadImages} isLogo={leadIsLogo} fallbackAlt={lead.title} />
+                  {/* Widened 2026-09-16, same ask as the Comparisons lead
+                      above: 440 -> 640. */}
+                  <LeadMedia images={leadImages} isLogo={leadIsLogo} fallbackAlt={lead.title} width={640} />
                   {renderMeta(lead)}
                   <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
                     {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
                   </h3>
                 </div>
                 {rest.length > 0 && (
-                  <ul className="story-list">
+                  // Photo grid, not a 96x64-icon list — same 2026-09-16
+                  // ask/fix as the Comparisons rest-list above.
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "24px 20px" }}>
                     {rest.map((story) => {
                       const images = story.articles[0]?.images ?? [];
                       const isLogo = isLogoImage(images);
                       return (
-                        <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          <ListRowMedia images={images} isLogo={isLogo} fallbackAlt={story.title} />
-                          <div>
-                            {renderMeta(story)}
-                            <h3 style={{ fontSize: 18, margin: 0 }}>
-                              {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
-                            </h3>
-                          </div>
-                        </li>
+                        <div key={story.id}>
+                          <LeadMedia images={images} isLogo={isLogo} fallbackAlt={story.title} width="100%" />
+                          {renderMeta(story)}
+                          <h3 style={{ fontSize: 17, margin: "2px 0 0", lineHeight: 1.3 }}>
+                            {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
+                          </h3>
+                        </div>
                       );
                     })}
-                  </ul>
+                  </div>
                 )}
               </>
             );

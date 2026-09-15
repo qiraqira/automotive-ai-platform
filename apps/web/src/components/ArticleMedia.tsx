@@ -37,7 +37,21 @@ export function isLogoImage(images: ArticleImageRef[]): boolean {
 // shapes rendering at two different heights). Falls back to the
 // original single-image rendering for every non-comparison article,
 // which only ever has one HERO image.
-export function LeadMedia({ images, isLogo, fallbackAlt, width = 440 }: { images: ArticleImageRef[]; isLogo: boolean; fallbackAlt: string; width?: number }) {
+export function LeadMedia({
+  images,
+  isLogo,
+  fallbackAlt,
+  width = 440,
+}: {
+  images: ArticleImageRef[];
+  isLogo: boolean;
+  fallbackAlt: string;
+  // number (px) for a fixed-width lead image, or a CSS width string
+  // (e.g. "100%") to let a grid cell control the size instead — added
+  // 2026-09-16 so the same component covers both the single big lead
+  // photo and a grid of same-sized secondary-story photos.
+  width?: number | string;
+}) {
   if (images.length === 0 || isLogo) return null;
   if (images.length === 1) {
     const img = images[0]!;
