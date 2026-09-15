@@ -151,44 +151,50 @@ export async function seedEpaTrimsForNameplate(
   }
   if (modelNames.length === 0) return 0;
 
-  let created = 0;
+  // Real bug found live 2026-09-15 (Audi A7): two real EPA option ids
+  // both listed under the exact same modelName string ("A7 quattro"),
+  // differing only in some dimension disambiguateLabels() doesn't track
+  // (e.g. trim package) — since it used to run separately PER modelName
+  // loop iteration, it never saw the other iteration's identical label
+  // and both trims landed on the live page reading "A7 quattro" twice
+  // with no distinguishing suffix at all. Every modelName's options are
+  // now gathered first, and disambiguation runs ONCE across the whole
+  // generation, so a collision between two different modelName groups
+  // (or within one) is always caught.
+  const entries: { optValue: string; baseLabel: string; vehicle: EpaVehicleRecord }[] = [];
   for (const modelName of modelNames) {
-    if (created >= 8) break;
-    const options = (await fetchEpaOptions(year, epaMake, modelName)).slice(0, 8 - created);
-    const vehicles: (EpaVehicleRecord | null)[] = [];
+    if (entries.length >= 8) break;
+    const options = (await fetchEpaOptions(year, epaMake, modelName)).slice(0, 8 - entries.length);
     for (const opt of options) {
+      let vehicle: EpaVehicleRecord;
       try {
-        vehicles.push(await fetchEpaVehicle(opt.value));
+        vehicle = await fetchEpaVehicle(opt.value);
       } catch {
-        vehicles.push(null);
+        continue;
       }
+      // modelName here is already EPA's own drivetrain/powertrain-
+      // specific model string (e.g. "XC90 B5 AWD") — real, distinct
+      // trim identity on its own, so it's the base label directly (no
+      // drivetrain suffix — shortDrive() would just repeat what
+      // modelName already encodes, e.g. "XC90 B5 AWD AWD").
+      entries.push({ optValue: opt.value, baseLabel: modelName, vehicle });
     }
-    // modelName here is already EPA's own drivetrain/powertrain-specific
-    // model string (e.g. "XC90 B5 AWD") — real, distinct trim identity
-    // on its own, so it's the base label directly (no drivetrain suffix
-    // — shortDrive() would just repeat what modelName already encodes,
-    // e.g. "XC90 B5 AWD AWD"). Only disambiguated further (displacement,
-    // then transmission) when this modelName has more than one real
-    // engine/transmission option on file.
-    const realVehicles = vehicles.filter((v): v is EpaVehicleRecord => v != null);
-    const labels = disambiguateLabels(
-      realVehicles.map(() => modelName),
-      realVehicles,
-    );
+  }
+  const labels = disambiguateLabels(
+    entries.map((e) => e.baseLabel),
+    entries.map((e) => e.vehicle),
+  );
 
-    let labelIdx = 0;
-    for (let i = 0; i < options.length; i++) {
-      if (created >= 8) break;
-      const vehicle = vehicles[i];
-      if (!vehicle) continue;
-      const label = labels[labelIdx++]!;
-      const slug = `epa-${options[i]!.value}`;
-      const existing = await prisma.trim.findUnique({ where: { generationId_slug: { generationId, slug } } });
-      if (existing) continue;
-      const trim = await prisma.trim.create({ data: { generationId, slug, name: label.slice(0, 120) } });
-      await prisma.engine.create({ data: { trimId: trim.id, name: engineName(vehicle), fuel: vehicle.fuelType1 || null } });
-      created++;
-    }
+  let created = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const { optValue, vehicle } = entries[i]!;
+    const label = labels[i]!;
+    const slug = `epa-${optValue}`;
+    const existing = await prisma.trim.findUnique({ where: { generationId_slug: { generationId, slug } } });
+    if (existing) continue;
+    const trim = await prisma.trim.create({ data: { generationId, slug, name: label.slice(0, 120) } });
+    await prisma.engine.create({ data: { trimId: trim.id, name: engineName(vehicle), fuel: vehicle.fuelType1 || null } });
+    created++;
   }
   return created;
 }
