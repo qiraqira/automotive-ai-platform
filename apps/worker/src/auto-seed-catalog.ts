@@ -1,6 +1,6 @@
 import { prisma } from "@automotive/database";
 import { readFile } from "node:fs/promises";
-import { fetchCarInfobox, searchWikipediaTitles, type CarInfobox } from "./lib/wikipedia-car.js";
+import { fetchCarInfobox, searchWikipediaTitles, parseProductionYears, type CarInfobox } from "./lib/wikipedia-car.js";
 import { fetchCommonsFileInfo } from "./lib/commons-search.js";
 import { attachCarModelPhoto } from "./lib/attach-car-photo.js";
 import { seedEpaTrims } from "./lib/epa-trims.js";
@@ -49,16 +49,6 @@ export interface CatalogSeedEntry {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-
-function parseProductionYears(raw: string | undefined): { startYear: number | null; endYear: number | null } {
-  if (!raw) return { startYear: null, endYear: null };
-  const years = Array.from(raw.matchAll(/\b(19|20)\d{2}\b/g), (m) => Number(m[0]));
-  if (years.length === 0) return { startYear: null, endYear: null };
-  const startYear = Math.min(...years);
-  const isOngoing = /present/i.test(raw);
-  const endYear = isOngoing ? null : years.length > 1 ? Math.max(...years) : null;
-  return { startYear, endYear };
-}
 
 async function upsertFactsFromInfobox(carModelId: string, infobox: Record<string, string>): Promise<number> {
   const attributeMap: Record<string, string> = {

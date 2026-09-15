@@ -39,14 +39,15 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // practice at this request volume — this is still a handful of requests
 // per nameplate researched, not the kind of sustained load that needs a
 // real rate limiter.
-export async function fetchWikitext(pageTitle: string, attempt = 1): Promise<string> {
-  const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(pageTitle)}&prop=wikitext&section=0&format=json`;
+async function fetchWikitextImpl(pageTitle: string, fullPage: boolean, attempt = 1): Promise<string> {
+  const sectionParam = fullPage ? "" : "&section=0";
+  const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(pageTitle)}&prop=wikitext${sectionParam}&format=json`;
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (res.status === 429 && attempt === 1) {
     const retryAfterHeader = Number(res.headers.get("Retry-After"));
     const delayMs = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0 ? retryAfterHeader * 1000 : 3000;
     await sleep(delayMs);
-    return fetchWikitext(pageTitle, 2);
+    return fetchWikitextImpl(pageTitle, fullPage, 2);
   }
   if (!res.ok) throw new Error(`Wikipedia API fetch failed (${res.status}) for "${pageTitle}"`);
   const json = (await res.json()) as { parse?: { wikitext?: { "*": string } }; error?: { info: string } };
@@ -54,6 +55,19 @@ export async function fetchWikitext(pageTitle: string, attempt = 1): Promise<str
   const wikitext = json.parse?.wikitext?.["*"];
   if (!wikitext) throw new Error(`No wikitext returned for "${pageTitle}" (page may not exist)`);
   return wikitext;
+}
+
+/** Lead section (`section=0`) only — enough for a single {{Infobox automobile}}, and
+ * much smaller/faster than the full article. Used by fetchCarInfobox() below. */
+export async function fetchWikitext(pageTitle: string): Promise<string> {
+  return fetchWikitextImpl(pageTitle, false);
+}
+
+/** Full article wikitext, every section — needed by lib/generation-sections.ts to find
+ * per-generation "== Nth generation (YYYY–YYYY) ==" headers, which live well past the
+ * lead section fetchWikitext() alone would return. */
+export async function fetchFullWikitext(pageTitle: string): Promise<string> {
+  return fetchWikitextImpl(pageTitle, true);
 }
 
 /** Extracts the first `{{Infobox automobile ... }}` (brace-depth-aware, since field
@@ -159,6 +173,19 @@ export function parseInfoboxFields(infoboxBlock: string): Record<string, string>
   }
   flush();
   return fields;
+}
+
+/** Parses a wikitext `production` field (e.g. "2002–2014", "2015–present", "2011") into
+ * a start/end year pair — moved 2026-09-15 from auto-seed-catalog.ts so
+ * lib/generation-sections.ts can share it rather than re-deriving the same logic. */
+export function parseProductionYears(raw: string | undefined): { startYear: number | null; endYear: number | null } {
+  if (!raw) return { startYear: null, endYear: null };
+  const years = Array.from(raw.matchAll(/\b(19|20)\d{2}\b/g), (m) => Number(m[0]));
+  if (years.length === 0) return { startYear: null, endYear: null };
+  const startYear = Math.min(...years);
+  const isOngoing = /present/i.test(raw);
+  const endYear = isOngoing ? null : years.length > 1 ? Math.max(...years) : null;
+  return { startYear, endYear };
 }
 
 export interface CarInfobox {
