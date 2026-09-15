@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
 import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories, type FeaturedArticleSummary } from "@/lib/api";
 import { rankStories } from "@/lib/ranking";
+import { clampedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -156,7 +157,6 @@ export default async function HomePage() {
                       alt=""
                       style={{
                         width: "100%",
-                        maxHeight: 360,
                         // Real gap found live 2026-09-15 (user's own
                         // screenshot, direct complaint: "не режь по
                         // бокам и сверху низ" — don't crop the sides or
@@ -167,6 +167,16 @@ export default async function HomePage() {
                         // shows the whole image, letterboxed rather than
                         // cropped, same fix applied everywhere else this
                         // pattern appeared.
+                        //
+                        // aspectRatio (not a flat maxHeight) added
+                        // 2026-09-16, user's own follow-up complaint that
+                        // the plain `contain` fix looked "ugly" — a fixed
+                        // box shape doesn't match a real photo's own
+                        // shape, so it still letterboxed hard; maxHeight
+                        // kept only as a safety cap for the rare
+                        // near-square outlier the ratio clamp lets through.
+                        aspectRatio: String(clampedAspectRatio(lead.images[0]?.image.width, lead.images[0]?.image.height)),
+                        maxHeight: 500,
                         objectFit: "contain",
                         background: "var(--surface-alt, rgba(128,128,128,0.06))",
                         borderRadius: 6,
@@ -268,14 +278,29 @@ export default async function HomePage() {
                     than intended. `aspectRatio` scales the crop
                     proportionally with the tile's actual width at any
                     screen size instead of a screen-size-blind pixel
-                    height. */}
+                    height.
+
+                    Ratio itself fixed 2026-09-16 (user's own follow-up
+                    complaint that the no-crop `contain` fix looked
+                    "ugly"): a flat "4 / 3" box doesn't match any real car
+                    photo (they run ~1.4–2.2 wide), so `contain` still
+                    letterboxed every tile, by a different amount each —
+                    the actual fix is each tile using its own photo's
+                    real shape instead of one guessed constant. */}
                 <img
                   src={car.imageUrl}
                   alt={`${car.brandName} ${car.modelName}`}
                   // No-crop fix (2026-09-15) — "cover" here cut off
                   // real parts of the car to fill the tile; "contain"
                   // shows the whole photo, letterboxed instead.
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 8 }}
+                  style={{
+                    width: "100%",
+                    aspectRatio: String(clampedAspectRatio(car.imageWidth, car.imageHeight)),
+                    objectFit: "contain",
+                    background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                    borderRadius: 6,
+                    marginBottom: 8,
+                  }}
                 />
                 <div style={{ fontWeight: 600 }}>
                   {car.brandName} {car.modelName}
@@ -333,7 +358,18 @@ export default async function HomePage() {
                     <img
                       src={leadHeroUrl}
                       alt=""
-                      style={{ width: "100%", maxHeight: 360, objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 12, display: "block" }}
+                      // Ratio fixed 2026-09-16 alongside the "Comparisons"
+                      // lead image above — see that one's own comment.
+                      style={{
+                        width: "100%",
+                        aspectRatio: String(clampedAspectRatio(lead.articles[0]?.images[0]?.image.width, lead.articles[0]?.images[0]?.image.height)),
+                        maxHeight: 500,
+                        objectFit: "contain",
+                        background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                        borderRadius: 6,
+                        marginBottom: 12,
+                        display: "block",
+                      }}
                     />
                   )}
                   {renderMeta(lead)}

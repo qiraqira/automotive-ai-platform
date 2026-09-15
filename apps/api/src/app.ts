@@ -282,7 +282,7 @@ app.get("/v1/stories", async (req, res) => {
         select: {
           slug: true,
           locale: true,
-          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 1 },
           factualScore: true,
           sourceScore: true,
           qualityScore: true,
@@ -454,7 +454,7 @@ app.get("/v1/featured-articles", async (_req, res) => {
       subtitle: true,
       type: true,
       publishedAt: true,
-      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 1 },
       factualScore: true,
       sourceScore: true,
       qualityScore: true,
@@ -945,7 +945,7 @@ app.get("/v1/featured-cars", async (_req, res) => {
       slug: true,
       name: true,
       brand: { select: { slug: true, name: true } },
-      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 },
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, width: true, height: true } } }, take: 1 },
     },
     orderBy: { name: "asc" },
   });
@@ -956,6 +956,15 @@ app.get("/v1/featured-cars", async (_req, res) => {
       modelSlug: c.slug,
       modelName: c.name,
       imageUrl: c.images[0]?.image.originalUrl ?? null,
+      // Added 2026-09-16 alongside the grid's aspect-ratio fix: the fixed
+      // 4:3 tile this feeds forced every real car photo (which run ~1.4–2.2
+      // wide, never 1.33) into a box shaped nothing like it, letterboxing
+      // hard and by a different amount per tile — a user's own direct
+      // complaint after the no-crop `object-fit: contain` fix ("уродски").
+      // The real fix needs each tile's own photo's real shape, not a
+      // guessed constant one.
+      imageWidth: c.images[0]?.image.width ?? null,
+      imageHeight: c.images[0]?.image.height ?? null,
     })),
   });
 });
@@ -1141,7 +1150,7 @@ app.get("/v1/brands/:slug", async (req, res) => {
         // a bare text link list — every one of these models already has
         // a real self-hosted HERO photo (auto-seed-catalog.ts/
         // lib/attach-car-photo.ts), just never fetched here to show it.
-        include: { images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 } },
+        include: { images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, width: true, height: true } } }, take: 1 } },
       },
     },
   });
@@ -1215,7 +1224,13 @@ app.get("/v1/brands/:slug", async (req, res) => {
       // GET /v1/cars and GET /v1/featured-cars use.
       models: brand.models
         .filter((m) => m.catalogReviewedAt != null)
-        .map((m) => ({ slug: m.slug, name: m.name, imageUrl: m.images[0]?.image.originalUrl ?? null })),
+        .map((m) => ({
+          slug: m.slug,
+          name: m.name,
+          imageUrl: m.images[0]?.image.originalUrl ?? null,
+          imageWidth: m.images[0]?.image.width ?? null,
+          imageHeight: m.images[0]?.image.height ?? null,
+        })),
     },
     relatedArticles: relatedArticles
       .filter((a) => !isRejectedByQualityGate(a))
@@ -1302,7 +1317,7 @@ app.get("/v1/topics/:slug", async (req, res) => {
         select: {
           slug: true,
           locale: true,
-          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+          images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 1 },
           factualScore: true,
           sourceScore: true,
           qualityScore: true,
@@ -1350,7 +1365,7 @@ app.get("/v1/topics/:slug", async (req, res) => {
       subtitle: true,
       type: true,
       publishedAt: true,
-      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true } } }, take: 1 },
+      images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 1 },
       factualScore: true,
       sourceScore: true,
       qualityScore: true,

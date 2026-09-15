@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatCountryName } from "@automotive/utils";
 import { getBrand } from "@/lib/api";
+import { clampedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -106,7 +107,19 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                     alt={`${brand.name} ${model.name}`}
                     // No-crop fix (2026-09-15): "cover" cut real
                     // content off real photos to fill the tile.
-                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 8 }}
+                    // Ratio itself fixed 2026-09-16 (see homepage's
+                    // "Explore models" grid, same pattern) — each
+                    // tile now uses its own photo's real shape instead
+                    // of a flat "4 / 3" that never matched a real car
+                    // photo and letterboxed hard.
+                    style={{
+                      width: "100%",
+                      aspectRatio: String(clampedAspectRatio(model.imageWidth, model.imageHeight)),
+                      objectFit: "contain",
+                      background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                      borderRadius: 6,
+                      marginBottom: 8,
+                    }}
                   />
                 )}
                 <div style={{ fontWeight: 600 }}>{model.name}</div>

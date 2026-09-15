@@ -53,7 +53,7 @@ export interface StorySummary {
   primaryTopic: { slug: string; name: string } | null;
   events: { id: string; label: string; description: string | null; occurredAt: string }[];
   sourceArticles: { id: string; title: string; url: string; author: { name: string } | null }[];
-  articles: { slug: string; locale: string; images: { image: { originalUrl: string; rightsStatus: string } }[] }[];
+  articles: { slug: string; locale: string; images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[] }[];
 }
 
 export interface SourceSummary {
@@ -273,7 +273,7 @@ export interface FeaturedArticleSummary {
   subtitle: string | null;
   type: "COMPARISON" | "ANALYSIS";
   publishedAt: string | null;
-  images: { image: { originalUrl: string; rightsStatus: string } }[];
+  images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
 }
 
 export function getFeaturedArticles(): Promise<{ articles: FeaturedArticleSummary[] }> {
@@ -290,6 +290,8 @@ export interface FeaturedCar {
   modelSlug: string;
   modelName: string;
   imageUrl: string;
+  imageWidth: number | null;
+  imageHeight: number | null;
 }
 
 export function getFeaturedCars(): Promise<{ carModels: FeaturedCar[] }> {
@@ -360,7 +362,7 @@ export interface BrandDetail {
   slug: string;
   name: string;
   country: string | null;
-  models: { slug: string; name: string; imageUrl: string | null }[];
+  models: { slug: string; name: string; imageUrl: string | null; imageWidth: number | null; imageHeight: number | null }[];
 }
 
 export interface BrandRelatedArticle {
@@ -398,7 +400,7 @@ export interface TopicArticleSummary {
   subtitle: string | null;
   type: string;
   publishedAt: string | null;
-  images: { image: { originalUrl: string; rightsStatus: string } }[];
+  images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
 }
 
 export interface TopicWithStories {

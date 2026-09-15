@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildCarJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/utils";
 import { getCarModel, type CarEngine, type CarTrim } from "@/lib/api";
+import { clampedAspectRatio } from "@/lib/image-aspect";
 
 const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
 
@@ -335,7 +336,18 @@ export default async function CarModelPage({
                   // No-crop fix (2026-09-15, user's own direct
                   // complaint with a screenshot): "cover" cut real
                   // parts off a real car photo to fill this tile.
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
+                  // Ratio itself fixed 2026-09-16 (user's own follow-up
+                  // complaint that flat "4 / 3" letterboxed every real
+                  // photo, which never matches that ratio) — each tile
+                  // now uses its own photo's real shape.
+                  style={{
+                    width: "100%",
+                    aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
+                    objectFit: "contain",
+                    background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                    borderRadius: 4,
+                    display: "block",
+                  }}
                 />
                 {img.image.attribution && (
                   <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
@@ -410,8 +422,16 @@ export default async function CarModelPage({
                   src={img.image.originalUrl}
                   alt={img.altText ?? `${carModel.brand.name} ${carModel.name} — ${gen.name}`}
                   // No-crop fix (2026-09-15) — see the gallery figure
-                  // above for why.
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
+                  // above for why. Ratio itself fixed 2026-09-16, same
+                  // reason as that figure's own updated comment.
+                  style={{
+                    width: "100%",
+                    aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
+                    objectFit: "contain",
+                    background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                    borderRadius: 4,
+                    display: "block",
+                  }}
                 />
                 {img.image.attribution && (
                   <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>

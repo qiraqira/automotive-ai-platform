@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildArticleJsonLd, safeJsonLdString, type Locale } from "@automotive/seo";
 import { getArticle } from "@/lib/api";
 import EditorialDisclosure from "@/components/EditorialDisclosure";
+import { clampedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -174,7 +175,15 @@ export default async function ArticlePage({
                     alt={img.altText ?? article.headline}
                     // No-crop fix (2026-09-15): "cover" cut real
                     // content off real photos to fill the tile.
-                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", display: "block" }}
+                    // Ratio itself fixed 2026-09-16 — each tile now
+                    // uses its own photo's real shape.
+                    style={{
+                      width: "100%",
+                      aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
+                      objectFit: "contain",
+                      background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                      display: "block",
+                    }}
                   />
                 ))}
               </div>
@@ -271,7 +280,16 @@ export default async function ArticlePage({
                     alt={img.altText ?? article.headline}
                     // No-crop fix (2026-09-15): "cover" cut real
                     // content off real photos to fill the tile.
-                    style={{ width: "100%", aspectRatio: "3 / 2", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
+                    // Ratio itself fixed 2026-09-16 — see the two-up
+                    // hero pair above for why a flat ratio letterboxed.
+                    style={{
+                      width: "100%",
+                      aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
+                      objectFit: "contain",
+                      background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                      borderRadius: 4,
+                      display: "block",
+                    }}
                   />
                   {img.image.attribution && (
                     <figcaption className="story-meta" style={{ marginTop: 4, fontSize: 11 }}>
