@@ -69,7 +69,10 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         {stories.map((story) => {
           const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
           // Brand-logo fallback (fetch-images.ts's EDITORIAL_ONLY path) is usually
-          // square/circular — objectFit: "cover" in this landscape box crops it.
+          // square/circular in a landscape box — every image here uses
+          // objectFit:"contain" (2026-09-15, no-crop fix) so it's never cropped,
+          // but a logo still gets a white background + padding instead of the
+          // plain photo background, since it wasn't designed to sit on one.
           // Most real logo fallbacks on production come through the generic
           // Commons/Openverse search matching a "*logo*" filename rather than
           // the deliberate brand-logo path, so rightsStatus alone misses most
@@ -86,8 +89,10 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                   style={{
                     width: 96,
                     height: 64,
-                    objectFit: isLogo ? "contain" : "cover",
-                    background: isLogo ? "#fff" : undefined,
+                    // No-crop fix (2026-09-15): "cover" cut real
+                    // content off real photos to fill the box.
+                    objectFit: "contain",
+                    background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
                     padding: isLogo ? 8 : undefined,
                     flexShrink: 0,
                     borderRadius: 4,
@@ -132,8 +137,10 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
                       style={{
                         width: 96,
                         height: 64,
-                        objectFit: isLogo ? "contain" : "cover",
-                        background: isLogo ? "#fff" : undefined,
+                        // No-crop fix (2026-09-15): "cover" cut real
+                        // content off real photos to fill the box.
+                        objectFit: "contain",
+                        background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
                         padding: isLogo ? 8 : undefined,
                         flexShrink: 0,
                         borderRadius: 4,

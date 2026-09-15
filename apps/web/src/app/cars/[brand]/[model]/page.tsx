@@ -332,7 +332,10 @@ export default async function CarModelPage({
                 <img
                   src={img.image.originalUrl}
                   alt={img.altText ?? `${carModel.brand.name} ${carModel.name}`}
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
+                  // No-crop fix (2026-09-15, user's own direct
+                  // complaint with a screenshot): "cover" cut real
+                  // parts off a real car photo to fill this tile.
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
                 />
                 {img.image.attribution && (
                   <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>
@@ -396,7 +399,9 @@ export default async function CarModelPage({
                 <img
                   src={img.image.originalUrl}
                   alt={img.altText ?? `${carModel.brand.name} ${carModel.name} — ${gen.name}`}
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 4, display: "block" }}
+                  // No-crop fix (2026-09-15) — see the gallery figure
+                  // above for why.
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
                 />
                 {img.image.attribution && (
                   <figcaption className="story-meta" style={{ marginTop: 2, fontSize: 11 }}>

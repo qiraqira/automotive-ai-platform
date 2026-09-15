@@ -104,7 +104,9 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   <img
                     src={model.imageUrl}
                     alt={`${brand.name} ${model.name}`}
-                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
+                    // No-crop fix (2026-09-15): "cover" cut real
+                    // content off real photos to fill the tile.
+                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 8 }}
                   />
                 )}
                 <div style={{ fontWeight: 600 }}>{model.name}</div>

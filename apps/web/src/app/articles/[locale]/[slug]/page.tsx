@@ -172,7 +172,9 @@ export default async function ArticlePage({
                     key={img.image.originalUrl}
                     src={img.image.originalUrl}
                     alt={img.altText ?? article.headline}
-                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
+                    // No-crop fix (2026-09-15): "cover" cut real
+                    // content off real photos to fill the tile.
+                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", display: "block" }}
                   />
                 ))}
               </div>
@@ -267,7 +269,9 @@ export default async function ArticlePage({
                   <img
                     src={img.image.originalUrl}
                     alt={img.altText ?? article.headline}
-                    style={{ width: "100%", aspectRatio: "3 / 2", objectFit: "cover", borderRadius: 4, display: "block" }}
+                    // No-crop fix (2026-09-15): "cover" cut real
+                    // content off real photos to fill the tile.
+                    style={{ width: "100%", aspectRatio: "3 / 2", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 4, display: "block" }}
                   />
                   {img.image.attribution && (
                     <figcaption className="story-meta" style={{ marginTop: 4, fontSize: 11 }}>

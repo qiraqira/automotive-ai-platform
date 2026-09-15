@@ -154,7 +154,25 @@ export default async function HomePage() {
                     <img
                       src={leadHeroUrl}
                       alt=""
-                      style={{ width: "100%", maxHeight: 360, objectFit: "cover", borderRadius: 6, marginBottom: 12, display: "block" }}
+                      style={{
+                        width: "100%",
+                        maxHeight: 360,
+                        // Real gap found live 2026-09-15 (user's own
+                        // screenshot, direct complaint: "не режь по
+                        // бокам и сверху низ" — don't crop the sides or
+                        // top/bottom): `object-fit: cover` fills its box
+                        // by cropping whatever doesn't fit, silently
+                        // cutting real content off a real photo. Every
+                        // photo on the site now uses `contain` instead —
+                        // shows the whole image, letterboxed rather than
+                        // cropped, same fix applied everywhere else this
+                        // pattern appeared.
+                        objectFit: "contain",
+                        background: "var(--surface-alt, rgba(128,128,128,0.06))",
+                        borderRadius: 6,
+                        marginBottom: 12,
+                        display: "block",
+                      }}
                     />
                   )}
                   <div className="story-meta">{lead.type}</div>
@@ -178,8 +196,10 @@ export default async function HomePage() {
                               style={{
                                 width: 96,
                                 height: 64,
-                                objectFit: isLogo ? "contain" : "cover",
-                                background: isLogo ? "#fff" : undefined,
+                                // No-crop fix (2026-09-15) — see the lead
+                                // image's own comment above for why.
+                                objectFit: "contain",
+                                background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
                                 padding: isLogo ? 8 : undefined,
                                 flexShrink: 0,
                                 borderRadius: 4,
@@ -252,7 +272,10 @@ export default async function HomePage() {
                 <img
                   src={car.imageUrl}
                   alt={`${car.brandName} ${car.modelName}`}
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
+                  // No-crop fix (2026-09-15) — "cover" here cut off
+                  // real parts of the car to fill the tile; "contain"
+                  // shows the whole photo, letterboxed instead.
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 8 }}
                 />
                 <div style={{ fontWeight: 600 }}>
                   {car.brandName} {car.modelName}
@@ -310,7 +333,7 @@ export default async function HomePage() {
                     <img
                       src={leadHeroUrl}
                       alt=""
-                      style={{ width: "100%", maxHeight: 360, objectFit: "cover", borderRadius: 6, marginBottom: 12, display: "block" }}
+                      style={{ width: "100%", maxHeight: 360, objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, marginBottom: 12, display: "block" }}
                     />
                   )}
                   {renderMeta(lead)}
@@ -335,8 +358,10 @@ export default async function HomePage() {
                               style={{
                                 width: 96,
                                 height: 64,
-                                objectFit: isLogo ? "contain" : "cover",
-                                background: isLogo ? "#fff" : undefined,
+                                // No-crop fix (2026-09-15) — see the lead
+                                // image's own comment above for why.
+                                objectFit: "contain",
+                                background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
                                 padding: isLogo ? 8 : undefined,
                                 flexShrink: 0,
                                 borderRadius: 4,

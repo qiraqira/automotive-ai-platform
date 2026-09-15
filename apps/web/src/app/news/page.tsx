@@ -74,8 +74,10 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
                   style={{
                     width: 96,
                     height: 64,
-                    objectFit: isLogo ? "contain" : "cover",
-                    background: isLogo ? "#fff" : undefined,
+                    // No-crop fix (2026-09-15): "cover" cut real
+                    // content off real photos to fill the box.
+                    objectFit: "contain",
+                    background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
                     padding: isLogo ? 8 : undefined,
                     flexShrink: 0,
                     borderRadius: 4,
