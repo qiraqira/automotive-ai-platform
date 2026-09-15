@@ -36,6 +36,7 @@
     "research:nameplate": "tsx src/research-nameplate.ts",
     "seed:catalog-auto": "tsx src/auto-seed-catalog.ts",
     "backfill:f150-history": "tsx src/backfill-f150-history.ts",
+    "backfill:xc90-history": "tsx src/backfill-xc90-history.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",

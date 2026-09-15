@@ -890,20 +890,35 @@ app.get("/v1/markets", async (_req, res) => {
 // Fact recorded). Deliberately not `Generation`/`Trim`/`Engine` timestamps
 // too — those have none in the schema today, and Fact is the one real,
 // queryable "this page's content changed" signal that already exists.
+// Real gap found and fixed 2026-09-15, alongside re-enabling the sitemap
+// entries/indexing/brand "Models" section this same date (all four were
+// paused together 2026-09-14 for the same reason — see this file's own
+// comment on that date at /v1/featured-cars): a car page is only worth
+// exposing to search engines and site visitors once it has genuinely
+// researched generation history, not just the single auto-seed-catalog
+// "Overview" placeholder generation most models still have (spanning a
+// nameplate's entire real production run as if nothing ever changed).
+// >=2 real generations is the same bar backfill-xc90-history.ts's own
+// header comment uses ("finish one model completely" — the X5, GLE,
+// F-150, Mustang, Model Y, RAV4, and now the XC90 all clear it; the rest
+// don't yet).
 app.get("/v1/cars", async (_req, res) => {
   const carModels = await prisma.carModel.findMany({
     select: {
       slug: true,
       brand: { select: { slug: true } },
       facts: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      generations: { select: { id: true } },
     },
   });
   res.json({
-    carModels: carModels.map((c) => ({
-      brandSlug: c.brand.slug,
-      modelSlug: c.slug,
-      lastModified: c.facts[0]?.createdAt ?? null,
-    })),
+    carModels: carModels
+      .filter((c) => c.generations.length >= 2)
+      .map((c) => ({
+        brandSlug: c.brand.slug,
+        modelSlug: c.slug,
+        lastModified: c.facts[0]?.createdAt ?? null,
+      })),
   });
 });
 
@@ -916,6 +931,11 @@ app.get("/v1/cars", async (_req, res) => {
 // only given a handful of models a real photo so far, and a grid tile
 // with no image is exactly the "fake structure over no real data" this
 // whole redesign is meant to avoid.
+// Widened 2026-09-15: a HERO photo alone no longer means a model belongs
+// on the homepage grid — auto-seed-catalog.ts gives nearly every model a
+// real HERO photo now, including the ones that still only have a single
+// placeholder "Overview" generation. Same >=2-real-generations gate as
+// GET /v1/cars above.
 app.get("/v1/featured-cars", async (_req, res) => {
   const carModels = await prisma.carModel.findMany({
     where: { images: { some: { role: "HERO" } } },
@@ -924,17 +944,20 @@ app.get("/v1/featured-cars", async (_req, res) => {
       name: true,
       brand: { select: { slug: true, name: true } },
       images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 },
+      generations: { select: { id: true } },
     },
     orderBy: { name: "asc" },
   });
   res.json({
-    carModels: carModels.map((c) => ({
-      brandSlug: c.brand.slug,
-      brandName: c.brand.name,
-      modelSlug: c.slug,
-      modelName: c.name,
-      imageUrl: c.images[0]?.image.originalUrl ?? null,
-    })),
+    carModels: carModels
+      .filter((c) => c.generations.length >= 2)
+      .map((c) => ({
+        brandSlug: c.brand.slug,
+        brandName: c.brand.name,
+        modelSlug: c.slug,
+        modelName: c.name,
+        imageUrl: c.images[0]?.image.originalUrl ?? null,
+      })),
   });
 });
 

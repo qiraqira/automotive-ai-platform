@@ -72,13 +72,31 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       />
       {brand.country && <div className="story-meta">{formatCountryName(brand.country)}</div>}
       <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{brand.name}</h1>
-      {/* "Models" section removed 2026-09-14, user's own explicit call:
-          the catalog is paused and still rough — a brand hub should lead
-          with the real articles/news/analysis already written about
-          this brand, not link out to an unfinished, noindexed /cars/...
-          page. brand.models is still fetched (see GET /v1/brands/:slug)
-          purely to find this brand's own ArticleCarModel-linked content
-          below, not for display. */}
+      {/* "Models" section removed 2026-09-14 (catalog paused, every page
+          nowhere near ready), restored 2026-09-15 once the catalog work
+          resumed — gated to only the models that have actually been
+          taken to real completeness (>=2 real generations, not the
+          single "Overview" placeholder auto-seed-catalog.ts leaves on
+          everything it touches), same bar GET /v1/cars and GET
+          /v1/featured-cars now both apply. A brand with zero qualifying
+          models (most of them, still) shows no Models section at all
+          rather than a section full of noindexed one-generation stubs. */}
+      {(() => {
+        const readyModels = brand.models.filter((m) => m.generationCount >= 2);
+        if (readyModels.length === 0) return null;
+        return (
+          <section style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 16 }}>{brand.name} models</h2>
+            <ul className="story-list">
+              {readyModels.map((model) => (
+                <li key={model.slug} className="story-item">
+                  <Link href={`/cars/${slug}/${model.slug}`}>{model.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
 
       {relatedArticles.length > 0 && (
         // Added 2026-09-14, user's own explicit ask: a brand hub should

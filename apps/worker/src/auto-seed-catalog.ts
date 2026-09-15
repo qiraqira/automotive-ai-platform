@@ -2,8 +2,8 @@ import { prisma } from "@automotive/database";
 import { readFile } from "node:fs/promises";
 import { fetchCarInfobox, searchWikipediaTitles, type CarInfobox } from "./lib/wikipedia-car.js";
 import { fetchCommonsFileInfo } from "./lib/commons-search.js";
-import { fetchEpaOptions, fetchEpaVehicle, type EpaVehicleRecord } from "./lib/epa-fuel-economy.js";
 import { attachCarModelPhoto } from "./lib/attach-car-photo.js";
+import { seedEpaTrims } from "./lib/epa-trims.js";
 
 // User's explicit ask (2026-09-14): "запусти парсер каталога на серваке,
 // пусть создает каталог сам, не трать токены" — a fully unattended
@@ -116,50 +116,6 @@ async function attachInfoboxPhoto(carModelId: string, generationId: string, info
     generationId,
   );
   return true;
-}
-
-async function seedEpaTrims(generationId: string, epaMake: string, epaModel: string, preferredYear: number): Promise<number> {
-  // EPA's fueleconomy.gov reliably lags the actual calendar year by more than
-  // one model year in practice (found live 2026-09-14: neither 2025 nor 2026
-  // Toyota Camry returned anything, 2024 did) — walk backward from the
-  // preferred year rather than trusting a single hardcoded offset.
-  let options: Awaited<ReturnType<typeof fetchEpaOptions>> = [];
-  let year = preferredYear;
-  for (let tries = 0; tries < 4 && options.length === 0; tries++, year--) {
-    options = await fetchEpaOptions(year, epaMake, epaModel);
-  }
-  if (options.length === 0) return 0;
-  let created = 0;
-  for (const opt of options.slice(0, 8)) {
-    // cap: some nameplates carry 15+ near-duplicate EPA configs (every
-    // wheel-size/tire-package variant gets its own id) — 8 is enough to
-    // show real spread (drivetrain/engine/fuel-type differences) without
-    // flooding a model page with near-identical rows.
-    let vehicle: EpaVehicleRecord;
-    try {
-      vehicle = await fetchEpaVehicle(opt.value);
-    } catch {
-      continue;
-    }
-    const slug = `epa-${opt.value}`;
-    const existing = await prisma.trim.findUnique({ where: { generationId_slug: { generationId, slug } } });
-    if (existing) continue;
-    const trim = await prisma.trim.create({ data: { generationId, slug, name: opt.text.slice(0, 120) } });
-    // Combined MPG/range isn't stored as a separate Fact/Battery row here — EPA's
-    // XML doesn't carry EV battery kWh at all, and folding gas/hybrid combined MPG
-    // into the Engine's own name string (below) avoids forcing a schema mismatch
-    // (Battery is EV-only per its capacityKwh/rangeKm fields) for a single number.
-    const mpgSuffix = vehicle.comb08 ? `, ${vehicle.comb08} MPG combined` : "";
-    await prisma.engine.create({
-      data: {
-        trimId: trim.id,
-        name: `${vehicle.cylinders ? `${vehicle.cylinders}-cyl, ` : ""}${vehicle.displ ? `${vehicle.displ}L, ` : ""}${vehicle.trany}${vehicle.tCharger === "T" ? " (turbo)" : ""}${vehicle.sCharger === "S" ? " (supercharged)" : ""}${mpgSuffix}`.trim(),
-        fuel: vehicle.fuelType1 || null,
-      },
-    });
-    created++;
-  }
-  return created;
 }
 
 // A hardcoded chassis-code/generation title guess (e.g. "Toyota Highlander

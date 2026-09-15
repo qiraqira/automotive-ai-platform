@@ -101,16 +101,16 @@ export async function generateMetadata({
   const path = `/cars/${brand}/${model}`;
   const alternates = buildHreflangAlternates(SITE_URL, path);
   const canonicalUrl = buildLocaleUrl(SITE_URL, "en", path);
-  // Paused 2026-09-14, user's own explicit call: the catalog is still
-  // rough/uneven (most models nowhere near the BMW X5's own completeness
-  // standard) and finishing it broadly is a real, multi-month task —
-  // not something to keep exposing to search engines mid-build.
-  // `follow: true` so crawling can still flow through to whatever these
-  // pages link to; only indexing/ranking this specific page is paused.
-  // Reversible: drop this once the catalog is ready to be discoverable
-  // again (see this same date's commit on sitemap.ts and the homepage's
-  // own "Explore models" section, paused the same way).
-  const robots = { index: false, follow: true };
+  const result = await getCarModel(brand, model);
+
+  // Blanket-paused 2026-09-14 (catalog rough/uneven everywhere), resumed
+  // 2026-09-15 with a real per-model gate instead of an all-or-nothing
+  // switch: only a model actually taken to completeness (>=2 real
+  // generations, not auto-seed-catalog.ts's single "Overview" fallback)
+  // gets indexed. `follow: true` always, so crawling still flows through
+  // to whatever a not-yet-ready page links to. Same bar GET /v1/cars,
+  // GET /v1/featured-cars and the brand page's "Models" section now use.
+  const robots = { index: (result?.carModel.generations.length ?? 0) >= 2, follow: true };
 
   const base: Metadata = {
     alternates: {
@@ -120,7 +120,6 @@ export async function generateMetadata({
     robots,
   };
 
-  const result = await getCarModel(brand, model);
   if (!result) return base;
   const { carModel } = result;
   const { title, description } = buildCarPageCopy(carModel);
