@@ -81,7 +81,7 @@ function isLogoImage(images: FeaturedArticleSummary["images"]): boolean {
 }
 
 export default async function HomePage() {
-  const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands }, { stories: unrankedStories }] =
+  const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands: allBrands }, { stories: unrankedStories }] =
     await Promise.all([
       getFeaturedCars(),
       getFeaturedArticles(),
@@ -89,6 +89,12 @@ export default async function HomePage() {
       getBrands(),
       getStories({ limit: 20, hasArticle: true }),
     ]);
+  // Same "real content only" filter as /brands's own index page (added
+  // 2026-09-15) — this is exactly the "links at the bottom" the catalog
+  // was told to keep when its main showcase section got paused, and a
+  // link to a brand page with nothing on it is no better a landing spot
+  // than the showcase grid was.
+  const brands = allBrands.filter((b) => b.contentCount > 0 || b.reviewedModelCount > 0);
   const news = rankStories(unrankedStories).slice(0, 8);
 
   return (

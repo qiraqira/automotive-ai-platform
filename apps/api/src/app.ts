@@ -1135,7 +1135,14 @@ app.get("/v1/brands/:slug", async (req, res) => {
   const brand = await prisma.brand.findUnique({
     where: { slug: req.params.slug },
     include: {
-      models: { orderBy: { name: "asc" } },
+      models: {
+        orderBy: { name: "asc" },
+        // Real gap found live 2026-09-15: the Models section rendered as
+        // a bare text link list — every one of these models already has
+        // a real self-hosted HERO photo (auto-seed-catalog.ts/
+        // lib/attach-car-photo.ts), just never fetched here to show it.
+        include: { images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true } } }, take: 1 } },
+      },
     },
   });
   if (!brand) {
@@ -1206,7 +1213,9 @@ app.get("/v1/brands/:slug", async (req, res) => {
       // Only genuinely reviewed models (catalogReviewedAt set — see
       // CarModel's own schema comment) are ever listed here, same gate
       // GET /v1/cars and GET /v1/featured-cars use.
-      models: brand.models.filter((m) => m.catalogReviewedAt != null).map((m) => ({ slug: m.slug, name: m.name })),
+      models: brand.models
+        .filter((m) => m.catalogReviewedAt != null)
+        .map((m) => ({ slug: m.slug, name: m.name, imageUrl: m.images[0]?.image.originalUrl ?? null })),
     },
     relatedArticles: relatedArticles
       .filter((a) => !isRejectedByQualityGate(a))
@@ -1979,8 +1988,17 @@ app.patch("/v1/users/:id/status", requirePermission("MANAGE_USERS"), async (req,
 // brand's models, not follower counts or anything this project doesn't
 // track. Counts distinct PUBLISHED articles (COMPARISON/ANALYSIS/NEWS)
 // linked to any of the brand's models via ArticleCarModel.
+// `reviewedModelCount` added 2026-09-15, alongside `catalogReviewedAt`
+// (see CarModel's own schema comment): this endpoint also backs
+// /admin/cars's brand picker, which genuinely needs every brand
+// (including one with zero content, so an editor can add its first
+// model) — filtering here would break that. The public /brands index
+// page filters client-side instead, using this new count plus the
+// existing `contentCount`, so a brand with neither ever links anywhere
+// (found live: 29 of 36 brands had a page with literally nothing on it
+// but a name, after this session's own broad brand-list expansion).
 app.get("/v1/brands", async (_req, res) => {
-  const brands = await prisma.brand.findMany({ orderBy: { name: "asc" }, include: { models: { select: { id: true } } } });
+  const brands = await prisma.brand.findMany({ orderBy: { name: "asc" }, include: { models: { select: { id: true, catalogReviewedAt: true } } } });
   const modelIds = brands.flatMap((b) => b.models.map((m) => m.id));
   const counts =
     modelIds.length > 0
@@ -1995,6 +2013,7 @@ app.get("/v1/brands", async (_req, res) => {
       slug: b.slug,
       name: b.name,
       country: b.country,
+      reviewedModelCount: b.models.filter((m) => m.catalogReviewedAt != null).length,
       contentCount: new Set(
         counts.filter((c) => b.models.some((m) => m.id === c.carModelId)).map((c) => c.articleId),
       ).size,

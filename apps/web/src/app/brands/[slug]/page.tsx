@@ -35,6 +35,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const result = await getBrand(slug);
   if (!result) return base;
   const { brand, relatedArticles, relatedStories } = result;
+
+  // Added 2026-09-15, alongside filtering these dead-end brands out of
+  // the sitemap/brands-index/homepage list: a brand this session hasn't
+  // filtered from its OWN list can still be reached by a direct link
+  // (an old bookmark, an external site) — a page with only a name and a
+  // country on it shouldn't be indexed even then.
+  if (relatedArticles.length === 0 && relatedStories.length === 0 && brand.models.length === 0) {
+    return { ...base, robots: { index: false, follow: true } };
+  }
+
   const parts: string[] = [];
   if (relatedArticles.length > 0) parts.push("Comparisons & Analysis");
   if (relatedStories.length > 0) parts.push("News");
@@ -79,17 +89,28 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           sweep output onto this page (user's verdict: "x5 сделан супер,
           а остальное некачественно"). `brand.models` here is already
           review-filtered server-side, so no client-side check is needed
-          — a brand with zero reviewed models shows no section at all. */}
+          — a brand with zero reviewed models shows no section at all.
+          Photo-card grid added the same day (was a bare text link list)
+          — same tile shape as the homepage's own "Explore models" grid,
+          reusing every real HERO photo these models already have. */}
       {brand.models.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>{brand.name} models</h2>
-          <ul className="story-list">
+          <h2 style={{ fontSize: 16, marginBottom: 12 }}>{brand.name} models</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
             {brand.models.map((model) => (
-              <li key={model.slug} className="story-item">
-                <Link href={`/cars/${slug}/${model.slug}`}>{model.name}</Link>
-              </li>
+              <Link key={model.slug} href={`/cars/${slug}/${model.slug}`} style={{ display: "block" }}>
+                {model.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                  <img
+                    src={model.imageUrl}
+                    alt={`${brand.name} ${model.name}`}
+                    style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 6, marginBottom: 8 }}
+                  />
+                )}
+                <div style={{ fontWeight: 600 }}>{model.name}</div>
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 

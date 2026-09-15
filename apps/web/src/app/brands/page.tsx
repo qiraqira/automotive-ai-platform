@@ -36,7 +36,14 @@ export async function generateMetadata(): Promise<Metadata> {
 const POPULAR_BRAND_LIMIT = 4;
 
 export default async function BrandsIndexPage() {
-  const { brands } = await getBrands();
+  const { brands: allBrands } = await getBrands();
+  // Real gap found live 2026-09-15: this page used to list every brand
+  // regardless of whether its own page had anything on it — a brand
+  // with zero published articles AND zero reviewed catalog models (29
+  // of 36, right after this session's own broad brand-list expansion)
+  // led to a real dead end: a name, a country, nothing else. Only a
+  // brand with real content of either kind is listed here at all now.
+  const brands = allBrands.filter((b) => b.contentCount > 0 || b.reviewedModelCount > 0);
   const ranked = [...brands].sort((a, b) => b.contentCount - a.contentCount || a.name.localeCompare(b.name));
   const popular = ranked.filter((b) => b.contentCount > 0).slice(0, POPULAR_BRAND_LIMIT);
   const popularSlugs = new Set(popular.map((b) => b.slug));

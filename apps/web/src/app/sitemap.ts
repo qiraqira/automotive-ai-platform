@@ -82,8 +82,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Brand hub pages (vertical-slice plan, 2026-09-11) — no per-brand
     // "last changed" signal exists yet (unlike cars/topics above, which
     // have a real Fact/Story timestamp to point at), so `lastModified` is
-    // simply omitted rather than guessed.
-    ...brands.map((b) => ({
+    // simply omitted rather than guessed. Filtered to brands with real
+    // content 2026-09-15, same rule as /brands's own index page and the
+    // homepage's footer brand list — no point indexing a page with only
+    // a name and a country on it.
+    ...brands
+      .filter((b) => b.contentCount > 0 || b.reviewedModelCount > 0)
+      .map((b) => ({
       url: `${SITE_URL}/brands/${b.slug}`,
       changeFrequency: "daily" as const,
       priority: 0.7,

@@ -319,6 +319,7 @@ export interface Brand {
   name: string;
   country: string | null;
   contentCount: number;
+  reviewedModelCount: number;
 }
 
 // Real gap found and fixed 2026-09-07: every real Brand/CarModel in this
@@ -359,7 +360,7 @@ export interface BrandDetail {
   slug: string;
   name: string;
   country: string | null;
-  models: { slug: string; name: string }[];
+  models: { slug: string; name: string; imageUrl: string | null }[];
 }
 
 export interface BrandRelatedArticle {
