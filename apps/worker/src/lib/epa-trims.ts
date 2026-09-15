@@ -143,13 +143,24 @@ export async function seedEpaTrimsForNameplate(
   nameplateSubstring: string,
   preferredYear: number,
 ): Promise<number> {
+  // Real bug found live 2026-09-15 (BMW 7 Series E38): a `for (...; year--)`
+  // loop decrements `year` in its increment clause even on the iteration
+  // that successfully finds modelNames, so `year` no longer matches the
+  // year those modelNames actually came from once the loop exits. EPA's
+  // model-name strings aren't stable year to year (2000 filed "740i/740i
+  // Sport", 1999 filed the same trim as bare "740i") — every fetchEpaOptions
+  // call below silently used the wrong year's naming and returned nothing.
+  // Track the year that matched separately instead of reusing the loop
+  // variable after it's kept moving.
   let modelNames: string[] = [];
-  let year = preferredYear;
-  for (let tries = 0; tries < 4 && modelNames.length === 0; tries++, year--) {
+  let matchedYear = preferredYear;
+  for (let tries = 0, year = preferredYear; tries < 4 && modelNames.length === 0; tries++, year--) {
     const history = await fetchNameplateHistory(epaMake, nameplateSubstring, year, year);
     modelNames = history[year] ?? [];
+    matchedYear = year;
   }
   if (modelNames.length === 0) return 0;
+  const year = matchedYear;
 
   // Real bug found live 2026-09-15 (Audi A7): two real EPA option ids
   // both listed under the exact same modelName string ("A7 quattro"),
