@@ -245,15 +245,19 @@ export default async function HomePage() {
         // супер, а остальное некачественно" (X5 — hand-built one model
         // at a time, real editorial review — is great; everything else,
         // from the unattended bulk auto-seed + generation-discovery
-        // sweep, is not good enough). >=2 generations catches gross
+        // sweep, is not good enough). >=2 generations caught gross
         // placeholder stubs but not real quality problems (duplicate/
         // overlapping generations, unreviewed photos, raw EPA option
-        // text as a trim name) — not something to feature prominently on
-        // the homepage until each model gets the same hand review the
-        // X5/GLE/F-150/Mustang/RAV4/Model Y did. Catalog links still
-        // live in the footer nav either way.
-        false &&
-          featuredCars.length > 0 && (
+        // text as a trim name), so this stayed off until every model got
+        // the same hand review the X5/GLE/F-150/Mustang/RAV4/Model Y did.
+        //
+        // Re-enabled 2026-09-16: the multi-session catalog pass this
+        // pause was waiting on is done — all 222 CarModel rows now carry
+        // the real `catalogReviewedAt` flag GET /v1/featured-cars itself
+        // already gates on, set only after live-verifying each model's
+        // generations, trims and photos (never a bulk sweep). Nothing
+        // unreviewed can appear here even if the catalog grows again.
+        featuredCars.length > 0 && (
         // Real gap found and fixed 2026-09-11: four (now five) fully-built
         // model pages existed with zero visual entry point anywhere on the
         // site — only reachable via an article's own cross-link or a
