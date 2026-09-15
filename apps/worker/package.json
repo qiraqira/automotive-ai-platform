@@ -47,6 +47,7 @@
     "reseed:all-epa-trims": "tsx src/reseed-all-epa-trims.ts",
     "fix:all-overview-alt-text": "tsx src/fix-all-overview-alt-text.ts",
     "backfill:nissan-z-history": "tsx src/backfill-nissan-z-history.ts",
+    "fix:wrong-car": "tsx src/fix-wrong-car-resolution.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
