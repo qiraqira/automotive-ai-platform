@@ -103,14 +103,13 @@ export async function generateMetadata({
   const canonicalUrl = buildLocaleUrl(SITE_URL, "en", path);
   const result = await getCarModel(brand, model);
 
-  // Blanket-paused 2026-09-14 (catalog rough/uneven everywhere), resumed
-  // 2026-09-15 with a real per-model gate instead of an all-or-nothing
-  // switch: only a model actually taken to completeness (>=2 real
-  // generations, not auto-seed-catalog.ts's single "Overview" fallback)
-  // gets indexed. `follow: true` always, so crawling still flows through
-  // to whatever a not-yet-ready page links to. Same bar GET /v1/cars,
-  // GET /v1/featured-cars and the brand page's "Models" section now use.
-  const robots = { index: (result?.carModel.generations.length ?? 0) >= 2, follow: true };
+  // Blanket-paused 2026-09-14 (catalog rough/uneven everywhere). Briefly
+  // gated on generations.length>=2 (2026-09-15), replaced same-day by
+  // the real `catalogReviewedAt` gate once an unattended sweep proved a
+  // generation count isn't a quality signal (see CarModel's own schema
+  // comment, and GET /v1/cars's). `follow: true` always, so crawling
+  // still flows through to whatever a not-yet-reviewed page links to.
+  const robots = { index: result?.carModel.catalogReviewedAt != null, follow: true };
 
   const base: Metadata = {
     alternates: {

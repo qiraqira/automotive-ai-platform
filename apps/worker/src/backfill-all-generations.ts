@@ -18,11 +18,20 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
   const carModels = await prisma.carModel.findMany({
-    include: { brand: true, generations: { select: { id: true } } },
+    include: { brand: true, generations: { select: { slug: true } } },
     orderBy: [{ brand: { name: "asc" } }, { name: "asc" }],
   });
-  const targets = carModels.filter((c) => c.generations.length < 2);
-  console.log(`Sweeping ${targets.length} of ${carModels.length} CarModels with <2 generations...`);
+  // Real bug found live 2026-09-15: the original `generations.length < 2`
+  // filter let this sweep run against Dodge Charger, BMW 3/5 Series and
+  // Chevrolet Camaro — each already had exactly ONE real (non-"overview")
+  // hand-seeded generation — and it dutifully discovered that nameplate's
+  // FULL real history on top, creating a second, differently-slugged
+  // generation covering the exact same real years as the pre-existing
+  // one. Only a model with zero generations, or a single generation that
+  // is still the auto-seed-catalog.ts placeholder, is actually untouched
+  // territory for this sweep to fill in.
+  const targets = carModels.filter((c) => c.generations.length === 0 || (c.generations.length === 1 && c.generations[0]!.slug === "overview"));
+  console.log(`Sweeping ${targets.length} of ${carModels.length} CarModels with no real generation data yet...`);
 
   let applied = 0;
   let tooFew = 0;

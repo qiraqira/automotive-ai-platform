@@ -202,13 +202,22 @@ export default async function HomePage() {
       )}
 
       {
-        // Paused 2026-09-14, resumed 2026-09-15: GET /v1/featured-cars
-        // now only returns models with >=2 real generations (see that
-        // endpoint's own comment) instead of just "has a HERO photo", so
-        // this grid can't surface a one-generation placeholder stub —
-        // same bar as the sitemap/indexing/brand-page changes made the
-        // same day.
-        featuredCars.length > 0 && (
+        // Paused 2026-09-14, briefly resumed 2026-09-15 (GET
+        // /v1/featured-cars gated to >=2 real generations), re-paused
+        // the same day — user's own direct verdict after the >=2-
+        // generations gate went live: "каталоги просмотри. x5 сделан
+        // супер, а остальное некачественно" (X5 — hand-built one model
+        // at a time, real editorial review — is great; everything else,
+        // from the unattended bulk auto-seed + generation-discovery
+        // sweep, is not good enough). >=2 generations catches gross
+        // placeholder stubs but not real quality problems (duplicate/
+        // overlapping generations, unreviewed photos, raw EPA option
+        // text as a trim name) — not something to feature prominently on
+        // the homepage until each model gets the same hand review the
+        // X5/GLE/F-150/Mustang/RAV4/Model Y did. Catalog links still
+        // live in the footer nav either way.
+        false &&
+          featuredCars.length > 0 && (
         // Real gap found and fixed 2026-09-11: four (now five) fully-built
         // model pages existed with zero visual entry point anywhere on the
         // site — only reachable via an article's own cross-link or a

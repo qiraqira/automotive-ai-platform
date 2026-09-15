@@ -54,9 +54,34 @@ export interface GenerationSection {
   infobox: Record<string, string> | null;
 }
 
-function slugifyGenerationName(headerText: string): string {
-  const withoutYears = headerText.replace(/\(\s*\d{4}[^)]*\)/g, "").trim();
-  const slug = withoutYears
+// Real bug found live 2026-09-15 (Dodge Charger): Wikipedia headers use
+// at least two real year-placement conventions — "First generation
+// (2002)" (XC90/RAV4/Mazda/Kia/Subaru style, handled by only stripping
+// a trailing "(...)") and "First generation: 1966–1967" (Charger style,
+// colon-separated, no parens at all) — the old trailing-paren-only strip
+// left the colon style's year range sitting in `name`, which then
+// doubled up with the car page template's own "(startYear–endYear)"
+// suffix into a visibly broken "First generation: 1966–1967 (1966–1967)".
+// This strips every year/year-range token wherever it appears instead of
+// only at the end, so a real chassis-code qualifier in parens (XC90's
+// none, RAV4's "(XA10; 1994)" -> "(XA10)", Charger's "(LX)") survives
+// while the date itself — which the page already renders separately as
+// real `startYear`/`endYear` columns — never appears twice.
+function cleanGenerationName(headerText: string): string {
+  let s = headerText;
+  s = s.replace(/\b(19|20)\d{2}\s*[–-]\s*(?:(?:19|20)\d{2}|present)\b/gi, "");
+  s = s.replace(/\b(19|20)\d{2}\b/g, "");
+  s = s.replace(/;\s*\)/g, ")");
+  s = s.replace(/\(\s*\)/g, "");
+  s = s.replace(/:\s*(?=\()/g, " ");
+  s = s.replace(/:\s*$/g, "");
+  s = s.replace(/\s{2,}/g, " ").trim();
+  s = s.replace(/^[:;,]+|[:;,]+$/g, "").trim();
+  return s || headerText.trim();
+}
+
+function slugifyGenerationName(cleanedName: string): string {
+  const slug = cleanedName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
@@ -106,10 +131,11 @@ export async function discoverGenerationSections(pageTitle: string): Promise<Gen
     const startYear = infoboxYears.startYear ?? headerYears.startYear;
     const endYear = infoboxYears.startYear ? infoboxYears.endYear : headerYears.endYear;
 
+    const name = cleanGenerationName(headerText);
     sections.push({
       headerText,
-      slug: slugifyGenerationName(headerText),
-      name: headerText.replace(/\s*\(\s*\d{4}[^)]*\)\s*$/, "").trim() || headerText,
+      slug: slugifyGenerationName(name),
+      name,
       startYear,
       endYear,
       infobox,

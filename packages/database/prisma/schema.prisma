@@ -689,6 +689,22 @@ model CarModel {
   brand       Brand        @relation(fields: [brandId], references: [id])
   slug        String
   name        String
+  // Added 2026-09-15: an unattended sweep (backfill-all-generations.ts)
+  // can find real Wikipedia generation sections but still produce a
+  // page that reads badly — duplicate generations on a model that
+  // already had hand-seeded data (found live: Dodge Charger, BMW 3/5
+  // Series, Chevrolet Camaro), an unstripped year suffix doubling up
+  // with the page template's own date range, etc. The user's own
+  // verdict after the >=2-generations count gate went live: "x5 сделан
+  // супер, а остальное некачественно" (X5 — built one model at a time
+  // with real review — is great; the rest, from the bulk sweep, is
+  // not). `generations.length >= 2` is a real-data floor, not a
+  // quality bar; this is the real one. Set only when a person/session
+  // has actually looked at the live page and confirmed it reads right
+  // — every public surface (GET /v1/cars, GET /v1/featured-cars, GET
+  // /v1/brands/:slug's models list, the car page's own indexing) now
+  // gates on this instead of raw generation count.
+  catalogReviewedAt DateTime?
   generations Generation[]
   facts       Fact[]
   articles    ArticleCarModel[]

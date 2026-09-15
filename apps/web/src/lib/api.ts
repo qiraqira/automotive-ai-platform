@@ -204,6 +204,7 @@ export interface CarModelDetail {
   id: string;
   slug: string;
   name: string;
+  catalogReviewedAt: string | null;
   brand: { id: string; slug: string; name: string; country: string | null };
   generations: CarGeneration[];
   facts: CarFact[];
@@ -358,7 +359,7 @@ export interface BrandDetail {
   slug: string;
   name: string;
   country: string | null;
-  models: { slug: string; name: string; generationCount: number }[];
+  models: { slug: string; name: string }[];
 }
 
 export interface BrandRelatedArticle {
