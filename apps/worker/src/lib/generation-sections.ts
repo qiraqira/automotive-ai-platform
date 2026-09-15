@@ -81,7 +81,7 @@ function cleanGenerationName(headerText: string): string {
   let s = headerText;
   s = s.replace(/\b(19|20)\d{2}\s*[–-]\s*(?:(?:19|20)\d{2}|present)\b/gi, "");
   s = s.replace(/\b(19|20)\d{2}\b/g, "");
-  s = s.replace(/;\s*\)/g, ")");
+  s = s.replace(/[;,]\s*\)/g, ")");
   // Real gap found live 2026-09-15 (Mitsubishi Mirage): a stripped
   // template right after the opening paren (e.g. a {{nihongo|...}}
   // Japanese-name template, gone entirely once cleanWikitext() drops
