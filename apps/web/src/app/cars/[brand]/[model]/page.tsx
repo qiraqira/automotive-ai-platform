@@ -423,6 +423,13 @@ export default async function CarModelPage({
               // Zebra-striped and unit-labeled headers per the user's
               // own "make it clearer what's where" follow-up.
               const hasBattery = gen.trims.some((trim) => trim.batteries.length > 0);
+              // Added 2026-09-15, same reasoning as `hasBattery`: EPA
+              // (this pipeline's trim source for most generations) never
+              // carries horsepower/torque at all — every cell in this
+              // column was rendering as a bare "—" for those, a hollow
+              // column that added nothing. Hidden entirely when not one
+              // trim in this generation has real power data.
+              const hasPower = gen.trims.some((trim) => trim.engines.some((e) => formatEnginePower(e) != null));
               const sortedTrims = [...gen.trims].sort((a, b) => trimPowerHp(a) - trimPowerHp(b));
               const th: CSSProperties = { textAlign: "left", padding: "6px 12px", borderBottom: "2px solid var(--line)" };
               return (
@@ -437,7 +444,7 @@ export default async function CarModelPage({
                         <th style={{ ...th, paddingLeft: 0 }}>Trim</th>
                         <th style={th}>Engine</th>
                         <th style={th}>Fuel</th>
-                        <th style={th}>Power (hp)</th>
+                        {hasPower && <th style={th}>Power (hp)</th>}
                         {hasBattery && <th style={th}>Battery / EV range</th>}
                       </tr>
                     </thead>
@@ -454,7 +461,9 @@ export default async function CarModelPage({
                             <td style={{ ...td, paddingLeft: 0, fontWeight: 600 }}>{trim.name}</td>
                             <td style={td}>{trim.engines.map((e) => e.name).join("; ") || "—"}</td>
                             <td style={td}>{trim.engines.map((e) => formatFuel(e)).join("; ") || "—"}</td>
-                            <td style={td}>{trim.engines.map((e) => formatEnginePower(e)).filter(Boolean).join("; ") || "—"}</td>
+                            {hasPower && (
+                              <td style={td}>{trim.engines.map((e) => formatEnginePower(e)).filter(Boolean).join("; ") || "—"}</td>
+                            )}
                             {hasBattery && (
                               <td style={td}>
                                 {battery

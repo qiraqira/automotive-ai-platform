@@ -42,6 +42,7 @@
     "mark:catalog-reviewed": "tsx src/mark-catalog-reviewed.ts",
     "cleanup:duplicate-generations": "tsx src/cleanup-duplicate-generations.ts",
     "fix:charger-generation-names": "tsx src/fix-charger-generation-names.ts",
+    "fix:explorer-alt-text": "tsx src/fix-explorer-alt-text.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",

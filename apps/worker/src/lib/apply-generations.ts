@@ -73,7 +73,15 @@ export async function applyGenerationSectionsForModel(
       ? (await prisma.generation.findUnique({ where: { id: currentGenId } }))?.slug === "overview"
       : true;
     if (stillPlaceholder) {
-      await prisma.carModelImage.update({ where: { id: existingHero.id }, data: { generationId: lastGen.id } });
+      // altText also updated here — it was written by auto-seed-catalog.ts
+      // as "... (Overview)" at attach time; left alone it would keep
+      // reading "Overview" forever even after this relink to a real
+      // generation (found live reviewing Ford Explorer).
+      const lastSection = sections[sections.length - 1]!;
+      await prisma.carModelImage.update({
+        where: { id: existingHero.id },
+        data: { generationId: lastGen.id, altText: `${brandName} ${modelName} (${lastSection.name})` },
+      });
     }
   }
 
