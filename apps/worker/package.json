@@ -49,6 +49,7 @@
     "backfill:nissan-z-history": "tsx src/backfill-nissan-z-history.ts",
     "fix:wrong-car": "tsx src/fix-wrong-car-resolution.ts",
     "seed:empty": "tsx src/seed-empty-model.ts",
+    "compare:next-candidate": "tsx src/next-comparison-candidate.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
