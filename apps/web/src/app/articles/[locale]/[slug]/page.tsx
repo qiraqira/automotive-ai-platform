@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildArticleJsonLd, safeJsonLdString, type Locale } from "@automotive/seo";
 import { getArticle } from "@/lib/api";
 import EditorialDisclosure from "@/components/EditorialDisclosure";
-import { clampedAspectRatio } from "@/lib/image-aspect";
+import { clampedAspectRatio, pairedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -164,6 +164,15 @@ export default async function ArticlePage({
         const heroImages = article.images.filter((img) => img.role === "HERO");
         if (heroImages.length >= 2) {
           const [left, right] = heroImages;
+          // Shared ratio, not each image's own — user's own direct
+          // complaint, this exact pair (Tesla Model 3 vs. Toyota
+          // Corolla): two independently-clamped ratios put two real
+          // photos of different real shapes at two different heights
+          // side by side, which reads as a layout bug even though
+          // neither photo was individually cropped or letterboxed. See
+          // pairedAspectRatio's own comment for why averaging is the
+          // fix, not picking one side's shape for both.
+          const sharedRatio = String(pairedAspectRatio(left.image, right.image));
           return (
             <figure style={{ margin: "0 0 24px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -175,11 +184,9 @@ export default async function ArticlePage({
                     alt={img.altText ?? article.headline}
                     // No-crop fix (2026-09-15): "cover" cut real
                     // content off real photos to fill the tile.
-                    // Ratio itself fixed 2026-09-16 — each tile now
-                    // uses its own photo's real shape.
                     style={{
                       width: "100%",
-                      aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
+                      aspectRatio: sharedRatio,
                       objectFit: "contain",
                       background: "var(--surface-alt, rgba(128,128,128,0.06))",
                       display: "block",

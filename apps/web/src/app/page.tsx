@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories, type FeaturedArticleSummary } from "@/lib/api";
+import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories } from "@/lib/api";
 import { rankStories } from "@/lib/ranking";
 import { clampedAspectRatio } from "@/lib/image-aspect";
+import { isLogoImage, LeadMedia, ListRowMedia } from "@/components/ArticleMedia";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -75,11 +76,6 @@ export const metadata: Metadata = {
 // "Light" design: plain type, generous whitespace, no cards/shadows/
 // gradients — the same undecorated visual language as the rest of the
 // site, just reordered as a portal's front page.
-function isLogoImage(images: FeaturedArticleSummary["images"]): boolean {
-  const img = images[0]?.image;
-  if (!img) return false;
-  return img.rightsStatus === "EDITORIAL_ONLY" || img.originalUrl.toLowerCase().includes("logo");
-}
 
 export default async function HomePage() {
   const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands: allBrands }, { stories: unrankedStories }] =
@@ -145,51 +141,41 @@ export default async function HomePage() {
           {(() => {
             const shown = featuredArticles.slice(0, HOMEPAGE_ARTICLE_LIMIT);
             const [lead, ...rest] = shown;
-            const leadHeroUrl = lead.images[0]?.image.originalUrl;
             const leadIsLogo = isLogoImage(lead.images);
             return (
               <>
                 <div style={{ marginBottom: 24 }}>
-                  {leadHeroUrl && !leadIsLogo && (
-                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img
-                      src={leadHeroUrl}
-                      alt=""
-                      style={{
-                        // Real gap found live 2026-09-15 (user's own
-                        // screenshot, direct complaint: "не режь по
-                        // бокам и сверху низ" — don't crop the sides or
-                        // top/bottom): `object-fit: cover` fills its box
-                        // by cropping whatever doesn't fit, silently
-                        // cutting real content off a real photo. Every
-                        // photo on the site now uses `contain` instead —
-                        // shows the whole image, letterboxed rather than
-                        // cropped, same fix applied everywhere else this
-                        // pattern appeared.
-                        //
-                        // aspectRatio (not a flat maxHeight) added
-                        // 2026-09-16, user's own follow-up complaint that
-                        // the plain `contain` fix looked "ugly" — a fixed
-                        // box shape doesn't match a real photo's own
-                        // shape, so it still letterboxed hard.
-                        //
-                        // Narrowed from width:"100%" the same day, second
-                        // follow-up ask: "картинка тоже левее... надпись
-                        // ... ниже, а не правее" — a left-aligned image
-                        // wide enough to still be prominent, headline and
-                        // link staying below it (not beside it — that was
-                        // tried for the news lead below and reverted).
-                        width: 440,
-                        maxWidth: "100%",
-                        aspectRatio: String(clampedAspectRatio(lead.images[0]?.image.width, lead.images[0]?.image.height)),
-                        objectFit: "contain",
-                        background: "var(--surface-alt, rgba(128,128,128,0.06))",
-                        borderRadius: 6,
-                        marginBottom: 12,
-                        display: "block",
-                      }}
-                    />
-                  )}
+                  {/* Real gap found live 2026-09-15 (user's own
+                      screenshot, direct complaint: "не режь по бокам и
+                      сверху низ" — don't crop the sides or top/bottom):
+                      `object-fit: cover` fills its box by cropping
+                      whatever doesn't fit, silently cutting real content
+                      off a real photo. Every photo on the site now uses
+                      `contain` instead — shows the whole image,
+                      letterboxed rather than cropped, same fix applied
+                      everywhere else this pattern appeared.
+
+                      aspectRatio (not a flat maxHeight) added
+                      2026-09-16, user's own follow-up complaint that the
+                      plain `contain` fix looked "ugly" — a fixed box
+                      shape doesn't match a real photo's own shape, so it
+                      still letterboxed hard.
+
+                      Narrowed from width:"100%" the same day, second
+                      follow-up ask: "картинка тоже левее... надпись ...
+                      ниже, а не правее" — a left-aligned image wide
+                      enough to still be prominent, headline and link
+                      staying below it (not beside it — that was tried
+                      for the news lead below and reverted).
+
+                      LeadMedia (real photos, not just one) added the
+                      same day, third follow-up: this article is a real
+                      COMPARISON piece (Tesla Model 3 vs. Toyota Corolla)
+                      with two real HERO photos, one per car — showing
+                      only images[0] left no visual sense two different
+                      cars were even being discussed. See LeadMedia's own
+                      comment above. */}
+                  <LeadMedia images={lead.images} isLogo={leadIsLogo} fallbackAlt={lead.headline} />
                   <div className="story-meta">{lead.type}</div>
                   <h3 style={{ fontSize: 26, margin: "4px 0 8px", lineHeight: 1.25 }}>
                     <Link href={`/articles/${lead.locale}/${lead.slug}`}>{lead.headline}</Link>
@@ -199,28 +185,12 @@ export default async function HomePage() {
                 {rest.length > 0 && (
                   <ul className="story-list">
                     {rest.map((article) => {
-                      const heroUrl = article.images[0]?.image.originalUrl;
                       const isLogo = isLogoImage(article.images);
                       return (
                         <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          {heroUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                            <img
-                              src={heroUrl}
-                              alt=""
-                              style={{
-                                width: 96,
-                                height: 64,
-                                // No-crop fix (2026-09-15) — see the lead
-                                // image's own comment above for why.
-                                objectFit: "contain",
-                                background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
-                                padding: isLogo ? 8 : undefined,
-                                flexShrink: 0,
-                                borderRadius: 4,
-                              }}
-                            />
-                          )}
+                          {/* ListRowMedia — same "who vs whom" fix as
+                              LeadMedia above, at the small 96×64 size. */}
+                          <ListRowMedia images={article.images} isLogo={isLogo} fallbackAlt={article.headline} />
                           <div>
                             <div className="story-meta">{article.type}</div>
                             <h3 style={{ fontSize: 18, margin: 0 }}>
@@ -388,10 +358,8 @@ export default async function HomePage() {
             // gets a big photo + headline instead of the same 96x64
             // thumbnail row as everything else.
             const [lead, ...rest] = news;
-            const leadHeroUrl = lead.articles[0]?.images[0]?.image.originalUrl;
-            const leadIsLogo =
-              lead.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
-              (leadHeroUrl?.toLowerCase().includes("logo") ?? false);
+            const leadImages = lead.articles[0]?.images ?? [];
+            const leadIsLogo = isLogoImage(leadImages);
             const renderMeta = (story: (typeof news)[number]) => (
               <div className="story-meta">
                 {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
@@ -417,23 +385,7 @@ export default async function HomePage() {
                     a two-column layout. Same fix as the "Comparisons"
                     lead above — see that one's own comment. */}
                 <div style={{ marginBottom: 24 }}>
-                  {leadHeroUrl && !leadIsLogo && (
-                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img
-                      src={leadHeroUrl}
-                      alt=""
-                      style={{
-                        width: 440,
-                        maxWidth: "100%",
-                        aspectRatio: String(clampedAspectRatio(lead.articles[0]?.images[0]?.image.width, lead.articles[0]?.images[0]?.image.height)),
-                        objectFit: "contain",
-                        background: "var(--surface-alt, rgba(128,128,128,0.06))",
-                        borderRadius: 6,
-                        marginBottom: 12,
-                        display: "block",
-                      }}
-                    />
-                  )}
+                  <LeadMedia images={leadImages} isLogo={leadIsLogo} fallbackAlt={lead.title} />
                   {renderMeta(lead)}
                   <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
                     {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
@@ -442,30 +394,11 @@ export default async function HomePage() {
                 {rest.length > 0 && (
                   <ul className="story-list">
                     {rest.map((story) => {
-                      const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-                      const isLogo =
-                        story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" ||
-                        (heroUrl?.toLowerCase().includes("logo") ?? false);
+                      const images = story.articles[0]?.images ?? [];
+                      const isLogo = isLogoImage(images);
                       return (
                         <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          {heroUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                            <img
-                              src={heroUrl}
-                              alt=""
-                              style={{
-                                width: 96,
-                                height: 64,
-                                // No-crop fix (2026-09-15) — see the lead
-                                // image's own comment above for why.
-                                objectFit: "contain",
-                                background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
-                                padding: isLogo ? 8 : undefined,
-                                flexShrink: 0,
-                                borderRadius: 4,
-                              }}
-                            />
-                          )}
+                          <ListRowMedia images={images} isLogo={isLogo} fallbackAlt={story.title} />
                           <div>
                             {renderMeta(story)}
                             <h3 style={{ fontSize: 18, margin: 0 }}>

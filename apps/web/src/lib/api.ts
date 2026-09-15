@@ -53,7 +53,7 @@ export interface StorySummary {
   primaryTopic: { slug: string; name: string } | null;
   events: { id: string; label: string; description: string | null; occurredAt: string }[];
   sourceArticles: { id: string; title: string; url: string; author: { name: string } | null }[];
-  articles: { slug: string; locale: string; images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[] }[];
+  articles: { slug: string; locale: string; images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[] }[];
 }
 
 export interface SourceSummary {
@@ -273,7 +273,7 @@ export interface FeaturedArticleSummary {
   subtitle: string | null;
   type: "COMPARISON" | "ANALYSIS";
   publishedAt: string | null;
-  images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
+  images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
 }
 
 export function getFeaturedArticles(): Promise<{ articles: FeaturedArticleSummary[] }> {
@@ -432,7 +432,7 @@ export interface TopicArticleSummary {
   subtitle: string | null;
   type: string;
   publishedAt: string | null;
-  images: { image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
+  images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
 }
 
 export interface TopicWithStories {
