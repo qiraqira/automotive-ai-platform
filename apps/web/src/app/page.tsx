@@ -156,7 +156,6 @@ export default async function HomePage() {
                       src={leadHeroUrl}
                       alt=""
                       style={{
-                        width: "100%",
                         // Real gap found live 2026-09-15 (user's own
                         // screenshot, direct complaint: "не режь по
                         // бокам и сверху низ" — don't crop the sides or
@@ -172,11 +171,17 @@ export default async function HomePage() {
                         // 2026-09-16, user's own follow-up complaint that
                         // the plain `contain` fix looked "ugly" — a fixed
                         // box shape doesn't match a real photo's own
-                        // shape, so it still letterboxed hard; maxHeight
-                        // kept only as a safety cap for the rare
-                        // near-square outlier the ratio clamp lets through.
+                        // shape, so it still letterboxed hard.
+                        //
+                        // Narrowed from width:"100%" the same day, second
+                        // follow-up ask: "картинка тоже левее... надпись
+                        // ... ниже, а не правее" — a left-aligned image
+                        // wide enough to still be prominent, headline and
+                        // link staying below it (not beside it — that was
+                        // tried for the news lead below and reverted).
+                        width: 440,
+                        maxWidth: "100%",
                         aspectRatio: String(clampedAspectRatio(lead.images[0]?.image.width, lead.images[0]?.image.height)),
-                        maxHeight: 500,
                         objectFit: "contain",
                         background: "var(--surface-alt, rgba(128,128,128,0.06))",
                         borderRadius: 6,
@@ -358,38 +363,38 @@ export default async function HomePage() {
             );
             return (
               <>
-                {/* Side-by-side lead layout, 2026-09-16 (user's own
-                    direct ask: "картиночки большие, у главной новости,
-                    левее" — a big image, on the left, for the lead news
-                    item). Was a stacked image-then-text column before;
-                    `flexWrap: "wrap"` keeps it readable on a narrow
-                    screen by falling back to the same stacked order. */}
-                <div style={{ marginBottom: 24, display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+                {/* Left-aligned lead image, 2026-09-16 (user's own direct
+                    ask: "картиночки большие, у главной новости, левее" —
+                    a big image, on the left). First tried as a side-by-
+                    side row with the headline to the right, reverted the
+                    same day on the user's own follow-up: "надпись с
+                    ссылкой на новость ниже, а не правее" — the headline/
+                    link belongs below the image, not beside it; "left"
+                    meant narrower and left-aligned (not full-width), not
+                    a two-column layout. Same fix as the "Comparisons"
+                    lead above — see that one's own comment. */}
+                <div style={{ marginBottom: 24 }}>
                   {leadHeroUrl && !leadIsLogo && (
                     // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                     <img
                       src={leadHeroUrl}
                       alt=""
-                      // Ratio fixed 2026-09-16 alongside the "Comparisons"
-                      // lead image above — see that one's own comment.
                       style={{
                         width: 440,
                         maxWidth: "100%",
-                        flexShrink: 0,
                         aspectRatio: String(clampedAspectRatio(lead.articles[0]?.images[0]?.image.width, lead.articles[0]?.images[0]?.image.height)),
                         objectFit: "contain",
                         background: "var(--surface-alt, rgba(128,128,128,0.06))",
                         borderRadius: 6,
+                        marginBottom: 12,
                         display: "block",
                       }}
                     />
                   )}
-                  <div style={{ flex: "1 1 280px", minWidth: 240 }}>
-                    {renderMeta(lead)}
-                    <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
-                      {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
-                    </h3>
-                  </div>
+                  {renderMeta(lead)}
+                  <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
+                    {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
+                  </h3>
                 </div>
                 {rest.length > 0 && (
                   <ul className="story-list">
