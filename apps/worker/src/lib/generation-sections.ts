@@ -107,7 +107,14 @@ export async function discoverGenerationSections(pageTitle: string): Promise<Gen
   const genHeaders: { headerText: string; matchEnd: number }[] = [];
   for (const h of allHeaders) {
     const raw = wikitext.slice(h.matchStart, h.matchEnd);
-    const cleaned = stripHtml(raw.replace(/^==+/, "").replace(/==+\s*$/, ""));
+    // Real gap found live 2026-09-15 (Audi A3/Q7 headers, "First
+    // generation (''Typ'' 8L; 1996)"): stripHtml() alone only strips
+    // real HTML tags (needed for XC90-style `<span class="anchor">`
+    // headers) — it left Wikipedia's own `''...''` italic wikitext
+    // markup sitting in the header text verbatim. cleanWikitext()
+    // already strips that (used for infobox fields elsewhere in this
+    // file) but was never applied to header text itself until now.
+    const cleaned = cleanWikitext(stripHtml(raw.replace(/^==+/, "").replace(/==+\s*$/, "")));
     if (!/generation/i.test(cleaned)) continue;
     genHeaders.push({ headerText: cleaned, matchEnd: h.matchEnd });
   }
