@@ -93,6 +93,16 @@ function websiteJsonLd() {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Inter, 2026-09-16 premium-redesign pass — no next/font in
+            this app (see next.config.mjs's own CSP comment for why), a
+            plain Google Fonts <link> is the lowest-risk way to add one
+            real typeface. preconnect first so the actual stylesheet
+            request doesn't pay a fresh DNS+TLS handshake on top of it. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      </head>
       <body>
         <script
           type="application/ld+json"
@@ -115,6 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <a href="/" className="wordmark">
               {SITE_NAME}
+              <span className="tagline">Premium Auto News &amp; Comparisons</span>
             </a>
             <HeaderNav />
           </div>
@@ -132,7 +143,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             place a reader expects sitewide navigation regardless of which
             page they landed on. */}
         <footer className="site">
-          <div className="wrap">
+          <div className="wrap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 32 }}>
+            {/* Wordmark column added 2026-09-16 redesign — the mockups'
+                own footer leads with the brand + one line of positioning
+                rather than jumping straight into link columns; every
+                link below is unchanged from the 2026-09-09 footer, only
+                the layout/typography around them changed. */}
+            <div>
+              <div style={{ fontFamily: "var(--font-sans)", fontWeight: 800, fontSize: 18, color: "#fff", marginBottom: 8 }}>{SITE_NAME}</div>
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, color: "#9aa3af", maxWidth: 260, margin: 0 }}>
+                Car comparisons, reviews and auto news — every figure sourced and checked.
+              </p>
+            </div>
             <div className="footer-links">
               <a href="/topics/electric-vehicles">Electric Vehicles</a>
               <a href="/topics/autonomous-robotaxi">Autonomous &amp; Robotaxis</a>
@@ -145,6 +167,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/comparisons">Comparisons &amp; Analysis</a>
               <a href="/brands">Brands</a>
               <a href="/guides">Guides</a>
+              <a href="/compare">Compare cars</a>
             </div>
             <div className="footer-links">
               <a href="/about">About</a>
@@ -153,9 +176,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/about/corrections">Corrections</a>
               <a href="/about/contact">Contact</a>
             </div>
-            <div>
-              &copy; {new Date().getFullYear()} {SITE_NAME}
-            </div>
+          </div>
+          <div className="wrap" style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)", fontFamily: "var(--font-sans)", fontSize: 13, color: "#7c8592" }}>
+            &copy; {new Date().getFullYear()} {SITE_NAME}
           </div>
         </footer>
       </body>

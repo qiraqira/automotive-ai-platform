@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buildHreflangAlternates, buildLocaleUrl } from "@automotive/seo";
-import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories } from "@/lib/api";
+import { getGuides, getBrands, getFeaturedArticles, getFeaturedCars, getStories, type FeaturedCar } from "@/lib/api";
 import { rankStories } from "@/lib/ranking";
-import { clampedAspectRatio } from "@/lib/image-aspect";
 import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
+import { ContentCard } from "@/components/ContentCard";
 import CinematicVideo from "@/components/CinematicVideo";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
 
 // Cap added 2026-09-14 — see the section below's own longer comment.
-const HOMEPAGE_ARTICLE_LIMIT = 7;
+const HOMEPAGE_ARTICLE_LIMIT = 6;
 
 // SEO pass (2026-09-11): the homepage never set its own title/
 // description before, silently inheriting layout.tsx's generic
@@ -67,16 +67,23 @@ export const metadata: Metadata = {
   },
 };
 
-// Portal homepage (2026-09-11), replacing the old news-FEED layout, per
-// the user's own explicit instruction: "не как новостная лента была, а
-// ... портал" — the fix was to stop leading with a chronological feed,
-// not to remove news from the site. User's own correction the same day,
-// after seeing the result live: the real articles this pipeline writes
-// still belong on the homepage, just as one section among the portal's
-// others rather than the dominant, page-topping list it used to be.
-// "Light" design: plain type, generous whitespace, no cards/shadows/
-// gradients — the same undecorated visual language as the rest of the
-// site, just reordered as a portal's front page.
+// Premium redesign, 2026-09-16 — user's own two approved mockups
+// (autonewsfeed-variant-a/b: dark header + hero, light content, red
+// accent, soft-shadow rounded cards). Kept every real data source and
+// URL from the portal rewrite this replaces (2026-09-11, "не как
+// новостная лента была, а ... портал") — only the visual language
+// changes. The mockups' own comparison-card/hero photos were AI-
+// generated (Pollinations.ai) or of unverified real provenance — see
+// this session's own live test (three generic silhouettes for a
+// "Civic and Mazda3" prompt, not either real car) and the resulting
+// memory file (real-photos-never-ai-generated.md). Every photo below is
+// still a real, already self-hosted, already rights-checked photo from
+// this project's own catalog/article data — ContentCard (via LeadMedia)
+// is the same component built for the no-crop/aspect-ratio fixes
+// earlier this session, not a new image pipeline.
+function findHeroCarPhoto(cars: FeaturedCar[], brandSlug: string, modelSlug: string) {
+  return cars.find((c) => c.brandSlug === brandSlug && c.modelSlug === modelSlug) ?? null;
+}
 
 export default async function HomePage() {
   const [{ carModels: featuredCars }, { articles: featuredArticles }, { guides }, { brands: allBrands }, { stories: unrankedStories }] =
@@ -93,21 +100,107 @@ export default async function HomePage() {
   // link to a brand page with nothing on it is no better a landing spot
   // than the showcase grid was.
   const brands = allBrands.filter((b) => b.contentCount > 0 || b.reviewedModelCount > 0);
-  const news = rankStories(unrankedStories).slice(0, 8);
+  const news = rankStories(unrankedStories).slice(0, 7);
+
+  // Real hero photo pair, 2026-09-16 — the Civic + Mazda3 this site
+  // already has a real published comparison about (both real,
+  // already self-hosted HERO photos, same pair ContentCard uses below
+  // for that article's own card) rather than any newly sourced image.
+  const heroCarA = findHeroCarPhoto(featuredCars, "honda", "civic");
+  const heroCarB = findHeroCarPhoto(featuredCars, "mazda", "mazda3");
 
   return (
     <>
-      <section style={{ marginBottom: 40 }}>
-        {/* H1 rewritten 2026-09-14 alongside HOME_TITLE/HOME_DESCRIPTION
-            above — same reasoning: carries the real target keywords
-            ("car comparisons", "auto news") instead of a pure tagline,
-            while the subtitle below is the one line that actually says
-            "reviews" out loud. */}
-        <h1 style={{ fontSize: 32, margin: "0 0 12px" }}>Car comparisons and auto news, backed by real numbers</h1>
-        <p style={{ fontSize: 17, color: "var(--ink-dim)", maxWidth: 640, lineHeight: 1.5 }}>
-          In-depth comparisons and reviews — every spec, safety rating and price checked, every photo the real car —
-          plus real auto news, covered the same way, as it happens.
-        </p>
+      {/* Dark hero — breaks out of <main>'s own "wrap" (max-width:1200px)
+          via the classic negative-margin/100vw trick so it can go full-
+          bleed edge to edge like the header/footer, then re-applies the
+          same 1200px column inside itself so the actual content still
+          lines up with every section below it. */}
+      <section
+        style={{
+          marginLeft: "calc(50% - 50vw)",
+          marginRight: "calc(50% - 50vw)",
+          width: "100vw",
+          background: "linear-gradient(160deg, var(--bg-dark) 0%, #14181f 100%)",
+          marginBottom: 40,
+        }}
+      >
+        <div
+          className="wrap"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 48,
+            flexWrap: "wrap",
+            padding: "56px 20px",
+          }}
+        >
+          <div style={{ flex: "1 1 420px", minWidth: 280 }}>
+            {/* H1 rewritten 2026-09-14 alongside HOME_TITLE/HOME_DESCRIPTION
+                above — same reasoning: carries the real target keywords
+                ("car comparisons", "auto news") instead of a pure tagline. */}
+            <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(32px, 4.5vw, 52px)", fontWeight: 800, lineHeight: 1.08, letterSpacing: "-0.01em", margin: "0 0 16px", color: "#fff" }}>
+              Car comparisons and auto news, backed by real numbers
+            </h1>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 17, lineHeight: 1.6, color: "#b8c0cc", maxWidth: 480, margin: "0 0 28px" }}>
+              In-depth comparisons and reviews — every spec, safety rating and price checked, every photo the real
+              car — plus real auto news, covered the same way, as it happens.
+            </p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Link
+                href="/comparisons"
+                style={{
+                  fontFamily: "var(--font-sans)",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  padding: "13px 24px",
+                  borderRadius: 8,
+                  background: "var(--accent)",
+                  color: "#fff",
+                  textDecoration: "none",
+                }}
+              >
+                Explore Comparisons
+              </Link>
+              <Link
+                href="/news"
+                style={{
+                  fontFamily: "var(--font-sans)",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  padding: "13px 24px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  color: "#fff",
+                  textDecoration: "none",
+                }}
+              >
+                Latest News
+              </Link>
+            </div>
+          </div>
+          {heroCarA && heroCarB && (
+            <div style={{ flex: "1 1 360px", minWidth: 280, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[heroCarA, heroCarB].map((car) => (
+                // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                <img
+                  key={car.modelSlug}
+                  src={car.imageUrl}
+                  alt={`${car.brandName} ${car.modelName}`}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "3 / 4",
+                    objectFit: "cover",
+                    objectPosition: "center 35%",
+                    borderRadius: 16,
+                    display: "block",
+                    boxShadow: "var(--shadow-lg)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {featuredArticles.length > 0 && (
@@ -116,107 +209,23 @@ export default async function HomePage() {
         // section at all (see GET /v1/featured-articles's own comment) —
         // exactly the kind of evergreen content a portal's front page
         // should lead with, unlike the news feed this replaces.
-        //
-        // Moved to the very top 2026-09-12, user's own explicit request:
-        // the portal's own evergreen flagship content (comparisons/
-        // analysis) belongs before even the model grid on a page whose
-        // whole point is not being a news feed. "See all" links to the
-        // new /comparisons index page (apps/web/src/app/comparisons/page.tsx).
-        //
-        // Lead-story layout + hard cap (2026-09-14), user's own explicit
-        // ask: this list had no cap at all (the API's own `take: 200` is
-        // for /comparisons' real "see everything" page, not this one) —
-        // it would have grown unbounded as more pieces get published.
-        // Capped to HOMEPAGE_ARTICLE_LIMIT here, client-side only (same
-        // pattern the Guides section below already uses), so /comparisons
-        // stays the actual full list. The newest piece also now renders
-        // as a real "portal lead story" — big photo, headline, and the
-        // article's own first paragraph — instead of the same small
-        // thumbnail row as everything else, addressing the user's own
-        // worry that pausing the catalog would leave the homepage looking
-        // like a bare, uniform feed rather than a real portal front page.
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            <Link href="/comparisons">Comparisons &amp; analysis</Link>
-          </h2>
-          {(() => {
-            const shown = featuredArticles.slice(0, HOMEPAGE_ARTICLE_LIMIT);
-            const [lead, ...rest] = shown;
-            const leadIsLogo = isLogoImage(lead.images);
-            return (
-              <>
-                <div style={{ marginBottom: 24 }}>
-                  {/* Real gap found live 2026-09-15 (user's own
-                      screenshot, direct complaint: "не режь по бокам и
-                      сверху низ" — don't crop the sides or top/bottom):
-                      `object-fit: cover` fills its box by cropping
-                      whatever doesn't fit, silently cutting real content
-                      off a real photo. Every photo on the site now uses
-                      `contain` instead — shows the whole image,
-                      letterboxed rather than cropped, same fix applied
-                      everywhere else this pattern appeared.
-
-                      aspectRatio (not a flat maxHeight) added
-                      2026-09-16, user's own follow-up complaint that the
-                      plain `contain` fix looked "ugly" — a fixed box
-                      shape doesn't match a real photo's own shape, so it
-                      still letterboxed hard.
-
-                      Narrowed from width:"100%" the same day, second
-                      follow-up ask: "картинка тоже левее... надпись ...
-                      ниже, а не правее" — a left-aligned image wide
-                      enough to still be prominent, headline and link
-                      staying below it (not beside it — that was tried
-                      for the news lead below and reverted).
-
-                      LeadMedia (real photos, not just one) added the
-                      same day, third follow-up: this article is a real
-                      COMPARISON piece (Tesla Model 3 vs. Toyota Corolla)
-                      with two real HERO photos, one per car — showing
-                      only images[0] left no visual sense two different
-                      cars were even being discussed. See LeadMedia's own
-                      comment above. */}
-                  {/* Widened 2026-09-16, user's own direct ask ("хотелось
-                      бы на главной картинки побольше... особенно в самой
-                      большой новости превью" — bigger pictures, especially
-                      the lead preview): 440 -> 640. */}
-                  <LeadMedia images={lead.images} isLogo={leadIsLogo} fallbackAlt={lead.headline} width={640} />
-                  <div className="story-meta">{lead.type}</div>
-                  <h3 style={{ fontSize: 26, margin: "4px 0 8px", lineHeight: 1.25 }}>
-                    <Link href={`/articles/${lead.locale}/${lead.slug}`}>{lead.headline}</Link>
-                  </h3>
-                  {lead.subtitle && <p style={{ fontSize: 16, color: "var(--ink-dim)", maxWidth: "38em", margin: 0 }}>{lead.subtitle}</p>}
-                </div>
-                {rest.length > 0 && (
-                  // Grid of real photo cards, 2026-09-16 — was a plain
-                  // list with a 96x64 icon-sized thumbnail (ListRowMedia),
-                  // same user ask as the lead's own width above: bigger
-                  // pictures make the secondary stories feel like real
-                  // content, not an afterthought list. Same light-design
-                  // language as every other grid on the site (see the
-                  // homepage's own header comment on that) — no cards,
-                  // shadows or borders, just a bigger real photo per item.
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "24px 20px" }}>
-                    {rest.map((article) => {
-                      const isLogo = isLogoImage(article.images);
-                      return (
-                        <div key={article.slug}>
-                          <LeadMedia images={article.images} isLogo={isLogo} fallbackAlt={article.headline} width="100%" />
-                          <div className="story-meta">{article.type}</div>
-                          <h3 style={{ fontSize: 17, margin: "2px 0 0", lineHeight: 1.3 }}>
-                            <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-                          </h3>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-          <p className="story-meta">
-            <Link href="/comparisons">See all {featuredArticles.length} comparisons &amp; analysis →</Link>
-          </p>
+        <section style={{ marginBottom: 48 }}>
+          <SectionHeader title="Comparisons & Analysis" subtitle="Head-to-head. Data-backed. No guesswork." href="/comparisons" linkText="See all" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
+            {featuredArticles.slice(0, HOMEPAGE_ARTICLE_LIMIT).map((article) => (
+              <ContentCard
+                key={article.slug}
+                href={`/articles/${article.locale}/${article.slug}`}
+                images={article.images}
+                isLogo={isLogoImage(article.images)}
+                fallbackAlt={article.headline}
+                badge={article.type}
+                title={article.headline}
+                description={article.subtitle}
+                linkText="View Comparison"
+              />
+            ))}
+          </div>
         </section>
       )}
 
@@ -241,246 +250,158 @@ export default async function HomePage() {
         // убираем с главной" — take it off the homepage for now). Not a
         // quality-gate issue this time, just not wanted here right now;
         // data/flag both stay correct for whenever it comes back.
-        false &&
-          featuredCars.length > 0 && (
-        // Real gap found and fixed 2026-09-11: four (now five) fully-built
-        // model pages existed with zero visual entry point anywhere on the
-        // site — only reachable via an article's own cross-link or a
-        // brand page. Only models with a real HERO CarModelImage are ever
-        // returned by GET /v1/featured-cars, so this grid never shows an
-        // empty/placeholder tile.
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            Explore models
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
-            {featuredCars.map((car) => (
-              <Link key={`${car.brandSlug}-${car.modelSlug}`} href={`/cars/${car.brandSlug}/${car.modelSlug}`} style={{ display: "block" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment */}
-                {/* Real gap found and fixed 2026-09-11 (user's own mobile
-                    screenshot): a fixed 120px height cropped fine at
-                    desktop's ~180-220px tile width, but the same grid
-                    collapses to ONE full-width column on a narrow phone
-                    screen (minmax(180px, 1fr)'s own responsive behavior)
-                    — a car photo stretched to 350-400px wide with a
-                    still-120px-tall crop cut off far more of the car
-                    than intended. `aspectRatio` scales the crop
-                    proportionally with the tile's actual width at any
-                    screen size instead of a screen-size-blind pixel
-                    height.
+        false && featuredCars.length > 0 && null
+      }
 
-                    Ratio itself fixed 2026-09-16 (user's own follow-up
-                    complaint that the no-crop `contain` fix looked
-                    "ugly"): a flat "4 / 3" box doesn't match any real car
-                    photo (they run ~1.4–2.2 wide), so `contain` still
-                    letterboxed every tile, by a different amount each —
-                    the actual fix is each tile using its own photo's
-                    real shape instead of one guessed constant. */}
-                <img
-                  src={car.imageUrl}
-                  alt={`${car.brandName} ${car.modelName}`}
-                  // No-crop fix (2026-09-15) — "cover" here cut off
-                  // real parts of the car to fill the tile; "contain"
-                  // shows the whole photo, letterboxed instead.
-                  style={{
-                    width: "100%",
-                    aspectRatio: String(clampedAspectRatio(car.imageWidth, car.imageHeight)),
-                    objectFit: "contain",
-                    background: "var(--surface-alt, rgba(128,128,128,0.06))",
-                    borderRadius: 6,
-                    marginBottom: 8,
-                  }}
-                />
-                <div style={{ fontWeight: 600 }}>
-                  {car.brandName} {car.modelName}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Added 2026-09-16, user's own ask after reading homepage-
+          engagement research together (Reuters Institute Digital News
+          Report: audiences want a format/tool that serves their own
+          task, not just another curated feed) — the homepage's real
+          interactive entry point into the catalog: a live compare tool
+          over 222 real, reviewed cars, not a link into a static grid. */}
+      <section
+        style={{
+          textAlign: "center",
+          marginBottom: 48,
+          padding: "44px 24px",
+          borderRadius: 16,
+          background: "var(--surface-2)",
+        }}
+      >
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
+          Which one should you buy?
+        </div>
+        <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(22px, 3vw, 30px)", fontWeight: 700, margin: "0 auto 20px", maxWidth: 560, lineHeight: 1.3 }}>
+          Confused by choices? We compare what matters so you can buy with confidence.
+        </h2>
+        <Link
+          href="/compare"
+          style={{
+            display: "inline-block",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 600,
+            fontSize: 15,
+            padding: "13px 28px",
+            borderRadius: 8,
+            background: "var(--accent)",
+            color: "#fff",
+            textDecoration: "none",
+          }}
+        >
+          Compare any two cars →
+        </Link>
+      </section>
 
       {/* Added 2026-09-16, user's own ask ("жду как сделать сайт главную
           страницу намного вкуснее и интереснее"): a real video "moment"
           instead of pure text/photo lists all the way down — same
           CinematicVideo component (real curated CarVideo, muted/looping,
           loads only once scrolled to, real unmute) already built for the
-          car-model page, its first use anywhere else. Reuters Institute
-          Digital News Report's own finding on video engagement
-          (2026-09-16 research pass, same one behind the compare tool
-          above) is the grounding — a portal that's only ever text and
-          still photos is leaving real engagement on the table. One real
-          video, not several — a "moment," the same way the reference
-          page the user linked (mk.qira.ru/3) uses exactly one. */}
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-          Watch
-        </h2>
+          car-model page, its first use anywhere else. One real video,
+          not several — a "moment," the same way the reference page the
+          user linked (mk.qira.ru/3) uses exactly one. */}
+      <section style={{ marginBottom: 48 }}>
+        <SectionHeader title="Watch" />
         <CinematicVideo youtubeId="vCniiK7BSNQ" title="2026 Toyota RAV4 Reveal: Ready for Every Road!" label="Official video" />
         <p className="story-meta" style={{ margin: 0 }}>
-          <Link href="/cars/toyota/rav4">See the Toyota RAV4's real specs and trims →</Link>
+          <Link href="/cars/toyota/rav4">See the Toyota RAV4&apos;s real specs and trims →</Link>
         </p>
-      </section>
-
-      <section
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-          marginBottom: 40,
-          padding: "20px 24px",
-          borderRadius: 8,
-          background: "var(--surface-alt, rgba(128,128,128,0.06))",
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 20, margin: "0 0 4px" }}>Which one should you buy?</h2>
-          <p className="story-meta" style={{ margin: 0 }}>
-            Pick any two cars in the catalog — real trims, engines and specs, side by side.
-          </p>
-        </div>
-        <Link
-          href="/compare"
-          style={{
-            flexShrink: 0,
-            padding: "10px 20px",
-            fontSize: 15,
-            fontWeight: 600,
-            borderRadius: 6,
-            background: "var(--accent, #1a1a1a)",
-            color: "#fff",
-            textDecoration: "none",
-          }}
-        >
-          Compare two cars →
-        </Link>
       </section>
 
       {news.length > 0 && (
         // Restored 2026-09-11 (same day as the portal rewrite, per the
         // user's own follow-up): real news the pipeline actually wrote
         // still needs a home on the homepage — just as one section here,
-        // not the page-topping feed it used to be. Same heroUrl/isLogo
-        // rendering as the old "Latest" section and the per-Topic pages.
-        //
-        // "See all" link added 2026-09-11, user's own explicit request:
-        // this sliced to 8 with no way to reach the other 130+ real
-        // published news articles — the exact same real gap /guides
-        // already avoided (its own "See all N" pattern below). /news is
-        // a new, real paginated archive (apps/web/src/app/news/page.tsx),
-        // not a dead link.
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            Latest news
-          </h2>
-          {(() => {
-            // Same portal-lead treatment as Comparisons & analysis above
-            // (2026-09-14, user's own explicit ask): the newest news item
-            // gets a big photo + headline instead of the same 96x64
-            // thumbnail row as everything else.
-            const [lead, ...rest] = news;
-            const leadImages = lead.articles[0]?.images ?? [];
-            const leadIsLogo = isLogoImage(leadImages);
-            const renderMeta = (story: (typeof news)[number]) => (
-              <div className="story-meta">
-                {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                {story.primaryTopic ? (
-                  <>
-                    {" · "}
-                    <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
-                  </>
-                ) : null}
-              </div>
-            );
-            return (
-              <>
-                {/* Left-aligned lead image, 2026-09-16 (user's own direct
-                    ask: "картиночки большие, у главной новости, левее" —
-                    a big image, on the left). First tried as a side-by-
-                    side row with the headline to the right, reverted the
-                    same day on the user's own follow-up: "надпись с
-                    ссылкой на новость ниже, а не правее" — the headline/
-                    link belongs below the image, not beside it; "left"
-                    meant narrower and left-aligned (not full-width), not
-                    a two-column layout. Same fix as the "Comparisons"
-                    lead above — see that one's own comment. */}
-                <div style={{ marginBottom: 24 }}>
-                  {/* Widened 2026-09-16, same ask as the Comparisons lead
-                      above: 440 -> 640. */}
-                  <LeadMedia images={leadImages} isLogo={leadIsLogo} fallbackAlt={lead.title} width={640} />
-                  {renderMeta(lead)}
-                  <h3 style={{ fontSize: 26, margin: "4px 0 0", lineHeight: 1.25 }}>
-                    {lead.articles[0] ? <Link href={`/articles/en/${lead.articles[0].slug}`}>{lead.title}</Link> : lead.title}
-                  </h3>
-                </div>
-                {rest.length > 0 && (
-                  // Photo grid, not a 96x64-icon list — same 2026-09-16
-                  // ask/fix as the Comparisons rest-list above.
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "24px 20px" }}>
-                    {rest.map((story) => {
-                      const images = story.articles[0]?.images ?? [];
-                      const isLogo = isLogoImage(images);
-                      return (
-                        <div key={story.id}>
-                          <LeadMedia images={images} isLogo={isLogo} fallbackAlt={story.title} width="100%" />
-                          {renderMeta(story)}
-                          <h3 style={{ fontSize: 17, margin: "2px 0 0", lineHeight: 1.3 }}>
-                            {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
-                          </h3>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-          <p className="story-meta">
-            <Link href="/news">See all news →</Link>
-          </p>
+        // not the page-topping feed it used to be.
+        <section style={{ marginBottom: 48 }}>
+          <SectionHeader title="Latest News" subtitle="The latest auto news and industry updates" href="/news" linkText="See all" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
+            {news.map((story) => {
+              const images = story.articles[0]?.images ?? [];
+              return (
+                <ContentCard
+                  key={story.id}
+                  href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : "/news"}
+                  images={images}
+                  isLogo={isLogoImage(images)}
+                  fallbackAlt={story.title}
+                  badge={story.primaryTopic?.name ?? "News"}
+                  title={story.title}
+                  description={story.summary}
+                />
+              );
+            })}
+          </div>
         </section>
       )}
 
       {guides.length > 0 && (
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            <Link href="/guides">Guides</Link>
-          </h2>
-          <ul className="story-list">
+        <section style={{ marginBottom: 48 }}>
+          <SectionHeader title="Guides" subtitle="Practical guides to help you drive smarter" href="/guides" linkText="See all" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
             {guides.slice(0, 6).map((guide) => (
-              <li key={guide.slug} className="story-item">
-                <h3 style={{ fontSize: 18, margin: 0 }}>
-                  <Link href={`/articles/${guide.locale}/${guide.slug}`}>{guide.headline}</Link>
-                </h3>
-                {guide.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{guide.subtitle}</p>}
-              </li>
+              <ContentCard
+                key={guide.slug}
+                href={`/articles/${guide.locale}/${guide.slug}`}
+                images={guide.images}
+                isLogo={isLogoImage(guide.images)}
+                fallbackAlt={guide.headline}
+                badge="Guide"
+                title={guide.headline}
+                description={guide.subtitle}
+                linkText="Read Guide"
+              />
             ))}
-          </ul>
-          {guides.length > 6 && (
-            <p className="story-meta">
-              <Link href="/guides">See all {guides.length} →</Link>
-            </p>
-          )}
+          </div>
         </section>
       )}
 
       {brands.length > 0 && (
         <section>
-          <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginBottom: 12 }}>
-            <Link href="/brands">Brands</Link>
-          </h2>
-          <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", listStyle: "none", padding: 0, margin: 0 }}>
+          {/* Real brand logos aren't sourced/licensed anywhere in this
+              project — same "real, checked" bar as every car photo (see
+              real-photos-never-ai-generated.md) applies to trademarked
+              brand marks too, not just to sourcing them via AI. A clean
+              text wordmark row is the honest version of the mockups' own
+              logo strip until real, rights-checked brand marks exist. */}
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-muted)", textAlign: "center", marginBottom: 20 }}>
+            Trusted insights across every brand
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px 32px" }}>
             {brands.map((brand) => (
-              <li key={brand.slug} style={{ fontSize: 16 }}>
-                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
-              </li>
+              <Link
+                key={brand.slug}
+                href={`/brands/${brand.slug}`}
+                style={{ fontFamily: "var(--font-sans)", fontSize: 17, fontWeight: 700, color: "var(--ink-dim)", textDecoration: "none" }}
+              >
+                {brand.name}
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </>
+  );
+}
+
+// Shared section eyebrow/heading, 2026-09-16 redesign — every section
+// below the hero used its own hand-rolled `<h2>` with an identical
+// uppercase-eyebrow style; this is that same style once, plus the
+// mockups' own "See all →" link pattern in the same row.
+function SectionHeader({ title, subtitle, href, linkText }: { title: string; subtitle?: string; href?: string; linkText?: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+      <div>
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
+          {title}
+        </div>
+        {subtitle && <h2 style={{ fontFamily: "var(--font-sans)", fontSize: 24, fontWeight: 700, margin: 0 }}>{subtitle}</h2>}
+      </div>
+      {href && linkText && (
+        <Link href={href} style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink-dim)", textDecoration: "none", whiteSpace: "nowrap" }}>
+          {linkText} →
+        </Link>
+      )}
+    </div>
   );
 }

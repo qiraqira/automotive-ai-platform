@@ -419,6 +419,11 @@ app.get("/v1/guides", async (_req, res) => {
       subtitle: true,
       publishedAt: true,
       updatedAt: true,
+      // Added 2026-09-16 (premium-redesign pass, GuideCard) — this
+      // endpoint never selected images at all; every guide rendered as
+      // a bare text link. Same shape/take:2 as every other real-content
+      // list in this file (see /v1/featured-articles's own comment).
+      images: { where: { role: "HERO" }, select: { altText: true, image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 2 },
       factualScore: true,
       sourceScore: true,
       qualityScore: true,
@@ -431,7 +436,7 @@ app.get("/v1/guides", async (_req, res) => {
   });
   const guides = rows
     .filter((a) => !isRejectedByQualityGate(a))
-    .map(({ locale, slug, headline, subtitle, publishedAt, updatedAt }) => ({ locale, slug, headline, subtitle, publishedAt, updatedAt }));
+    .map(({ locale, slug, headline, subtitle, publishedAt, updatedAt, images }) => ({ locale, slug, headline, subtitle, publishedAt, updatedAt, images }));
   res.json({ guides });
 });
 

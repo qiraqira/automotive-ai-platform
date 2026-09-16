@@ -42,6 +42,8 @@ export function LeadMedia({
   isLogo,
   fallbackAlt,
   width = 440,
+  borderRadius = 6,
+  marginBottom = 12,
 }: {
   images: ArticleImageRef[];
   isLogo: boolean;
@@ -51,6 +53,11 @@ export function LeadMedia({
   // 2026-09-16 so the same component covers both the single big lead
   // photo and a grid of same-sized secondary-story photos.
   width?: number | string;
+  // Added 2026-09-16 for ContentCard.tsx: a card already rounds+clips
+  // its own outer corners (`.premium-card`), so the image's own
+  // independent corner radius double-rounds against it — pass 0 there.
+  borderRadius?: number;
+  marginBottom?: number;
 }) {
   if (images.length === 0 || isLogo) return null;
   if (images.length === 1) {
@@ -66,8 +73,8 @@ export function LeadMedia({
           aspectRatio: String(clampedAspectRatio(img.image.width, img.image.height)),
           objectFit: "contain",
           background: "var(--surface-alt, rgba(128,128,128,0.06))",
-          borderRadius: 6,
-          marginBottom: 12,
+          borderRadius,
+          marginBottom,
           display: "block",
         }}
       />
@@ -76,14 +83,14 @@ export function LeadMedia({
   const [left, right] = images;
   const sharedRatio = String(pairedAspectRatio(left!.image, right!.image));
   return (
-    <div style={{ width, maxWidth: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+    <div style={{ width, maxWidth: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom }}>
       {[left, right].map((img, i) => (
         // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
         <img
           key={i}
           src={img!.image.originalUrl}
           alt={img!.altText ?? fallbackAlt}
-          style={{ width: "100%", aspectRatio: sharedRatio, objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius: 6, display: "block" }}
+          style={{ width: "100%", aspectRatio: sharedRatio, objectFit: "contain", background: "var(--surface-alt, rgba(128,128,128,0.06))", borderRadius, display: "block" }}
         />
       ))}
     </div>

@@ -29,15 +29,24 @@ const nextConfig = {
     // static generation, no ISR), and several real pages here
     // (/about/*, the homepage) are legitimately static today. This app
     // has no analytics and no next/font — nearly every resource is
-    // same-origin. The one real exception, added 2026-09-16 alongside
-    // CinematicVideo.tsx: the YouTube IFrame Player API's own bootstrap
-    // script only ever loads from https://www.youtube.com (there's no
-    // privacy-enhanced/nocookie variant of that one small loader file —
-    // only the video iframe itself has one, still forced to
-    // youtube-nocookie.com via frame-src below and the player's own
-    // `host` option), and its reduced-motion poster thumbnail comes from
-    // https://img.youtube.com. Both narrowly allow-listed rather than
-    // widening to any external host.
+    // same-origin. Two real, narrow exceptions:
+    //  - Added 2026-09-16 alongside CinematicVideo.tsx: the YouTube
+    //    IFrame Player API's own bootstrap script only ever loads from
+    //    https://www.youtube.com (there's no privacy-enhanced/nocookie
+    //    variant of that one small loader file — only the video iframe
+    //    itself has one, still forced to youtube-nocookie.com via
+    //    frame-src below and the player's own `host` option), and its
+    //    reduced-motion poster thumbnail comes from
+    //    https://img.youtube.com.
+    //  - Added 2026-09-16, same day, for the premium-redesign pass
+    //    (user's own approved mockup): Inter loads from Google's own
+    //    fonts.googleapis.com stylesheet + fonts.gstatic.com font files,
+    //    deliberately not self-hosted — no next/font in this app (see
+    //    above), and a plain <link> to Google Fonts is the lowest-risk
+    //    way to add one real typeface without introducing a font-file
+    //    build step.
+    // Every one of these is narrowly allow-listed rather than widening
+    // to any external host.
     // `'unsafe-inline'` on script-src/style-src is required, not
     // optional: Next injects its own inline hydration-data script on
     // every page, and this codebase styles almost everything via React's
@@ -50,9 +59,9 @@ const nextConfig = {
     const cspHeader = `
       default-src 'self';
       script-src 'self' 'unsafe-inline' https://www.youtube.com${isDev ? " 'unsafe-eval'" : ""};
-      style-src 'self' 'unsafe-inline';
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       img-src 'self' data: https://*.wikimedia.org https://img.youtube.com;
-      font-src 'self';
+      font-src 'self' https://fonts.gstatic.com;
       connect-src 'self'${isDev ? " ws:" : ""};
       object-src 'none';
       base-uri 'self';

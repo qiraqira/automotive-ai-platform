@@ -252,6 +252,7 @@ export interface GuideSummary {
   subtitle: string | null;
   publishedAt: string | null;
   updatedAt: string;
+  images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[];
 }
 
 // New /guides section (2026-09-11) — user's own pick from the vertical-

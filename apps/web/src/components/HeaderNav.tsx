@@ -43,18 +43,31 @@ export default function HeaderNav() {
 
   return (
     <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 16 }}>
-      <a href="/search" style={{ fontFamily: "Arial, sans-serif", fontSize: 13 }}>
+      {/* Colors made explicit (white / translucent-white) 2026-09-16 —
+          these two trigger elements sit on the header's own dark
+          background (see globals.css's `header.site`), unlike the
+          dropdown panel below which is deliberately still light. */}
+      <a href="/search" style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "#fff" }}>
         Search
       </a>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Menu"
         aria-expanded={open}
-        style={{ background: "none", border: "1px solid var(--line)", borderRadius: 4, padding: "6px 8px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 3 }}
+        style={{
+          background: "none",
+          border: "1px solid rgba(255,255,255,0.3)",
+          borderRadius: 4,
+          padding: "6px 8px",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
+        }}
       >
-        <span style={{ width: 18, height: 2, background: "var(--ink)", display: "block" }} />
-        <span style={{ width: 18, height: 2, background: "var(--ink)", display: "block" }} />
-        <span style={{ width: 18, height: 2, background: "var(--ink)", display: "block" }} />
+        <span style={{ width: 18, height: 2, background: "#fff", display: "block" }} />
+        <span style={{ width: 18, height: 2, background: "#fff", display: "block" }} />
+        <span style={{ width: 18, height: 2, background: "#fff", display: "block" }} />
       </button>
       {open && (
         <div
@@ -69,7 +82,7 @@ export default function HeaderNav() {
             padding: 12,
             minWidth: 220,
             zIndex: 30,
-            fontFamily: "Arial, sans-serif",
+            fontFamily: "var(--font-sans)",
             fontSize: 14,
           }}
         >
