@@ -399,6 +399,40 @@ app.get("/v1/articles", async (_req, res) => {
   res.json({ articles });
 });
 
+// Real gap found and fixed 2026-09-17, user's own direct question ("нужны
+// ли доделки для этого?" re: Google News eligibility): a Google News
+// sitemap needs its own feed — real NEWS/BREAKING_NEWS articles from the
+// last 48 hours specifically, each with a title (Google News sitemaps use
+// <news:title>, not just the URL), which GET /v1/articles above doesn't
+// carry and isn't type/date-scoped for anyway (it's the general sitemap's
+// feed, meant to include every real published Article regardless of type
+// or age). Same quality-gate filter as every other reader/crawler-facing
+// feed in this file.
+app.get("/v1/news-sitemap-articles", async (_req, res) => {
+  const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const rows = await prisma.article.findMany({
+    where: { status: "PUBLISHED", type: { in: ["NEWS", "BREAKING_NEWS"] }, publishedAt: { gte: since } },
+    select: {
+      locale: true,
+      slug: true,
+      headline: true,
+      publishedAt: true,
+      factualScore: true,
+      sourceScore: true,
+      qualityScore: true,
+      originalityScore: true,
+      valueScore: true,
+      readabilityScore: true,
+    },
+    orderBy: { publishedAt: "desc" },
+    take: 1000,
+  });
+  const articles = rows
+    .filter((a) => !isRejectedByQualityGate(a))
+    .map(({ locale, slug, headline, publishedAt }) => ({ locale, slug, headline, publishedAt }));
+  res.json({ articles });
+});
+
 // --- Guides (spec's proposed /guides section — user picked this over
 // folding guide content into an existing section: "Новый раздел /guides
 // (Recommended)", 2026-09-11) ---

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { getStories } from "@/lib/api";
 import { rankStories } from "@/lib/ranking";
+import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
+import { ContentCard } from "@/components/ContentCard";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const PAGE_SIZE = 24;
@@ -34,6 +36,12 @@ export async function generateMetadata(): Promise<Metadata> {
 // this site has no infinite-scroll/client-pagination anywhere else
 // either, so a plain `?page=N` GET link matches the same "no client JS
 // required" convention as /search's own form.
+//
+// Premium redesign, 2026-09-17 — user's own direct ask ("news и гайды
+// тоже современно надо сделать с большой новостью"), same pattern as
+// /comparisons and /topics/[slug]: the newest story as a large featured
+// hero card (page 1 only — "the latest story" doesn't mean anything on
+// page 2+), the rest in the same ContentCard grid.
 export default async function NewsIndexPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
@@ -41,6 +49,7 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
 
   const { stories: unranked, hasMore } = await getStories({ limit: PAGE_SIZE, offset, hasArticle: true });
   const stories = rankStories(unranked);
+  const [featured, ...rest] = page === 1 ? stories : [undefined, ...stories];
 
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: SITE_URL },
@@ -54,60 +63,75 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
         News
-      </h2>
-      <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>Every published story, newest first</h1>
+      </div>
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 32px", lineHeight: 1.15 }}>
+        Every published story, newest first
+      </h1>
 
-      <ul className="story-list">
-        {stories.map((story) => {
-          const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-          const isLogo =
-            story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
-          return (
-            <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              {heroUrl && (
-                // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                <img
-                  src={heroUrl}
-                  alt=""
-                  style={{
-                    width: 96,
-                    height: 64,
-                    // No-crop fix (2026-09-15): "cover" cut real
-                    // content off real photos to fill the box.
-                    objectFit: "contain",
-                    background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
-                    padding: isLogo ? 8 : undefined,
-                    flexShrink: 0,
-                    borderRadius: 4,
-                  }}
-                />
-              )}
-              <div>
-                <div className="story-meta">
-                  {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                  {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                  {story.primaryTopic ? (
-                    <>
-                      {" · "}
-                      <Link href={`/topics/${story.primaryTopic.slug}`}>{story.primaryTopic.name}</Link>
-                    </>
-                  ) : null}
-                </div>
-                <h3 style={{ fontSize: 18, margin: 0 }}>
-                  {story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}
-                </h3>
-              </div>
-            </li>
-          );
-        })}
-        {stories.length === 0 && <p>No stories on this page.</p>}
-      </ul>
+      {featured && (
+        <Link
+          href={featured.articles[0] ? `/articles/en/${featured.articles[0].slug}` : "/news"}
+          className="premium-card"
+          style={{ display: "block", marginBottom: 40 }}
+        >
+          <LeadMedia
+            images={featured.articles[0]?.images ?? []}
+            isLogo={isLogoImage(featured.articles[0]?.images ?? [])}
+            fallbackAlt={featured.title}
+            width="100%"
+            borderRadius={0}
+            marginBottom={0}
+          />
+          <div style={{ padding: "24px 28px 28px" }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
+              Latest story
+            </div>
+            <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(22px, 2.6vw, 30px)", fontWeight: 800, margin: "0 0 12px", lineHeight: 1.2 }}>
+              {featured.title}
+            </h2>
+            <div className="story-meta">
+              {featured._count.sourceArticles} source{featured._count.sourceArticles === 1 ? "" : "s"}
+              {featured.sources[0] ? ` · via ${featured.sources[0].source.name}` : ""}
+              {featured.primaryTopic ? ` · ${featured.primaryTopic.name}` : ""}
+            </div>
+          </div>
+        </Link>
+      )}
 
-      <div style={{ display: "flex", gap: 16, marginTop: 24 }}>
-        {page > 1 && <Link href={page === 2 ? "/news" : `/news?page=${page - 1}`}>← Newer</Link>}
-        {hasMore && <Link href={`/news?page=${page + 1}`}>Older →</Link>}
+      {rest.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
+          {rest.map((story) => {
+            if (!story) return null;
+            const images = story.articles[0]?.images ?? [];
+            return (
+              <ContentCard
+                key={story.id}
+                href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : "/news"}
+                images={images}
+                isLogo={isLogoImage(images)}
+                fallbackAlt={story.title}
+                badge={story.primaryTopic?.name ?? "News"}
+                title={story.title}
+              />
+            );
+          })}
+        </div>
+      )}
+      {stories.length === 0 && <p>No stories on this page.</p>}
+
+      <div style={{ display: "flex", gap: 16, marginTop: 32 }}>
+        {page > 1 && (
+          <Link href={page === 2 ? "/news" : `/news?page=${page - 1}`} style={{ fontFamily: "var(--font-sans)", fontSize: 14.5, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>
+            ← Newer
+          </Link>
+        )}
+        {hasMore && (
+          <Link href={`/news?page=${page + 1}`} style={{ fontFamily: "var(--font-sans)", fontSize: 14.5, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}>
+            Older →
+          </Link>
+        )}
       </div>
     </section>
   );

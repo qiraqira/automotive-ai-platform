@@ -245,6 +245,16 @@ export function getArticleSlugs(): Promise<{
   return apiGet("/v1/articles");
 }
 
+// Backs /news-sitemap.xml — see GET /v1/news-sitemap-articles's own
+// comment for why this is a separate feed from getArticleSlugs above
+// (NEWS/BREAKING_NEWS only, last 48 hours only, carries a real headline
+// for <news:title>).
+export function getNewsSitemapArticles(): Promise<{
+  articles: { locale: string; slug: string; headline: string; publishedAt: string | null }[];
+}> {
+  return apiGet("/v1/news-sitemap-articles");
+}
+
 export interface GuideSummary {
   locale: string;
   slug: string;

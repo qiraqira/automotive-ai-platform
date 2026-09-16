@@ -125,6 +125,13 @@ export default async function ArticlePage({
     url: pageUrl,
     authorName: SITE_NAME,
     publisherName: SITE_NAME,
+    // Real gap found and fixed 2026-09-17 (user's own question about
+    // Google News readiness): this was never set, so every Article/
+    // NewsArticle's publisher had no logo at all in structured data.
+    // apps/web/src/app/apple-icon.tsx already generates a real 180x180
+    // PNG of the site's own mark (next/og, no separate asset needed) —
+    // reused here rather than building a second logo image.
+    publisherLogoUrl: `${SITE_URL}/apple-icon`,
     // See buildArticleJsonLd's own comment: only genuinely time-sensitive
     // news content claims NewsArticle; GUIDE/COMPARISON/ANALYSIS/etc. are
     // evergreen and get plain Article.

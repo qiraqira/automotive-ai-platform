@@ -12,6 +12,10 @@ const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: { userAgent: "*", allow: "/", disallow: "/admin/" },
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    // news-sitemap.xml added 2026-09-17 (see that route's own comment) —
+    // listing both here is the standard way to expose more than one
+    // sitemap; Google News specifically looks for a sitemap using the
+    // news:// extension, which the general sitemap.xml doesn't carry.
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/news-sitemap.xml`],
   };
 }
