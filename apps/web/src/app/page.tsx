@@ -110,8 +110,22 @@ export default async function HomePage() {
   // /v1/featured-cars's own comment: X5 was the user's own example of a
   // catalog model done right), not the Civic/Mazda3 pair. Each photo now
   // also links to its own brand catalog page, per that same request.
-  const heroCarA = findHeroCarPhoto(featuredCars, "bmw", "x5");
-  const heroCarB = findHeroCarPhoto(featuredCars, "audi", "q7");
+  //
+  // Swapped again same day to 7 Series / Q5, user's own direct follow-up
+  // ("некрасиво обрезано. подбирай картинки так чтобы красиво
+  // обрезались"): X5 (1200x641, 1.87 wide) and Q7 (1200x621, 1.93 wide)
+  // are both long 3/4-driving/profile shots — cropping either into a
+  // square (object-fit:cover) trims so much off the sides that the crop
+  // lands mid-car rather than showing a clean, recognizable front end.
+  // Checked every reviewed BMW/Audi hero photo's real aspect ratio for
+  // the closest-to-square pair instead of guessing: 7 Series (1200x900,
+  // 1.33 — the closest of any BMW) and Q5 (1200x798, 1.50, tied for
+  // closest Audi with Q3) are both already tight, centered 3/4-front
+  // shots with the grille/badge close to frame-center, so a square crop
+  // barely trims the sides instead of cutting through the middle of
+  // the car.
+  const heroCarA = findHeroCarPhoto(featuredCars, "bmw", "7-series");
+  const heroCarB = findHeroCarPhoto(featuredCars, "audi", "q5");
 
   return (
     <>
@@ -202,7 +216,7 @@ export default async function HomePage() {
                     width: "100%",
                     height: "100%",
                     objectFit: "cover",
-                    objectPosition: "center 40%",
+                    objectPosition: "center",
                     borderRadius: 16,
                     display: "block",
                     boxShadow: "var(--shadow-lg)",
