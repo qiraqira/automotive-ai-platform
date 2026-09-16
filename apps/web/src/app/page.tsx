@@ -381,6 +381,7 @@ export default async function HomePage() {
               />
             ))}
           </div>
+          <SectionFooterLink href="/guides" label="Read more guides" />
         </section>
       )}
 
