@@ -6,7 +6,6 @@ import { rankStories } from "@/lib/ranking";
 import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
 import { ContentCard } from "@/components/ContentCard";
 import CinematicVideo from "@/components/CinematicVideo";
-import { pairedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -103,12 +102,16 @@ export default async function HomePage() {
   const brands = allBrands.filter((b) => b.contentCount > 0 || b.reviewedModelCount > 0);
   const news = rankStories(unrankedStories).slice(0, 7);
 
-  // Real hero photo pair, 2026-09-16 — the Civic + Mazda3 this site
-  // already has a real published comparison about (both real,
-  // already self-hosted HERO photos, same pair ContentCard uses below
-  // for that article's own card) rather than any newly sourced image.
-  const heroCarA = findHeroCarPhoto(featuredCars, "honda", "civic");
-  const heroCarB = findHeroCarPhoto(featuredCars, "mazda", "mazda3");
+  // Hero photo pair swapped 2026-09-17, user's own direct call after
+  // seeing the same-day no-crop (object-fit:contain) version live: two
+  // letterboxed photos read as "бестолковые" (awkward/pointless) rather
+  // than clean. Reverted to a filled, cropped square — but BMW X5 and
+  // Audi Q7 specifically, both hand-reviewed catalog entries (see GET
+  // /v1/featured-cars's own comment: X5 was the user's own example of a
+  // catalog model done right), not the Civic/Mazda3 pair. Each photo now
+  // also links to its own brand catalog page, per that same request.
+  const heroCarA = findHeroCarPhoto(featuredCars, "bmw", "x5");
+  const heroCarB = findHeroCarPhoto(featuredCars, "audi", "q7");
 
   return (
     <>
@@ -181,43 +184,31 @@ export default async function HomePage() {
             </div>
           </div>
           {heroCarA && heroCarB && (
-            // Real crop bug found and fixed 2026-09-17, user's own direct
-            // complaint ("на главной странице у нас 2 фотки обрезанные
-            // машины"): this forced both real car photos into a portrait
-            // 3:4 box with object-fit:cover, which — since real car photos
-            // run wide (1.4-2.2 ratio, see image-aspect.ts), not portrait
-            // — cropped a real chunk off the front/rear of both cars. Every
-            // other image on the site already solved this exact problem
-            // (see that file's own comment for the no-crop pass this
-            // homepage hero was apparently never included in): a shared,
-            // real aspect ratio from each photo's own actual dimensions
-            // plus object-fit:contain, so the whole car is always visible.
-            <div
-              style={{
-                flex: "1 1 360px",
-                minWidth: 280,
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-                aspectRatio: String(pairedAspectRatio({ width: heroCarA.imageWidth, height: heroCarA.imageHeight }, { width: heroCarB.imageWidth, height: heroCarB.imageHeight })),
-              }}
-            >
+            // Reverted to a filled, cropped square 2026-09-17 (see the
+            // heroCarA/heroCarB comment above for why) — full square tiles
+            // read cleaner here than the letterboxed real-ratio version
+            // that replaced the original 3:4 crop earlier the same day.
+            // Each tile is now its own link to that car's brand catalog,
+            // per the same request ("при клике на них куда-то шла ссылка
+            // ... на каталог Ауди или каталог БМВ").
+            <div style={{ flex: "1 1 360px", minWidth: 280, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[heroCarA, heroCarB].map((car) => (
                 // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+                <Link key={car.modelSlug} href={`/brands/${car.brandSlug}`} style={{ display: "block", aspectRatio: "1 / 1" }}>
                 <img
-                  key={car.modelSlug}
                   src={car.imageUrl}
                   alt={`${car.brandName} ${car.modelName}`}
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "contain",
-                    background: "rgba(255,255,255,0.04)",
+                    objectFit: "cover",
+                    objectPosition: "center 40%",
                     borderRadius: 16,
                     display: "block",
                     boxShadow: "var(--shadow-lg)",
                   }}
                 />
+                </Link>
               ))}
             </div>
           )}
