@@ -65,6 +65,8 @@
     "fix:mismatched-hero-images": "tsx src/fix-mismatched-hero-images.ts",
     "fix:mismatched-hero-images-2": "tsx src/fix-mismatched-hero-images-batch2.ts",
     "fix:cybercab-image": "tsx src/fix-cybercab-image.ts",
+    "backfill:missing-article-photos": "tsx src/backfill-missing-article-photos.ts",
+    "backfill:remaining-car-photos": "tsx src/backfill-remaining-car-photos.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
