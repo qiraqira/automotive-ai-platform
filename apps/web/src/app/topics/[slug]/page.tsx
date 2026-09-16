@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { getTopic } from "@/lib/api";
+import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
+import { ContentCard } from "@/components/ContentCard";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -34,11 +36,23 @@ export async function generateMetadata({
 // Classifier pipeline stage's stand-in until an AI classifier exists).
 // Ordered by lastUpdatedAt, not computeRankingScore(): a topic page is a
 // "what's new here" list, not a ranked front page.
+//
+// Premium redesign, 2026-09-17 — user's own direct ask ("все топики как
+// этот и так далее тоже сделай главную новость главной", pointing at the
+// already-redesigned /comparisons page) to bring every topic page in
+// line with that same pattern rather than leaving it on the old plain
+// `<ul className="story-list">` layout: the newest story as a large
+// featured hero card, the rest in the same ContentCard grid the
+// homepage/comparisons pages use. The "Analysis & guides" section below
+// (real evergreen Articles tagged directly with this Topic — see
+// TopicArticleSummary's own comment) gets the same card-grid treatment.
 export default async function TopicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const result = await getTopic(slug);
   if (!result) notFound();
   const { topic, stories, articles } = result;
+  const [featured, ...restStories] = stories;
+  const featuredImages = featured?.articles[0]?.images ?? [];
 
   // spec §29: real BreadcrumbList — same reasoning as the car page (see
   // its own comment), no fabricated "/topics" index page since none
@@ -55,62 +69,64 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      {/* SEO pass (2026-09-11): swapped which of these two is the real H1
-          — a page should have exactly one H1, and it should be the
-          specific, descriptive heading ("E-Bikes & Scooters"), not the
-          generic eyebrow label ("Topic") every topic page shared. Same
-          two lines, same styles, same visual result — only the tag
-          names moved. */}
-      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
         Topic
-      </h2>
-      <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>{topic.name}</h1>
-      <ul className="story-list">
-        {stories.map((story) => {
-          const heroUrl = story.articles[0]?.images[0]?.image.originalUrl;
-          // Brand-logo fallback (fetch-images.ts's EDITORIAL_ONLY path) is usually
-          // square/circular in a landscape box — every image here uses
-          // objectFit:"contain" (2026-09-15, no-crop fix) so it's never cropped,
-          // but a logo still gets a white background + padding instead of the
-          // plain photo background, since it wasn't designed to sit on one.
-          // Most real logo fallbacks on production come through the generic
-          // Commons/Openverse search matching a "*logo*" filename rather than
-          // the deliberate brand-logo path, so rightsStatus alone misses most
-          // of them — the filename match catches those too.
-          const isLogo =
-            story.articles[0]?.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
-          return (
-            <li key={story.id} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              {heroUrl && (
-                // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                <img
-                  src={heroUrl}
-                  alt=""
-                  style={{
-                    width: 96,
-                    height: 64,
-                    // No-crop fix (2026-09-15): "cover" cut real
-                    // content off real photos to fill the box.
-                    objectFit: "contain",
-                    background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
-                    padding: isLogo ? 8 : undefined,
-                    flexShrink: 0,
-                    borderRadius: 4,
-                  }}
-                />
-              )}
-              <div>
-                <div className="story-meta">
-                  {story.status} · {story._count.sourceArticles} source{story._count.sourceArticles === 1 ? "" : "s"}
-                  {story.sources[0] ? ` · via ${story.sources[0].source.name}` : ""}
-                </div>
-                <h2>{story.articles[0] ? <Link href={`/articles/en/${story.articles[0].slug}`}>{story.title}</Link> : story.title}</h2>
-              </div>
-            </li>
-          );
-        })}
-        {stories.length === 0 && <p>No stories classified under this topic yet.</p>}
-      </ul>
+      </div>
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 32px", lineHeight: 1.15 }}>
+        {topic.name}
+      </h1>
+
+      {featured && (
+        // Stacked (photo on top, text below) — same layout the
+        // /comparisons hero card settled on 2026-09-17 after the user's
+        // own direct correction there.
+        <Link
+          href={featured.articles[0] ? `/articles/en/${featured.articles[0].slug}` : "#"}
+          className="premium-card"
+          style={{ display: "block", marginBottom: 40, pointerEvents: featured.articles[0] ? "auto" : "none" }}
+        >
+          <div style={{ position: "relative" }}>
+            <LeadMedia images={featuredImages} isLogo={isLogoImage(featuredImages)} fallbackAlt={featured.title} width="100%" borderRadius={0} marginBottom={0} />
+          </div>
+          <div style={{ padding: "24px 28px 28px" }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
+              Latest story
+            </div>
+            <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(22px, 2.6vw, 30px)", fontWeight: 800, margin: "0 0 12px", lineHeight: 1.2 }}>
+              {featured.title}
+            </h2>
+            {featured.summary && (
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: 15, color: "var(--ink-dim)", lineHeight: 1.6, margin: "0 0 18px" }}>{featured.summary}</p>
+            )}
+            <div className="story-meta">
+              {featured.status} · {featured._count.sourceArticles} source{featured._count.sourceArticles === 1 ? "" : "s"}
+              {featured.sources[0] ? ` · via ${featured.sources[0].source.name}` : ""}
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {restStories.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24, marginBottom: articles.length > 0 ? 48 : 0 }}>
+          {restStories.map((story) => {
+            const images = story.articles[0]?.images ?? [];
+            return (
+              <ContentCard
+                key={story.id}
+                href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : `/topics/${slug}`}
+                images={images}
+                isLogo={isLogoImage(images)}
+                fallbackAlt={story.title}
+                badge={story.primaryTopic?.name ?? "News"}
+                title={story.title}
+                description={story.summary}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {stories.length === 0 && <p>No stories classified under this topic yet.</p>}
 
       {articles.length > 0 && (
         // Real gap found and fixed 2026-09-11: evergreen content
@@ -119,44 +135,23 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         // see Article.topicId's own schema comment for why a Story-only
         // feed missed this real category of content entirely.
         <>
-          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)", marginTop: 32 }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 20 }}>
             Analysis &amp; guides
-          </h2>
-          <ul className="story-list">
-            {articles.map((article) => {
-              const heroUrl = article.images[0]?.image.originalUrl;
-              const isLogo =
-                article.images[0]?.image.rightsStatus === "EDITORIAL_ONLY" || (heroUrl?.toLowerCase().includes("logo") ?? false);
-              return (
-                <li key={article.slug} className="story-item" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {heroUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                    <img
-                      src={heroUrl}
-                      alt=""
-                      style={{
-                        width: 96,
-                        height: 64,
-                        // No-crop fix (2026-09-15): "cover" cut real
-                        // content off real photos to fill the box.
-                        objectFit: "contain",
-                        background: isLogo ? "#fff" : "var(--surface-alt, rgba(128,128,128,0.06))",
-                        padding: isLogo ? 8 : undefined,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                      }}
-                    />
-                  )}
-                  <div>
-                    <div className="story-meta">{article.type}</div>
-                    <h3 style={{ fontSize: 18, margin: 0 }}>
-                      <Link href={`/articles/en/${article.slug}`}>{article.headline}</Link>
-                    </h3>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
+            {articles.map((article) => (
+              <ContentCard
+                key={article.slug}
+                href={`/articles/en/${article.slug}`}
+                images={article.images}
+                isLogo={isLogoImage(article.images)}
+                fallbackAlt={article.headline}
+                badge={article.type}
+                title={article.headline}
+                description={article.subtitle}
+              />
+            ))}
+          </div>
         </>
       )}
     </section>

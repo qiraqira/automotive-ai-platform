@@ -42,6 +42,21 @@ body {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 17px;
   line-height: 1.5;
+  /* Real bug found and fixed 2026-09-17, user's own direct report (Chrome,
+     zooming with Ctrl+/Ctrl-): the homepage's dark hero section breaks out
+     to full-bleed via `width: 100vw` + negative margins (page.tsx) — a
+     common, otherwise-fine technique, but `100vw` includes the vertical
+     scrollbar's own width, which the actual visible viewport does not, so
+     the hero renders very slightly wider than the page and a horizontal
+     scrollbar appears. That extra width is usually sub-pixel and easy to
+     miss at 100% zoom, but browser zoom changes the effective scrollbar
+     width relative to the page, which is exactly why it only showed up
+     at certain zoom levels. Suppressing horizontal overflow at the body
+     level is the standard fix for this exact pattern, and safe site-wide
+     since nothing on the page is meant to scroll horizontally on its
+     own (any content that legitimately needs it, like a wide table,
+     scrolls inside its own container instead). */
+  overflow-x: hidden;
 }
 
 a {
