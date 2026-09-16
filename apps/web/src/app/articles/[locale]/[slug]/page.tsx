@@ -367,7 +367,7 @@ export default async function ArticlePage({
         });
       })()}
 
-      {article.carModels.some(({ carModel }) => carModel.videos.length > 0) && (
+      {article.carModels.length > 0 && article.carModels.every(({ carModel }) => carModel.videos.length > 0) && (
         // Real gap found and fixed 2026-09-11 (first real use on the BMW
         // X5 vs GLE rebuild): every linked CarModel already has real
         // OFFICIAL/CRASH_TEST video on its own model page (see GET
@@ -375,6 +375,14 @@ export default async function ArticlePage({
         // where a reader most wants to see both cars' own official
         // trailer and Euro NCAP footage side by side, not just a link
         // away to each model page separately.
+        //
+        // Changed from .some() to .every(), 2026-09-16 — user's own
+        // direct catch: this rendered as soon as ANY linked car had a
+        // video, so a pair where only one side had curated footage
+        // showed a one-sided "Compare on video" section that read as
+        // implicitly favoring whichever car happened to have one. A
+        // real comparison either shows both sides on video or shows
+        // neither — see memory/comparison-article-video-balance.md.
         <div style={{ marginTop: 24, marginBottom: 24 }}>
           <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare on video</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 8 }}>
