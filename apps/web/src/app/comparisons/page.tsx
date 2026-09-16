@@ -64,12 +64,14 @@ export default async function ComparisonsIndexPage() {
       </p>
 
       {featured && (
-        <Link
-          href={`/articles/${featured.locale}/${featured.slug}`}
-          className="premium-card"
-          style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1fr)", gap: 0, marginBottom: 40, alignItems: "stretch" }}
-        >
-          <div style={{ position: "relative", minHeight: 260 }}>
+        // Stacked (photo on top, text below), not side-by-side — user's
+        // own direct correction 2026-09-17 after seeing the first version
+        // live ("расположение текста у главного первого поста внизу лучше
+        // а не справа"). Text block still gets more room than the small-
+        // card grid below it (wider padding, bigger heading) so it stays
+        // visually the "hero," just stacked instead of two columns.
+        <Link href={`/articles/${featured.locale}/${featured.slug}`} className="premium-card" style={{ display: "block", marginBottom: 40 }}>
+          <div style={{ position: "relative" }}>
             <LeadMedia
               images={featured.images}
               isLogo={isLogoImage(featured.images)}
@@ -99,7 +101,7 @@ export default async function ComparisonsIndexPage() {
               </span>
             )}
           </div>
-          <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ padding: "24px 28px 28px" }}>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
               Latest comparison
             </div>
