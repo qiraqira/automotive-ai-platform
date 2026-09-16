@@ -1,7 +1,8 @@
 import { prisma } from "@automotive/database";
 import { extractYoutubeId } from "@automotive/utils";
-import { searchCommonsImage, hashRemoteImage, getOrCreateLicense, rightsStatusFor } from "./fetch-images.js";
+import { searchCommonsImage, getOrCreateLicense, rightsStatusFor } from "./fetch-images.js";
 import { verifyImageMatch } from "./verify-image.js";
+import { selfHostImage } from "./self-host-image.js";
 
 // Real gap found live 2026-09-11: the CarVideo feature itself (schema,
 // admin UI, public embed) shipped two ticks ago, but nothing ever
@@ -76,23 +77,34 @@ async function attachVerifiedCommonsPhoto(carModelId: string, query: string, alt
     console.log(`  Photo (${altText}): Commons candidate found but failed vision verification — skipped rather than risk a wrong photo.`);
     return;
   }
-  const { sha256 } = await hashRemoteImage(candidate.thumbUrl);
-  const existingImage = await prisma.image.findUnique({ where: { sha256 } });
+  // Fixed 2026-09-16: this used to store the raw candidate.thumbUrl
+  // directly as Image.originalUrl — a real, live bug found during a
+  // site-wide media sweep (182 images across the catalog hotlinked
+  // straight to thumb.wikimedia.org instead of this app's own /uploads,
+  // and several returned HTTP 429 under routine checking, i.e. Commons'
+  // own rate limiting made them a real availability risk on live pages).
+  // fetch-images.ts's attachHeroImage() and lib/attach-car-photo.ts both
+  // already call selfHostImage() first — this function was the one
+  // remaining path that never got that fix when self-host-image.ts was
+  // introduced.
+  const hosted = await selfHostImage(candidate.thumbUrl);
+  const existingImage = await prisma.image.findUnique({ where: { sha256: hosted.sha256 } });
   const imageId = existingImage
     ? existingImage.id
     : (
         await prisma.image.create({
           data: {
-            originalUrl: candidate.thumbUrl,
+            originalUrl: hosted.localUrl,
+            localStorageUrl: hosted.localUrl,
             sourceType: "CREATIVE_COMMONS",
             rightsStatus: rightsStatusFor(candidate.licenseSlug),
             author: candidate.artist,
             attribution: `${candidate.artist} — ${candidate.licenseShortName}, via ${candidate.provider}`,
             licenseId: await getOrCreateLicense(candidate),
-            width: candidate.width,
-            height: candidate.height,
-            mimeType: candidate.mime,
-            sha256,
+            width: hosted.width,
+            height: hosted.height,
+            mimeType: "image/jpeg",
+            sha256: hosted.sha256,
             generatedByAi: false,
           },
         })
