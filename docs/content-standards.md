@@ -1,0 +1,180 @@
+# Content Standards — how every article and edit gets made
+
+This is the practical, house-style companion to `docs/editorial-system.md`
+(which describes the automated pipeline's architecture). This file is
+about voice, factual discipline, and the concrete checks to run before
+anything gets published or edited — written down 2026-09-16 after a full
+editorial-depth pass over the site, at the user's own request, so every
+future session follows the same bar without re-deriving it.
+
+## Voice
+
+Write like an experienced automotive journalist at a real, independent
+outlet — competent, natural, analytical, honest, useful to an actual
+buyer. Not a manufacturer's press office, not a spec sheet, not a
+generic AI copywriter.
+
+**The one rule that matters most:** never just list a number. Explain
+what it means for the person who owns the car.
+
+```
+BAD:  The RAV4 has 226 hp; the CR-V has 204 hp.
+GOOD: The RAV4 has a power edge on paper, but that mostly shows up
+      merging onto a highway or towing a full load — everyday driving
+      and fuel economy matter just as much for most owners.
+```
+
+Vary sentence length. Use natural transitions. Don't make every
+paragraph the same shape or every article follow an identical template.
+
+**Never use these as generic filler** (they're fine as literal, specific
+claims — never as scene-setting boilerplate that could paste into any
+article about any two cars unchanged):
+"in today's rapidly evolving...", "as the automotive industry continues
+to evolve", "this changes everything", "the best of both worlds", "a
+game changer", "a clear winner", "both offer something for everyone",
+"moreover", "furthermore", "in conclusion", "a compelling option", "a
+significant step forward", "more than just [X]" used as a vague
+intensifier. If a heuristic script flags one of these, read the actual
+sentence before touching it — some are legitimate literal usage (see
+"more than just the earliest deliveries" in a Tesla suspension story,
+which is fine — it means "not only," not marketing filler).
+
+No invented drama. No "revolutionizes the industry." No universal winner
+declared without real, stated criteria.
+
+## What every comparison article needs to actually answer
+
+Don't force every section into every article — pick what's real and
+relevant for that specific pair. But the recurring gap found across the
+whole corpus this pass was: strong on powertrain/price/safety, silent
+on cabin. Check for these explicitly:
+
+- Cabin/passenger space: real passenger volume, front and rear legroom
+  (numbers, not "roomy")
+- Cargo: behind-seats and seats-folded cubic feet, plus a frunk if one
+  exists
+- Ride and noise: sourced from a real road test (Consumer Reports,
+  Edmunds, Car and Driver, U.S. News, AutoGuide) — never invented. If no
+  real source covers it, leave it out rather than guess.
+- AWD/drivetrain philosophy differences (standard vs. optional, system
+  design) when it's a real differentiator, not just a spec
+- Winter/cold-weather range or economy impact, when relevant and sourced
+- Safety category breakdown, not just the headline award (see below)
+- Cost of ownership: warranty length, real running-cost math (fuel/
+  electricity price × real efficiency, not just the EPA sticker)
+- Manual transmission / enthusiast-relevant mechanical differences when
+  the segment calls for it (sports coupes, hot hatches)
+
+## Factual accuracy — the hard rules
+
+Never invent a price, spec, safety rating, date, availability claim,
+quote, or driving impression. Every load-bearing fact needs a real,
+checkable source. If a fact can't be verified, either mark it as
+unverified in the text or leave it out — never present a guess as
+established fact.
+
+**Generation-year matching is the single most common way this goes
+wrong.** A vehicle that's been redesigned has a different structure, and
+an old rating does not carry over automatically. Before citing *any*
+IIHS/Euro NCAP/NHTSA rating:
+
+1. Fetch the rating body's own page for the exact model year being
+   discussed (e.g. `iihs.org/ratings/vehicle/<make>/<model>-4-door-suv/
+   2026`), don't trust an aggregator's paraphrase.
+2. If that exact-year page 404s or says "not yet tested," the vehicle
+   has NOT been rated yet — say so plainly ("results expected fall
+   2026"), and if a previous generation's rating exists, only cite it
+   as explicitly describing the *older* car, never as if it applies to
+   the current one.
+3. This already caused one real, live correction this session: a
+   published RAV4 vs. CR-V article cited the 2024 RAV4's IIHS result as
+   current when the redesigned 2026 RAV4 (a genuinely different car)
+   hadn't been tested yet. Caught by chance while researching a
+   different article — check this deliberately from now on, don't rely
+   on catching it by accident.
+
+**Source hierarchy**, best to worst: the rating body's/manufacturer's
+own official page > EPA/fueleconomy.gov direct > a named, reputable
+outlet (Consumer Reports, Edmunds, Car and Driver, U.S. News, KBB,
+AutoGuide) > a dealer blog or aggregator (usable for spec numbers that
+are just restating manufacturer data, not for opinion/comparative
+claims) > never a forum post or an unnamed "reviewers say" with no
+outlet attached.
+
+When sources genuinely disagree (e.g. two outlets give different mpg
+figures), say so rather than silently picking one — or re-verify against
+the manufacturer's own page to resolve it.
+
+## Images
+
+Every photo must be a real photograph of the actual real vehicle —
+never AI-generated, never a 3D render/CAD mockup passed off as a photo.
+Live-tested this directly once: Pollinations.ai producing "Civic and
+Mazda3 parked side by side" returned generic, wrong-body-style
+silhouettes with no real make/model likeness. Rule stands absolutely:
+see `memory/real-photos-never-ai-generated.md`.
+
+Before attaching any photo:
+1. Find it on Wikimedia Commons (or another real, licensed source) via
+   a real search — never guess a filename.
+2. Download and **actually look at it** (the Read tool renders images)
+   to confirm it's really the claimed make/model/generation, and that
+   it's a genuine photo, not a heavily modified/widebody show car, not
+   the wrong sibling model (e.g. Bronco Sport when the article is about
+   Bronco), not an interior-only or dashboard-only shot when a HERO
+   exterior photo is needed.
+3. Self-host it (`selfHostImage()` / `attachCarModelPhoto()` /
+   `publish-manual-article.ts`'s `heroImage`/`heroImagePair`) — never
+   leave an image hotlinked to a third party. Wikimedia's own thumb
+   service rate-limits non-browser traffic; a hotlinked image is a real
+   live-site reliability risk, not just a style preference.
+4. If no real photo exists for what's needed (found this exactly once,
+   for a battery-storage news story), leave the article without a photo
+   rather than substitute a render or an unrelated stock image.
+
+## Video
+
+Same "real, never fabricated" bar applies to video as to photos.
+
+- Verify the uploading channel is genuinely the manufacturer's official
+  channel before using a video — many "2026 [Model] Official Reveal!"
+  titles on YouTube are third-party reaction/rumor channels (confirmed
+  this directly: "TheAutoReport", "CAR REVIEW CHANNEL" etc. using
+  "Official Reveal" in clickbait titles for cars that were never
+  actually revealed by anyone). Check the page's own `"author"` field
+  against the real manufacturer channel name.
+- Verify the video is for the correct generation of the car being
+  discussed — a 2020 reveal video does not represent a redesigned 2026
+  model, same trap as the safety-rating issue above.
+- **Comparison-article balance, found and fixed 2026-09-16**: if a
+  comparison shows an official video for one of the two cars, it must
+  show one for the other too — inline (the `VIDEO` article-block type)
+  or via the automatic "Compare on video" section (which now only
+  renders when *both* linked cars have a curated video — see
+  `memory/comparison-article-video-balance.md`). Never one-sided.
+
+## Technical workflow (for this specific codebase)
+
+- **New comparison articles**: run `npm run compare:next-candidate
+  --workspace @automotive/worker` inside the worker container to find a
+  real, not-yet-covered pair with existing catalog data (specs, real
+  self-hosted photos already available). Research every fact fresh per
+  the rules above, write the piece, build a `ManualArticleSpec` JSON
+  (see `publish-manual-article.ts`'s own interface), and publish with
+  `npm run publish:manual --workspace @automotive/worker -- <path>`.
+  This path takes no AI API call — it's a human/session-written article,
+  same as the rest of the hand-authored evergreen content.
+- **Editing an existing article's text**: direct SQL against
+  `article_blocks`/`citations` (position-shift existing blocks, insert
+  new ones, `jsonb_set` for in-place text/spec-table edits) — see any of
+  the `*-patch.sql` scripts written this session for the pattern.
+  Never delete or renumber blocks carelessly; always re-check the full
+  position sequence (`SELECT position, type ... ORDER BY position`) has
+  no gaps or duplicates after a patch.
+- **Every** DB change and every code change gets verified live via curl
+  against the real URL before being considered done — grep for the
+  specific new content, not just an HTTP 200.
+- Code changes (schema, components, renderer logic) go through the
+  normal path: edit → typecheck the affected workspace(s) → commit →
+  push → `ssh ... bash infrastructure/scripts/deploy.sh` → verify live.
