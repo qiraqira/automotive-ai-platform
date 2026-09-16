@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, buildArticleJsonLd, safeJsonLdString, type Locale } from "@automotive/seo";
 import { getArticle } from "@/lib/api";
 import EditorialDisclosure from "@/components/EditorialDisclosure";
+import CinematicVideo from "@/components/CinematicVideo";
 import { clampedAspectRatio, pairedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
@@ -343,6 +344,21 @@ export default async function ArticlePage({
                     ))}
                   </tbody>
                 </table>
+              </div>,
+            );
+          }
+
+          // Added 2026-09-16, user's own ask: a real official YouTube
+          // video placed inline in the article body itself, wherever the
+          // writer chose to put it — distinct from the auto-generated
+          // "Compare on video" section below (which only ever pulls each
+          // linked CarModel's own curated videos, always at the end).
+          // Reuses CinematicVideo.tsx, same real-video component the
+          // homepage/car pages already use.
+          if (block.type === "VIDEO" && block.data.youtubeId && block.data.title) {
+            elements.push(
+              <div key={block.id} style={{ margin: "8px 0 24px" }}>
+                <CinematicVideo youtubeId={block.data.youtubeId} title={block.data.title} label={block.data.label} />
               </div>,
             );
           }

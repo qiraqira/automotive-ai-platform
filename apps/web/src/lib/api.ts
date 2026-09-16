@@ -458,11 +458,13 @@ export async function getTopic(slug: string): Promise<TopicWithStories | null> {
 // the only real shape until SPEC_TABLE landed 2026-09-11 alongside its
 // first real renderer — see that page's own comment for why a
 // structured comparison table couldn't just be written before then.
+// VIDEO added 2026-09-16 (youtubeId/title/label — the same props
+// CinematicVideo.tsx itself takes) alongside its own renderer.
 export interface ArticleBlock {
   id: string;
   type: string;
   position: number;
-  data: { text?: string; headers?: string[]; rows?: { label: string; values: string[] }[] };
+  data: { text?: string; headers?: string[]; rows?: { label: string; values: string[] }[]; youtubeId?: string; title?: string; label?: string };
 }
 
 export interface ArticleHeroImage {

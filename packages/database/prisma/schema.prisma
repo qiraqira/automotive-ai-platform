@@ -586,6 +586,13 @@ enum ArticleBlockType {
   SOURCE_LIST
   MAP
   CHART
+  // Added 2026-09-16, user's own ask: embed a real official YouTube
+  // video inside an article's own body (not just on a CarModel page or
+  // the homepage's one "Watch" moment) — reuses CinematicVideo.tsx, the
+  // same real-video component already built for those. `data` shape:
+  // { youtubeId: string, title: string, label?: string }, same fields
+  // that component already takes as props.
+  VIDEO
 }
 
 model ArticleBlock {
