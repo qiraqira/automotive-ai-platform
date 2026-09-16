@@ -77,6 +77,28 @@ a {
   transform: translateY(-3px);
 }
 
+/* Real gap found and fixed 2026-09-17, user's own direct ask ("Comparisons
+   & Analysis активная ссылка"): every top-level section (News, Comparisons
+   & Analysis, Guides) was reachable only through the hamburger dropdown —
+   HeaderNav.tsx's own SECTIONS list — with nothing directly visible in the
+   header bar itself. These three are now real, always-visible links next
+   to the hamburger on wide viewports; the hamburger keeps every section
+   (including these three) as a fallback for narrow viewports where there
+   isn't room for both. First `@media` rule in this file — every other
+   layout here already flexes via `clamp()`/`auto-fill` instead, but a
+   fixed set of inline nav links needs a real breakpoint, not a fluid one. */
+.primary-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+@media (max-width: 760px) {
+  .primary-nav {
+    display: none;
+  }
+}
+
 /* Real readability gap found 2026-09-14 (user's own request to research
    what actually reads best and keeps people on the page): `.wrap` is
    960px wide with no separate constraint on flowing body text, which at

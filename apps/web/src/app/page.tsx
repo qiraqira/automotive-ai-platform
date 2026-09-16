@@ -6,6 +6,7 @@ import { rankStories } from "@/lib/ranking";
 import { isLogoImage, LeadMedia } from "@/components/ArticleMedia";
 import { ContentCard } from "@/components/ContentCard";
 import CinematicVideo from "@/components/CinematicVideo";
+import { pairedAspectRatio } from "@/lib/image-aspect";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -180,7 +181,27 @@ export default async function HomePage() {
             </div>
           </div>
           {heroCarA && heroCarB && (
-            <div style={{ flex: "1 1 360px", minWidth: 280, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            // Real crop bug found and fixed 2026-09-17, user's own direct
+            // complaint ("на главной странице у нас 2 фотки обрезанные
+            // машины"): this forced both real car photos into a portrait
+            // 3:4 box with object-fit:cover, which — since real car photos
+            // run wide (1.4-2.2 ratio, see image-aspect.ts), not portrait
+            // — cropped a real chunk off the front/rear of both cars. Every
+            // other image on the site already solved this exact problem
+            // (see that file's own comment for the no-crop pass this
+            // homepage hero was apparently never included in): a shared,
+            // real aspect ratio from each photo's own actual dimensions
+            // plus object-fit:contain, so the whole car is always visible.
+            <div
+              style={{
+                flex: "1 1 360px",
+                minWidth: 280,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                aspectRatio: String(pairedAspectRatio({ width: heroCarA.imageWidth, height: heroCarA.imageHeight }, { width: heroCarB.imageWidth, height: heroCarB.imageHeight })),
+              }}
+            >
               {[heroCarA, heroCarB].map((car) => (
                 // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
                 <img
@@ -189,9 +210,9 @@ export default async function HomePage() {
                   alt={`${car.brandName} ${car.modelName}`}
                   style={{
                     width: "100%",
-                    aspectRatio: "3 / 4",
-                    objectFit: "cover",
-                    objectPosition: "center 35%",
+                    height: "100%",
+                    objectFit: "contain",
+                    background: "rgba(255,255,255,0.04)",
                     borderRadius: 16,
                     display: "block",
                     boxShadow: "var(--shadow-lg)",

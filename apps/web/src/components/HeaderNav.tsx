@@ -21,6 +21,19 @@ const SECTIONS: { href: string; label: string }[] = [
   { href: "/guides", label: "Guides" },
 ];
 
+// The three sections readers actually land on most — same three the
+// homepage itself leads with as sections (Comparisons & Analysis, News,
+// Guides), see page.tsx — now also directly visible in the header on wide
+// viewports instead of buried a click deep in the hamburger dropdown. See
+// globals.css's `.primary-nav` for the breakpoint that hides these again
+// on narrow viewports, where SECTIONS above (still full, unchanged) stays
+// the only way in.
+const PRIMARY_SECTIONS: { href: string; label: string }[] = [
+  { href: "/comparisons", label: "Comparisons & Analysis" },
+  { href: "/news", label: "News" },
+  { href: "/guides", label: "Guides" },
+];
+
 const TOPICS: { href: string; label: string }[] = [
   { href: "/topics/electric-vehicles", label: "Electric Vehicles" },
   { href: "/topics/autonomous-robotaxi", label: "Autonomous & Robotaxis" },
@@ -43,6 +56,17 @@ export default function HeaderNav() {
 
   return (
     <div ref={menuRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 16 }}>
+      <nav className="primary-nav">
+        {PRIMARY_SECTIONS.map((s) => (
+          <a
+            key={s.href}
+            href={s.href}
+            style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "#fff", textDecoration: "none", whiteSpace: "nowrap" }}
+          >
+            {s.label}
+          </a>
+        ))}
+      </nav>
       {/* Colors made explicit (white / translucent-white) 2026-09-16 —
           these two trigger elements sit on the header's own dark
           background (see globals.css's `header.site`), unlike the
