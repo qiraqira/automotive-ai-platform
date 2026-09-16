@@ -252,6 +252,7 @@ export default async function HomePage() {
               />
             ))}
           </div>
+          <SectionFooterLink href="/comparisons" label="Read more comparisons" />
         </section>
       )}
 
@@ -358,6 +359,7 @@ export default async function HomePage() {
               );
             })}
           </div>
+          <SectionFooterLink href="/news" label="Read more news" />
         </section>
       )}
 
@@ -414,20 +416,67 @@ export default async function HomePage() {
 // below the hero used its own hand-rolled `<h2>` with an identical
 // uppercase-eyebrow style; this is that same style once, plus the
 // mockups' own "See all →" link pattern in the same row.
+//
+// Made clickable 2026-09-17, user's own direct ask ("в самом заголовке
+// ... возможность кликннуть на Comparisons & Analysis") — the eyebrow
+// and subtitle used to be plain text, with the only way into the full
+// section being the small "See all →" link on the right; both now link
+// to `href` too when it's given, same target as that link.
 function SectionHeader({ title, subtitle, href, linkText }: { title: string; subtitle?: string; href?: string; linkText?: string }) {
+  const eyebrow = (
+    <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
+      {title}
+    </div>
+  );
+  const heading = subtitle && (
+    <h2 style={{ fontFamily: "var(--font-sans)", fontSize: 24, fontWeight: 700, margin: 0 }}>{subtitle}</h2>
+  );
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
       <div>
-        <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
-          {title}
-        </div>
-        {subtitle && <h2 style={{ fontFamily: "var(--font-sans)", fontSize: 24, fontWeight: 700, margin: 0 }}>{subtitle}</h2>}
+        {href ? (
+          <Link href={href} style={{ textDecoration: "none", color: "inherit" }}>
+            {eyebrow}
+            {heading}
+          </Link>
+        ) : (
+          <>
+            {eyebrow}
+            {heading}
+          </>
+        )}
       </div>
       {href && linkText && (
         <Link href={href} style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink-dim)", textDecoration: "none", whiteSpace: "nowrap" }}>
           {linkText} →
         </Link>
       )}
+    </div>
+  );
+}
+
+// Bottom-of-section "read more" link, 2026-09-17 — user's own direct ask
+// (after the Comparisons & Analysis and News grids specifically: "после
+// раздела и всех новостей ссылочку на еще типа читать больше"): the only
+// way into the full list used to be the small top-right "See all" link
+// in SectionHeader, easy to miss once a reader has scrolled past it down
+// through the card grid. Same target, just repeated at the natural point
+// a reader who's looked through every card here would want it.
+function SectionFooterLink({ href, label }: { href: string; label: string }) {
+  return (
+    <div style={{ textAlign: "center", marginTop: 28 }}>
+      <Link
+        href={href}
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 14.5,
+          fontWeight: 600,
+          color: "var(--accent)",
+          textDecoration: "none",
+        }}
+      >
+        {label} →
+      </Link>
     </div>
   );
 }
