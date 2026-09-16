@@ -67,12 +67,18 @@ async function main() {
   console.log(`Car models with zero HERO photo: ${noPhoto.length} / ${models.length}`);
   for (const m of noPhoto) console.log(`  - ${m.brand.slug}/${m.slug}`);
 
-  // 2. Articles with zero HERO photo.
+  // 2. Articles with zero HERO photo — broken out by status, added
+  // 2026-09-16: the first version of this check lumped all 431 articles
+  // together, which made a DRAFT-only backlog (never shown to a real
+  // reader) look like a live-site problem. PUBLISHED is the number that
+  // actually matters for urgency.
   const articles = await prisma.article.findMany({
-    select: { id: true, slug: true, type: true, publishedAt: true, images: { where: { role: "HERO" }, select: { id: true } } },
+    select: { id: true, slug: true, type: true, status: true, publishedAt: true, images: { where: { role: "HERO" }, select: { id: true } } },
   });
   const articlesNoPhoto = articles.filter((a) => a.images.length === 0);
-  console.log(`\nArticles with zero HERO photo: ${articlesNoPhoto.length} / ${articles.length}`);
+  const publishedNoPhoto = articlesNoPhoto.filter((a) => a.status === "PUBLISHED");
+  console.log(`\nArticles with zero HERO photo: ${articlesNoPhoto.length} / ${articles.length} (of which PUBLISHED: ${publishedNoPhoto.length})`);
+  for (const a of publishedNoPhoto) console.log(`  PUBLISHED - ${a.slug}`);
   const oldest = articlesNoPhoto.reduce((min, a) => (a.publishedAt && (!min || a.publishedAt < min) ? a.publishedAt : min), null as Date | null);
   const newest = articlesNoPhoto.reduce((max, a) => (a.publishedAt && (!max || a.publishedAt > max) ? a.publishedAt : max), null as Date | null);
   if (oldest && newest) console.log(`  date range: ${oldest.toISOString().slice(0, 10)} to ${newest.toISOString().slice(0, 10)}`);
@@ -88,9 +94,10 @@ async function main() {
   console.log(`Broken/unreachable images: ${broken.length}`);
   for (const b of broken) console.log(`  - ${b}`);
 
-  // 4. Suspicious altText/subject mismatches.
+  // 4. Suspicious altText/subject mismatches — also split by status
+  // (same 2026-09-16 fix as check #2, same reasoning).
   const articleImages = await prisma.articleImage.findMany({
-    select: { altText: true, article: { select: { slug: true, headline: true } } },
+    select: { altText: true, article: { select: { slug: true, headline: true, status: true } } },
     where: { role: "HERO" },
   });
   const carImages = await prisma.carModelImage.findMany({
@@ -99,8 +106,9 @@ async function main() {
   });
   const suspiciousArticles = articleImages.filter((ai) => ai.altText && !overlaps(ai.altText, ai.article.headline));
   const suspiciousCars = carImages.filter((ci) => ci.altText && !overlaps(ci.altText, `${ci.carModel.brand.name} ${ci.carModel.name}`));
-  console.log(`\nSuspicious article images (altText doesn't overlap headline): ${suspiciousArticles.length}`);
-  for (const s of suspiciousArticles) console.log(`  - "${s.article.headline}" <- altText: "${s.altText}"`);
+  const suspiciousPublished = suspiciousArticles.filter((s) => s.article.status === "PUBLISHED");
+  console.log(`\nSuspicious article images (altText doesn't overlap headline): ${suspiciousArticles.length} (of which PUBLISHED: ${suspiciousPublished.length})`);
+  for (const s of suspiciousArticles) console.log(`  [${s.article.status}] "${s.article.headline}" <- altText: "${s.altText}"`);
   console.log(`\nSuspicious car photos (altText doesn't overlap model name): ${suspiciousCars.length}`);
   for (const s of suspiciousCars) console.log(`  - ${s.carModel.brand.name} ${s.carModel.name} <- altText: "${s.altText}"`);
 
