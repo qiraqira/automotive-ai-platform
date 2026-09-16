@@ -64,6 +64,7 @@
     "backfill:land-rover-photos": "tsx src/backfill-land-rover-photos.ts",
     "fix:mismatched-hero-images": "tsx src/fix-mismatched-hero-images.ts",
     "fix:mismatched-hero-images-2": "tsx src/fix-mismatched-hero-images-batch2.ts",
+    "fix:cybercab-image": "tsx src/fix-cybercab-image.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
