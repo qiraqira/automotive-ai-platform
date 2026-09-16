@@ -179,6 +179,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
           <div className="wrap" style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)", fontFamily: "var(--font-sans)", fontSize: 13, color: "#7c8592" }}>
             &copy; {new Date().getFullYear()} {SITE_NAME}
+            {/* Ownership credit added 2026-09-17, user's own direct ask
+                ("куда-нибудь добавь. только не сильно") — deliberately
+                placed in the smallest, most muted line on the page (the
+                copyright bar, not the wordmark column above it) rather
+                than anywhere more prominent. Real, honest attribution;
+                not meant to read as cross-promotion. */}
+            {" · "}
+            <a href="https://qirastudio.com/" rel="noopener noreferrer" target="_blank" style={{ color: "inherit" }}>
+              A project by Qira Studio
+            </a>
           </div>
         </footer>
       </body>
