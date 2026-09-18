@@ -46,6 +46,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   avatr: { handle: "@avatr.singapore", channelId: "UCXRK91mQ9lutCzaWeJc6wTA", label: "AVATR Singapore" },
   xpeng: { handle: "@XPENG_Global", channelId: "UCDw84qg11Stw6RgH7JkG6xQ", label: "XPENG Global" },
   zeekr: { handle: "@Zeekr-International", channelId: "UCOjdrH4jiZlvRVZgshc3yng", label: "Zeekr International" },
+  jaecoo: { handle: "@JaecooUK", channelId: "UCzvwvFIMKMV0Jxn3N7Iu61w", label: "JAECOO UK" },
 };
 
 interface FeedEntry {
