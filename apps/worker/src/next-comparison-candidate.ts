@@ -65,6 +65,17 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   [["lucid", "air"], ["tesla", "model-s"]],
   [["polestar", "polestar-2"], ["tesla", "model-3"]],
   [["toyota", "tundra"], ["ford", "f-150"]],
+  // Added 2026-09-19 (session's third candidate-list refill) — same bar
+  // as before, but drawing on this session's Chinese-brand catalog
+  // expansion: real, well-known China-vs-West EV rivalries that outlets
+  // actually compare (not an attempt to force every Chinese model into
+  // some pairing), now that both sides of each pair are catalogReviewed.
+  [["byd", "seal"], ["tesla", "model-3"]],
+  [["byd", "atto-3"], ["volkswagen", "id-4"]],
+  [["xpeng", "p7"], ["polestar", "polestar-2"]],
+  [["zeekr", "001"], ["tesla", "model-s"]],
+  [["byd", "han"], ["bmw", "3-series"]],
+  [["nio", "et5"], ["audi", "a5"]],
 ];
 
 async function fetchCandidateCar(brandSlug: string, modelSlug: string) {
