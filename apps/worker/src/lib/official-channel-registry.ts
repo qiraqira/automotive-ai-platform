@@ -49,6 +49,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   jaecoo: { handle: "@JaecooUK", channelId: "UCzvwvFIMKMV0Jxn3N7Iu61w", label: "JAECOO UK" },
   jeep: { handle: "@Jeep", channelId: "UCMWLdSdAyDcCy_OVzONKm0w", label: "Jeep" },
   tank: { handle: "GWM Australia (channel)", channelId: "UCgydYkX4miKCGFlhwE9_g0A", label: "GWM Australia" },
+  changan: { handle: "@changanautomobile", channelId: "UCz2idv_1Uu_6U7rlQHJtdXQ", label: "CHANGAN" },
 };
 
 interface FeedEntry {
