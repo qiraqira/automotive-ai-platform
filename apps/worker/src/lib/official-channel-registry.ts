@@ -47,6 +47,8 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   xpeng: { handle: "@XPENG_Global", channelId: "UCDw84qg11Stw6RgH7JkG6xQ", label: "XPENG Global" },
   zeekr: { handle: "@Zeekr-International", channelId: "UCOjdrH4jiZlvRVZgshc3yng", label: "Zeekr International" },
   jaecoo: { handle: "@JaecooUK", channelId: "UCzvwvFIMKMV0Jxn3N7Iu61w", label: "JAECOO UK" },
+  jeep: { handle: "@Jeep", channelId: "UCMWLdSdAyDcCy_OVzONKm0w", label: "Jeep" },
+  tank: { handle: "GWM Australia (channel)", channelId: "UCgydYkX4miKCGFlhwE9_g0A", label: "GWM Australia" },
 };
 
 interface FeedEntry {
