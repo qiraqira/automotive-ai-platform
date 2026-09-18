@@ -37,6 +37,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   audi: { handle: "@Audi", channelId: "UCO5ujNeWRIwP4DbCZqZWcLw", label: "Audi" },
   lexus: { handle: "@lexus", channelId: "UCEDHfFp2GZonrhuAaz7VjPw", label: "Lexus" },
   acura: { handle: "@acura", channelId: "UCxl79GCsb6-xhrdQuPgnuJA", label: "Acura" },
+  nissan: { handle: "@nissanusa", channelId: "UCMZh9kMjQ6Yc_JuCNIp1UDw", label: "Nissan USA" },
 };
 
 interface FeedEntry {
