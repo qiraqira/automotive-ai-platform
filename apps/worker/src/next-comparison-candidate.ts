@@ -92,6 +92,17 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   [["xpeng", "g9"], ["bmw", "x3"]],
   [["zeekr", "009"], ["honda", "odyssey"]],
   [["great-wall-motors", "haval-h6"], ["toyota", "rav4"]],
+  // Added 2026-09-19 (fifth candidate-list refill) — real pairs drawing
+  // on the newest catalog brands (Jaecoo, Tank, MG S5, Leapmotor B10,
+  // Changan Uni-V, BYD Dolphin Surf), matched to genuine market
+  // positioning (Tank 300 is explicitly marketed as a Wrangler/Bronco
+  // rival; Jaecoo J7 targets RAV4-class buyers in its export markets).
+  [["jaecoo", "j7"], ["toyota", "rav4"]],
+  [["tank", "300"], ["jeep", "wrangler"]],
+  [["mg", "s5"], ["tesla", "model-y"]],
+  [["leapmotor", "b10"], ["honda", "hr-v"]],
+  [["changan", "uni-v"], ["honda", "accord"]],
+  [["byd", "dolphin-surf"], ["mini", "cooper"]],
 ];
 
 async function fetchCandidateCar(brandSlug: string, modelSlug: string) {
