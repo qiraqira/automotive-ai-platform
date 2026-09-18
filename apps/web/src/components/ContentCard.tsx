@@ -16,6 +16,7 @@ export function ContentCard({
   title,
   description,
   linkText,
+  logoUrl,
 }: {
   href: string;
   images: ArticleImageRef[];
@@ -25,6 +26,14 @@ export function ContentCard({
   title: React.ReactNode;
   description?: string | null;
   linkText?: string;
+  // Added 2026-09-18 for /brands — a small trademark badge next to the
+  // title, distinct from `images`/LeadMedia above: LeadMedia
+  // deliberately never renders a logo as the card's own lead photo (see
+  // its own `isLogo` early-return), which is correct for an article
+  // whose real subject is a car, but wrong here, where the logo IS the
+  // subject. Optional and independent of `images` so every other
+  // ContentCard caller is unaffected.
+  logoUrl?: string | null;
 }) {
   return (
     <Link href={href} className="premium-card">
@@ -52,7 +61,17 @@ export function ContentCard({
         )}
       </div>
       <div style={{ padding: "16px 18px 20px" }}>
-        <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 19, fontWeight: 700, margin: "0 0 6px", lineHeight: 1.3 }}>{title}</h3>
+        <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 19, fontWeight: 700, margin: "0 0 6px", lineHeight: 1.3, display: "flex", alignItems: "center", gap: 10 }}>
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+            <img
+              src={logoUrl}
+              alt=""
+              style={{ width: 28, height: 28, objectFit: "contain", background: "#fff", borderRadius: 6, padding: 3, flexShrink: 0 }}
+            />
+          )}
+          <span>{title}</span>
+        </h3>
         {description && <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--ink-dim)", margin: "0 0 10px", lineHeight: 1.5 }}>{description}</p>}
         {linkText && <span style={{ fontFamily: "var(--font-sans)", fontSize: 13.5, fontWeight: 600, color: "var(--accent)" }}>{linkText} →</span>}
       </div>

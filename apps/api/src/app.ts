@@ -1276,6 +1276,10 @@ app.get("/v1/brands/:slug", async (req, res) => {
         // lib/attach-car-photo.ts), just never fetched here to show it.
         include: { images: { where: { role: "HERO" }, select: { image: { select: { originalUrl: true, width: true, height: true } } }, take: 1 } },
       },
+      // Added 2026-09-18, user's own direct ask for small brand logos —
+      // self-hosted the same way fetch-images.ts's own searchBrandLogo()
+      // sources one (see Brand.logoImageId's own schema comment).
+      logoImage: { select: { originalUrl: true } },
     },
   });
   if (!brand) {
@@ -1343,6 +1347,7 @@ app.get("/v1/brands/:slug", async (req, res) => {
       slug: brand.slug,
       name: brand.name,
       country: brand.country,
+      logoUrl: brand.logoImage?.originalUrl ?? null,
       // Only genuinely reviewed models (catalogReviewedAt set — see
       // CarModel's own schema comment) are ever listed here, same gate
       // GET /v1/cars and GET /v1/featured-cars use.
@@ -2137,7 +2142,14 @@ app.patch("/v1/users/:id/status", requirePermission("MANAGE_USERS"), async (req,
 // (found live: 29 of 36 brands had a page with literally nothing on it
 // but a name, after this session's own broad brand-list expansion).
 app.get("/v1/brands", async (_req, res) => {
-  const brands = await prisma.brand.findMany({ orderBy: { name: "asc" }, include: { models: { select: { id: true, catalogReviewedAt: true } } } });
+  const brands = await prisma.brand.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      models: { select: { id: true, catalogReviewedAt: true } },
+      // Same self-hosted logo as GET /v1/brands/:slug — see Brand.logoImageId's own schema comment.
+      logoImage: { select: { originalUrl: true } },
+    },
+  });
   const modelIds = brands.flatMap((b) => b.models.map((m) => m.id));
   const counts =
     modelIds.length > 0
@@ -2152,6 +2164,7 @@ app.get("/v1/brands", async (_req, res) => {
       slug: b.slug,
       name: b.name,
       country: b.country,
+      logoUrl: b.logoImage?.originalUrl ?? null,
       reviewedModelCount: b.models.filter((m) => m.catalogReviewedAt != null).length,
       contentCount: new Set(
         counts.filter((c) => b.models.some((m) => m.id === c.carModelId)).map((c) => c.articleId),

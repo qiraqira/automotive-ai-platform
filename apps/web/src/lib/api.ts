@@ -331,6 +331,7 @@ export interface Brand {
   slug: string;
   name: string;
   country: string | null;
+  logoUrl: string | null;
   contentCount: number;
   reviewedModelCount: number;
 }
@@ -405,6 +406,7 @@ export interface BrandDetail {
   slug: string;
   name: string;
   country: string | null;
+  logoUrl: string | null;
   models: { slug: string; name: string; imageUrl: string | null; imageWidth: number | null; imageHeight: number | null }[];
 }
 

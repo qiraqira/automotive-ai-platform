@@ -687,6 +687,17 @@ model Brand {
   country String?
   models  CarModel[]
 
+  // Added 2026-09-18, user's own direct ask ("логотипчики" on /brands) —
+  // a small trademark badge, not a car photo, so it points at a real
+  // Image row self-hosted with `rightsStatus: EDITORIAL_ONLY` the same
+  // way fetch-images.ts's own searchBrandLogo()/attachHeroImage() already
+  // self-host a brand logo as an article's last-resort hero image.
+  // Nullable and optional by design: a brand with no logo backfilled yet
+  // just renders without a badge, same as any other optional image slot
+  // on this site.
+  logoImageId String?
+  logoImage   Image?  @relation(fields: [logoImageId], references: [id])
+
   @@map("brands")
 }
 
@@ -1018,6 +1029,7 @@ model Image {
 
   articleImages ArticleImage[]
   carModelImages CarModelImage[]
+  brandLogos     Brand[]
 
   @@index([perceptualHash])
   @@map("images")

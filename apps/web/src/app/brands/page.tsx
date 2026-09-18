@@ -103,6 +103,7 @@ export default async function BrandsIndexPage() {
                 badge={brand.country ?? "Brand"}
                 title={brand.name}
                 description={brandDescription(brand)}
+                logoUrl={brand.logoUrl}
               />
             ))}
           </div>
@@ -124,6 +125,7 @@ export default async function BrandsIndexPage() {
               badge={brand.country ?? "Brand"}
               title={brand.name}
               description={brandDescription(brand)}
+              logoUrl={brand.logoUrl}
             />
           ))}
         </div>
