@@ -72,7 +72,13 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   // some pairing), now that both sides of each pair are catalogReviewed.
   [["byd", "seal"], ["tesla", "model-3"]],
   [["byd", "atto-3"], ["volkswagen", "id-4"]],
-  [["xpeng", "p7"], ["polestar", "polestar-2"]],
+  // Dropped xpeng/p7 vs polestar/polestar-2 (originally next in line here):
+  // neither car is sold in the US (Xpeng has no US presence at all, and
+  // Polestar was already covered exiting the US in the byd-seal and
+  // polestar-2-vs-model-3 pieces) — a "neither side buyable" comparison
+  // has real depth for enthusiast/global coverage but is a weaker fit for
+  // this site's US-focused audience than a pair with at least one live
+  // US option, so skipping it in favor of pairs below that keep that.
   [["zeekr", "001"], ["tesla", "model-s"]],
   [["byd", "han"], ["bmw", "3-series"]],
   [["nio", "et5"], ["audi", "a5"]],
