@@ -29,6 +29,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   chrysler: { handle: "@chrysler", channelId: "UCTrYqPWfAOku2Wkdxer4DRQ", label: "Chrysler" },
   bmw: { handle: "@BMW", channelId: "UCYwrS5QvBY_JbSdbINLey6Q", label: "BMW" },
   "mercedes-benz": { handle: "@MercedesBenz", channelId: "UClj0L8WZrVydk5xKOscI6-A", label: "Mercedes-Benz" },
+  audi: { handle: "@Audi", channelId: "UCO5ujNeWRIwP4DbCZqZWcLw", label: "Audi" },
 };
 
 interface FeedEntry {
