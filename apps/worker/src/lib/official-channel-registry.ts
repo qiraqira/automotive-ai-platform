@@ -40,6 +40,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   nissan: { handle: "@nissanusa", channelId: "UCMZh9kMjQ6Yc_JuCNIp1UDw", label: "Nissan USA" },
   rivian: { handle: "@Rivian", channelId: "UCPMdVVKDEUrbp3nH46sTZmg", label: "Rivian" },
   lucid: { handle: "@LucidMotors", channelId: "UCxBheRQeJNTBYAsPAHhaBhA", label: "Lucid Motors" },
+  polestar: { handle: "@PolestarCars", channelId: "UC9ZqNBEjEU1NK475EvqmlLA", label: "Polestar" },
 };
 
 interface FeedEntry {
