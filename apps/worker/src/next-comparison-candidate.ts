@@ -54,6 +54,17 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   [["audi", "q5"], ["bmw", "x3"]],
   [["toyota", "tacoma"], ["chevrolet", "colorado"]],
   [["ford", "ranger"], ["toyota", "tacoma"]],
+  // Added 2026-09-18 (session's second candidate-list refill, after the
+  // first curated batch above was fully worked through) — same bar:
+  // real, well-known cross-shopped pairs, not an exhaustive enumeration.
+  [["nissan", "rogue"], ["toyota", "rav4"]],
+  [["nissan", "altima"], ["toyota", "camry"]],
+  [["volkswagen", "atlas"], ["toyota", "highlander"]],
+  [["volkswagen", "tiguan"], ["honda", "cr-v"]],
+  [["rivian", "r1t"], ["tesla", "cybertruck"]],
+  [["lucid", "air"], ["tesla", "model-s"]],
+  [["polestar", "polestar-2"], ["tesla", "model-3"]],
+  [["toyota", "tundra"], ["ford", "f-150"]],
 ];
 
 async function fetchCandidateCar(brandSlug: string, modelSlug: string) {
