@@ -51,8 +51,15 @@ async function main() {
 
     const perSideAvailable = await Promise.all(
       cars.map(async (c) => {
+        const currentGen = await prisma.generation.findFirst({
+          where: { carModelId: c.id, endYear: null },
+          select: { id: true },
+        });
         const photos = await prisma.carModelImage.findMany({
-          where: { carModelId: c.id },
+          where: {
+            carModelId: c.id,
+            OR: [{ generationId: null }, ...(currentGen ? [{ generationId: currentGen.id }] : [])],
+          },
           orderBy: [{ role: "asc" }, { position: "asc" }],
           select: { imageId: true, altText: true },
         });
