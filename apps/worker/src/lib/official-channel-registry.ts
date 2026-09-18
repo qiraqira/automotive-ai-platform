@@ -22,6 +22,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   hyundai: { handle: "@hyundai", channelId: "UC5f97D60yHa7UE9rFfbej8g", label: "HyundaiUSA" },
   mazda: { handle: "@mazdausa", channelId: "UC0Ihuy4gj2w-AYEQXRnUdUA", label: "Mazda USA" },
   subaru: { handle: "@subaru", channelId: "UCw0N2zPZlYsrUcVIJkI6mBA", label: "Subaru" },
+  ram: { handle: "@ramtrucks", channelId: "UCNfZNOb3jq-iWdL0d9OMf9Q", label: "Ram Trucks" },
 };
 
 interface FeedEntry {
