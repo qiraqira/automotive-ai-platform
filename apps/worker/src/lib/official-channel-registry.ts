@@ -42,6 +42,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   lucid: { handle: "@LucidMotors", channelId: "UCxBheRQeJNTBYAsPAHhaBhA", label: "Lucid Motors" },
   polestar: { handle: "@PolestarCars", channelId: "UC9ZqNBEjEU1NK475EvqmlLA", label: "Polestar" },
   byd: { handle: "@BYDEurope", channelId: "UCdLudAX75m-YPgL9EXhNWzA", label: "BYD Europe" },
+  nio: { handle: "@nio", channelId: "UCKS0tJydbBb6mfQTGP9I_lA", label: "NIO" },
 };
 
 interface FeedEntry {
