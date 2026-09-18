@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
-import { getBrands } from "@/lib/api";
+import { getBrands, type Brand } from "@/lib/api";
+import { ContentCard } from "@/components/ContentCard";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 
@@ -35,6 +35,25 @@ export async function generateMetadata(): Promise<Metadata> {
 // toggle, consistent with this site's plain, JS-optional pages.
 const POPULAR_BRAND_LIMIT = 4;
 
+// Premium redesign, 2026-09-18 — user's own direct ask to bring /brands
+// in line with the same ContentCard-grid style already applied to
+// /news, /guides, /comparisons and /topics/[slug]. A Brand carries no
+// photo of its own (see the `Brand` interface — no `images` field), so
+// ContentCard's LeadMedia renders nothing for these cards and they fall
+// back to a plain text card — an intentional, already-supported
+// degradation, not a special case. ContentCard's own badge chip is
+// absolutely-positioned over the photo and never renders without one
+// (see ContentCard.tsx's `images.length > 0 && !isLogo` guard), so
+// `country` is folded into the description line here instead of passed
+// as `badge`, or it would silently disappear for every brand.
+function brandDescription(brand: Brand): string {
+  const parts: string[] = [];
+  if (brand.country) parts.push(brand.country);
+  if (brand.contentCount > 0) parts.push(`${brand.contentCount} stor${brand.contentCount === 1 ? "y" : "ies"}`);
+  if (brand.reviewedModelCount > 0) parts.push(`${brand.reviewedModelCount} model${brand.reviewedModelCount === 1 ? "" : "s"} reviewed`);
+  return parts.join(" · ");
+}
+
 export default async function BrandsIndexPage() {
   const { brands: allBrands } = await getBrands();
   // Real gap found live 2026-09-15: this page used to list every brand
@@ -61,43 +80,54 @@ export default async function BrandsIndexPage() {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      {/* SEO pass (2026-09-11): same H1/H2 swap as topics/guides pages —
-          one real H1, the specific descriptive heading, not the generic
-          eyebrow label. Same styles, same visual result. */}
-      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
         Brands
-      </h2>
-      <h1 style={{ fontSize: 28, margin: "4px 0 20px" }}>Every manufacturer on this site</h1>
+      </div>
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 32px", lineHeight: 1.15 }}>
+        Every manufacturer on this site
+      </h1>
 
       {popular.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 12 }}>Popular brands</h2>
-          <ul className="story-list">
+        <div style={{ marginBottom: 48 }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 20 }}>
+            Popular brands
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {popular.map((brand) => (
-              <li key={brand.slug} className="story-item">
-                <h3 style={{ fontSize: 18, margin: 0 }}>
-                  <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
-                </h3>
-                {brand.country && <p className="story-meta" style={{ marginTop: 4 }}>{brand.country}</p>}
-              </li>
+              <ContentCard
+                key={brand.slug}
+                href={`/brands/${brand.slug}`}
+                images={[]}
+                isLogo={false}
+                fallbackAlt={brand.name}
+                badge={brand.country ?? "Brand"}
+                title={brand.name}
+                description={brandDescription(brand)}
+              />
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       <div>
-        <h2 style={{ fontSize: 16, marginBottom: 12 }}>All brands</h2>
-        <ul className="story-list">
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 20 }}>
+          All brands
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
           {rest.map((brand) => (
-            <li key={brand.slug} className="story-item">
-              <h3 style={{ fontSize: 18, margin: 0 }}>
-                <Link href={`/brands/${brand.slug}`}>{brand.name}</Link>
-              </h3>
-              {brand.country && <p className="story-meta" style={{ marginTop: 4 }}>{brand.country}</p>}
-            </li>
+            <ContentCard
+              key={brand.slug}
+              href={`/brands/${brand.slug}`}
+              images={[]}
+              isLogo={false}
+              fallbackAlt={brand.name}
+              badge={brand.country ?? "Brand"}
+              title={brand.name}
+              description={brandDescription(brand)}
+            />
           ))}
-          {brands.length === 0 && <p>No brands added yet.</p>}
-        </ul>
+        </div>
+        {brands.length === 0 && <p>No brands added yet.</p>}
       </div>
     </section>
   );
