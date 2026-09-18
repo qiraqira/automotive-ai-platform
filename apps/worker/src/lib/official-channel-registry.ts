@@ -2,24 +2,29 @@
 // (the specific regional/US channel, not a global or non-US one — e.g.
 // the generic "@toyota" handle resolves to Toyota Deutschland, not
 // Toyota USA, found and corrected 2026-09-18 while building this
-// registry). Each entry was confirmed by fetching the channel page
-// itself and reading its real og:title/externalId, not guessed.
-//
-// This exists so future video-sourcing work (comparison articles,
-// CarVideo backfills) can go straight to `find-official-car-video.ts`
-// instead of re-resolving handles by hand each time — the token-saving
-// "write the mechanism once" pattern this project's memory calls for.
-// Extend this table (via the same WebFetch/curl "@handle" -> externalId
-// lookup) before adding a brand not listed here — never guess a channel
-// ID.
+// registry). Each entry is confirmed by fetching `https://www.youtube.com/@<handle>`
+// and reading the page's own `<link rel="canonical" href="https://www.youtube.com/channel/UC...">`
+// tag — NOT the first `"externalId":"UC..."` match in the page source,
+// which can belong to an unrelated suggested/sidebar channel and silently
+// resolve to the wrong ID (real bug found and fixed 2026-09-18: this
+// table's own "honda", "tesla", "ford", "dodge", and "hyundai" entries
+// had all been mis-resolved that way, pointing at Acura, "Tesla
+// Tutorials", "Ford Racing", "Stellantis North America", and
+// "HyundaiWorldwide" respectively — never caught in any published
+// CarVideo row only because add-car-video.ts's own oEmbed check on the
+// specific candidate video is a second, independent verification that
+// doesn't trust this table at all, but it did mean several `find:car-video`
+// calls were silently searching the wrong channel's uploads all session).
+// Extend this table using the canonical-link method, never the raw
+// externalId grep, and never guess a channel ID.
 export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: string; label: string }> = {
-  tesla: { handle: "@tesla", channelId: "UCr7nsg_hE_t06057x51g_Fg", label: "Tesla" },
-  ford: { handle: "@ford", channelId: "UC87j_-SIjbzUqlY8tuKlZyQ", label: "Ford Motor Company" },
+  tesla: { handle: "@tesla", channelId: "UC5WjFrtBdufl6CZojX3D8dQ", label: "Tesla" },
+  ford: { handle: "@ford", channelId: "UCKA96UxTdgFBwGZMGZ-135w", label: "Ford Motor Company" },
   chevrolet: { handle: "@chevrolet", channelId: "UCSVpCNZzOeMekuMiFze3fnQ", label: "Chevrolet" },
-  dodge: { handle: "@dodge", channelId: "UCsxsyssioAZGzMHGeFxM7lw", label: "Dodge" },
+  dodge: { handle: "@dodge", channelId: "UC6NMqrESrKioKr9axv_YM7w", label: "Dodge" },
   toyota: { handle: "@toyotausa", channelId: "UC1pOTJteEef10zJM0cHs4iQ", label: "Toyota USA" },
-  honda: { handle: "@honda", channelId: "UCxl79GCsb6-xhrdQuPgnuJA", label: "Honda" },
-  hyundai: { handle: "@hyundai", channelId: "UC5f97D60yHa7UE9rFfbej8g", label: "HyundaiUSA" },
+  honda: { handle: "@honda", channelId: "UC22zQ9nBEk6KOjUWqR5XXZg", label: "Honda" },
+  hyundai: { handle: "@hyundai", channelId: "UCx_eAZKDceT1yaY4bRo636A", label: "HyundaiUSA" },
   mazda: { handle: "@mazdausa", channelId: "UC0Ihuy4gj2w-AYEQXRnUdUA", label: "Mazda USA" },
   subaru: { handle: "@subaru", channelId: "UCw0N2zPZlYsrUcVIJkI6mBA", label: "Subaru" },
   ram: { handle: "@ramtrucks", channelId: "UCNfZNOb3jq-iWdL0d9OMf9Q", label: "Ram Trucks" },
@@ -30,6 +35,8 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   bmw: { handle: "@BMW", channelId: "UCYwrS5QvBY_JbSdbINLey6Q", label: "BMW" },
   "mercedes-benz": { handle: "@MercedesBenz", channelId: "UClj0L8WZrVydk5xKOscI6-A", label: "Mercedes-Benz" },
   audi: { handle: "@Audi", channelId: "UCO5ujNeWRIwP4DbCZqZWcLw", label: "Audi" },
+  lexus: { handle: "@lexus", channelId: "UCEDHfFp2GZonrhuAaz7VjPw", label: "Lexus" },
+  acura: { handle: "@acura", channelId: "UCxl79GCsb6-xhrdQuPgnuJA", label: "Acura" },
 };
 
 interface FeedEntry {
