@@ -64,6 +64,7 @@
     "link:car-model": "tsx src/link-car-model-to-article.ts",
     "add:car-video": "tsx src/add-car-video.ts",
     "find:car-video": "tsx src/find-official-car-video.ts",
+    "delete:empty-car-model": "tsx src/delete-empty-car-model.ts",
     "media:health-check": "tsx src/media-health-check.ts",
     "rehost:external-images": "tsx src/rehost-external-images.ts",
     "backfill:land-rover-photos": "tsx src/backfill-land-rover-photos.ts",
