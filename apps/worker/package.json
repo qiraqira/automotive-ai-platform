@@ -62,6 +62,8 @@
     "audit:comparison-media": "tsx src/comparison-media-audit.ts",
     "backfill:comparison-gallery": "tsx src/backfill-comparison-gallery-reuse.ts",
     "link:car-model": "tsx src/link-car-model-to-article.ts",
+    "add:car-video": "tsx src/add-car-video.ts",
+    "find:car-video": "tsx src/find-official-car-video.ts",
     "media:health-check": "tsx src/media-health-check.ts",
     "rehost:external-images": "tsx src/rehost-external-images.ts",
     "backfill:land-rover-photos": "tsx src/backfill-land-rover-photos.ts",
