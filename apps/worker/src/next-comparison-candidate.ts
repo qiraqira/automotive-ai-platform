@@ -44,7 +44,12 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   [["honda", "odyssey"], ["toyota", "sienna"]],
   [["chrysler", "pacifica"], ["honda", "odyssey"]],
   [["bmw", "3-series"], ["mercedes-benz", "c-class"]],
-  [["audi", "a4"], ["bmw", "3-series"]],
+  // Audi discontinued the A4 after MY2025 and folded it into a redesigned,
+  // renamed A5 (odd numbers = combustion/mild-hybrid under Audi's new
+  // scheme) — verified live 2026-09-18 while researching this exact pair,
+  // see bmw-3-series-vs-audi-a5-compared. Pointing this entry at the real
+  // current car so it doesn't keep resurfacing a nameplate nobody can buy.
+  [["audi", "a5"], ["bmw", "3-series"]],
   [["lexus", "rx"], ["acura", "mdx"]],
   [["audi", "q5"], ["bmw", "x3"]],
   [["toyota", "tacoma"], ["chevrolet", "colorado"]],
