@@ -82,6 +82,16 @@ const CANDIDATE_PAIRS: [[string, string], [string, string]][] = [
   [["zeekr", "001"], ["tesla", "model-s"]],
   [["byd", "han"], ["bmw", "3-series"]],
   [["nio", "et5"], ["audi", "a5"]],
+  // Added 2026-09-19 (fourth candidate-list refill) — more real
+  // China-vs-West pairs drawing on this session's newest catalog
+  // brands (Avatr, Denza, Zeekr, GAC Trumpchi/Haval), matched to their
+  // actual real-world market positioning, not forced.
+  [["avatr", "11"], ["tesla", "model-y"]],
+  [["denza", "d9"], ["toyota", "sienna"]],
+  [["byd", "tang"], ["honda", "pilot"]],
+  [["xpeng", "g9"], ["bmw", "x3"]],
+  [["zeekr", "009"], ["honda", "odyssey"]],
+  [["great-wall-motors", "haval-h6"], ["toyota", "rav4"]],
 ];
 
 async function fetchCandidateCar(brandSlug: string, modelSlug: string) {
