@@ -74,6 +74,7 @@
     "backfill:missing-article-photos": "tsx src/backfill-missing-article-photos.ts",
     "backfill:remaining-car-photos": "tsx src/backfill-remaining-car-photos.ts",
     "gallery:add": "tsx src/add-gallery-image.ts",
+    "replace:article-hero": "tsx src/replace-article-hero-photo.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
