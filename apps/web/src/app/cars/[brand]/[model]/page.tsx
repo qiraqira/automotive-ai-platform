@@ -7,6 +7,21 @@ import { formatPowerKw, formatDistanceKm, formatCountryName } from "@automotive/
 import { getCarModel, type CarEngine, type CarTrim } from "@/lib/api";
 import { clampedAspectRatio } from "@/lib/image-aspect";
 import CinematicVideo from "@/components/CinematicVideo";
+import { ContentCard } from "@/components/ContentCard";
+
+// Shared eyebrow-label style, same "small uppercase accent-colored
+// label above a section" pattern as every other premium-redesigned page
+// (/topics/[slug], /brands, /brands/[slug]) — extracted here since this
+// page has more of these section headings than any other single page.
+const EYEBROW_STYLE: CSSProperties = {
+  fontFamily: "var(--font-sans)",
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "var(--ink-muted)",
+  marginBottom: 16,
+};
 
 const CRASH_TEST_ORG_LABEL: Record<string, string> = { EURO_NCAP: "Euro NCAP", IIHS: "IIHS", NHTSA: "NHTSA" };
 
@@ -297,8 +312,10 @@ export default async function CarModelPage({
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(carJsonLd) }}
       />
-      <div className="story-meta">
-        <Link href={`/brands/${brand}`}>{carModel.brand.name}</Link>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 14.5, color: "var(--ink-dim)", marginBottom: 6 }}>
+        <Link href={`/brands/${brand}`} style={{ color: "var(--accent)", fontWeight: 600 }}>
+          {carModel.brand.name}
+        </Link>
         {carModel.brand.country ? ` · ${formatCountryName(carModel.brand.country)}` : ""}
       </div>
       {/* SEO pass (2026-09-11): H1 now names the brand too ("BMW X5", not
@@ -306,8 +323,11 @@ export default async function CarModelPage({
           but a bare model name left the page's single most important
           heading generic/ambiguous (several brands could plausibly have
           a model called "X5"-adjacent names) and duplicated across
-          brands. No visual/design change: same size, same position. */}
-      <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>
+          brands.
+          Premium redesign, 2026-09-18 — same clamp()'d, heavier H1 as
+          every other redesigned page; purely typographic, same content
+          and position. */}
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 32px", lineHeight: 1.15 }}>
         {carModel.brand.name} {carModel.name}
       </h1>
 
@@ -379,7 +399,7 @@ export default async function CarModelPage({
 
       {carModel.facts.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Facts</h2>
+          <h2 style={EYEBROW_STYLE}>Facts</h2>
           <ul className="story-list">
             {carModel.facts.map((fact) => (
               <li key={fact.id} className="story-item">
@@ -394,7 +414,7 @@ export default async function CarModelPage({
 
       {carModel.generations.length > 0 && (
         <section style={{ marginBottom: 8 }}>
-          <h2 style={{ fontSize: 16 }}>Generations &amp; specifications</h2>
+          <h2 style={EYEBROW_STYLE}>Generations &amp; specifications</h2>
           {carModel.generations.length > 2 && (
             // Jump-to nav, added 2026-09-14 (user's own ask for more
             // "where is what" orientation) — genuinely useful once a
@@ -419,7 +439,7 @@ export default async function CarModelPage({
 
       {carModel.generations.map((gen) => (
         <section key={gen.id} id={`gen-${gen.id}`} style={{ marginBottom: 32, scrollMarginTop: 16 }}>
-          <h3 style={{ fontSize: 18 }}>
+          <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 19, fontWeight: 700, margin: "0 0 12px" }}>
             {gen.name}
             {/* Real gap found live 2026-09-15 (Acura RDX's own Fourth
                 generation, no infobox/header year on its own Wikipedia
@@ -542,7 +562,7 @@ export default async function CarModelPage({
 
       {carModel.crashTests.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Crash test ratings</h2>
+          <h2 style={EYEBROW_STYLE}>Crash test ratings</h2>
           <ul className="story-list">
             {carModel.crashTests.map((test) => (
               <li key={test.id} className="story-item">
@@ -596,7 +616,7 @@ export default async function CarModelPage({
         const heading = category === "OFFICIAL" ? "Official videos" : category === "CRASH_TEST" ? "Crash test videos" : "Reviews";
         return (
           <section key={category} style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 16 }}>{heading}</h2>
+            <h2 style={EYEBROW_STYLE}>{heading}</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {categoryVideos.map((video) => (
                 <div key={video.id}>
@@ -633,29 +653,39 @@ export default async function CarModelPage({
         // the same day. Shown ahead of "Related stories" since these
         // are substantial, evergreen pieces rather than transient news.
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Featured articles</h2>
-          <ul className="story-list">
+          <h2 style={EYEBROW_STYLE}>Featured articles</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {carModel.featuredArticles.map((article) => (
-              <li key={article.slug} className="story-item">
-                <span className="story-meta">{article.type}</span>
-                <br />
-                <Link href={`/articles/${article.locale}/${article.slug}`}>{article.headline}</Link>
-              </li>
+              <ContentCard
+                key={article.slug}
+                href={`/articles/${article.locale}/${article.slug}`}
+                images={[]}
+                isLogo={false}
+                fallbackAlt={article.headline}
+                badge={article.type}
+                title={article.headline}
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
       {relatedStories.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Related stories</h2>
-          <ul className="story-list">
+          <h2 style={EYEBROW_STYLE}>Related stories</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {relatedStories.map((story) => (
-              <li key={story.id} className="story-item">
-                {story.articleSlug ? <Link href={`/articles/en/${story.articleSlug}`}>{story.title}</Link> : story.title}
-              </li>
+              <ContentCard
+                key={story.id}
+                href={story.articleSlug ? `/articles/en/${story.articleSlug}` : `/cars/${brand}/${model}`}
+                images={[]}
+                isLogo={false}
+                fallbackAlt={story.title}
+                badge="News"
+                title={story.title}
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </article>

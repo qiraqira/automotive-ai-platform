@@ -64,11 +64,13 @@ function PickerSelect({ name, cars, selected, label }: { name: string; cars: Fea
   const grouped = groupByBrand(cars);
   return (
     <label style={{ display: "block", flex: "1 1 220px", minWidth: 200 }}>
-      <span style={{ display: "block", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-dim)", marginBottom: 4 }}>{label}</span>
+      <span style={{ display: "block", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-muted)", marginBottom: 6 }}>
+        {label}
+      </span>
       <select
         name={name}
         defaultValue={selected ?? ""}
-        style={{ width: "100%", padding: "10px 12px", fontSize: 15, borderRadius: 6, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)" }}
+        style={{ width: "100%", padding: "12px 14px", fontFamily: "var(--font-sans)", fontSize: 15, borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink)" }}
       >
         <option value="" disabled>
           Choose a car…
@@ -87,9 +89,15 @@ function PickerSelect({ name, cars, selected, label }: { name: string; cars: Fea
   );
 }
 
+// Premium redesign, 2026-09-18 — same card shell (rounded, elevated,
+// var(--font-sans) typography) as every ContentCard on the rest of the
+// site, though this stays its own component rather than reusing
+// ContentCard directly: a compare column mixes a clickable header with
+// a large block of non-clickable data (facts table, trim list) below
+// it, unlike ContentCard's "whole card is one Link" shape.
 function CarColumn({ car }: { car: CompareCar }) {
   return (
-    <div style={{ flex: "1 1 280px", minWidth: 240 }}>
+    <div style={{ flex: "1 1 280px", minWidth: 240, borderRadius: "var(--radius-card, 12px)", overflow: "hidden", background: "var(--surface)", boxShadow: "var(--shadow-sm)" }}>
       <Link href={`/cars/${car.brandSlug}/${car.modelSlug}`} style={{ display: "block", textDecoration: "none", color: "inherit" }}>
         {car.heroImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
@@ -101,52 +109,54 @@ function CarColumn({ car }: { car: CompareCar }) {
               aspectRatio: String(clampedAspectRatio(car.heroImageWidth, car.heroImageHeight)),
               objectFit: "contain",
               background: "var(--surface-alt, rgba(128,128,128,0.06))",
-              borderRadius: 6,
-              marginBottom: 8,
               display: "block",
             }}
           />
         )}
-        <h2 style={{ fontSize: 20, margin: "0 0 4px" }}>
+        <h2 style={{ fontFamily: "var(--font-sans)", fontSize: 20, fontWeight: 700, margin: 0, padding: "16px 18px 0" }}>
           {car.brandName} {car.modelName}
         </h2>
       </Link>
-      {car.generation && (
-        <div className="story-meta" style={{ marginBottom: 16 }}>
-          {car.generation.name}
-          {car.generation.startYear ? ` (${car.generation.startYear}–${car.generation.endYear ?? "present"})` : ""}
-        </div>
-      )}
-      {car.facts.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: 14 }}>
-          <tbody>
-            {car.facts.map((fact, i) => (
-              <tr key={i} style={{ borderTop: "1px solid var(--line)" }}>
-                <td style={{ padding: "6px 0", color: "var(--ink-dim)" }}>{fact.attribute.replace(/_/g, " ")}</td>
-                <td style={{ padding: "6px 0", textAlign: "right", fontWeight: 600 }}>
-                  {fact.value}
-                  {fact.unit ? ` ${fact.unit}` : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {car.generation && car.generation.trims.length > 0 ? (
-        <>
-          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-dim)", marginBottom: 6 }}>Trims</div>
-          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-            {car.generation.trims.map((trim, i) => (
-              <li key={i} style={{ borderTop: "1px solid var(--line)", padding: "8px 0" }}>
-                <div style={{ fontWeight: 600 }}>{trim.name}</div>
-                {trim.engineName && <div className="story-meta">{trim.engineName}</div>}
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="story-meta">No trim data published for the current generation yet.</p>
-      )}
+      <div style={{ padding: "0 18px 20px" }}>
+        {car.generation && (
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--ink-dim)", margin: "4px 0 16px" }}>
+            {car.generation.name}
+            {car.generation.startYear ? ` (${car.generation.startYear}–${car.generation.endYear ?? "present"})` : ""}
+          </div>
+        )}
+        {car.facts.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontFamily: "var(--font-sans)", fontSize: 14 }}>
+            <tbody>
+              {car.facts.map((fact, i) => (
+                <tr key={i} style={{ borderTop: "1px solid var(--line)" }}>
+                  <td style={{ padding: "6px 0", color: "var(--ink-dim)" }}>{fact.attribute.replace(/_/g, " ")}</td>
+                  <td style={{ padding: "6px 0", textAlign: "right", fontWeight: 600 }}>
+                    {fact.value}
+                    {fact.unit ? ` ${fact.unit}` : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {car.generation && car.generation.trims.length > 0 ? (
+          <>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-muted)", marginBottom: 6 }}>
+              Trims
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", fontFamily: "var(--font-sans)" }}>
+              {car.generation.trims.map((trim, i) => (
+                <li key={i} style={{ borderTop: "1px solid var(--line)", padding: "8px 0" }}>
+                  <div style={{ fontWeight: 600 }}>{trim.name}</div>
+                  {trim.engineName && <div style={{ fontSize: 13.5, color: "var(--ink-dim)" }}>{trim.engineName}</div>}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--ink-dim)" }}>No trim data published for the current generation yet.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -170,9 +180,13 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
     <div className="wrap" style={{ paddingTop: 24, paddingBottom: 60 }}>
       {/* eslint-disable-next-line react/no-danger -- JSON-LD, not user content */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }} />
-      <h2 style={{ fontFamily: "Arial, sans-serif", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare</h2>
-      <h1 style={{ fontSize: 28, margin: "4px 0 8px" }}>Compare any two cars</h1>
-      <p style={{ color: "var(--ink-dim)", maxWidth: "52em", marginBottom: 24 }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
+        Compare
+      </div>
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 10px", lineHeight: 1.15 }}>
+        Compare any two cars
+      </h1>
+      <p style={{ fontFamily: "var(--font-sans)", fontSize: 15.5, color: "var(--ink-dim)", maxWidth: "52em", marginBottom: 32, lineHeight: 1.6 }}>
         Pick any two reviewed cars in the catalog — real trims, engines and specs, side by side. Every figure sourced and checked, same as every
         other page on this site, {SITE_NAME}.
       </p>
@@ -182,14 +196,16 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         <PickerSelect name="b" cars={featuredCars} selected={b ?? null} label="Car B" />
         <button
           type="submit"
-          style={{ padding: "10px 20px", fontSize: 15, fontWeight: 600, borderRadius: 6, border: "none", background: "var(--accent, #1a1a1a)", color: "#fff", cursor: "pointer" }}
+          style={{ padding: "12px 24px", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 600, borderRadius: 10, border: "none", background: "var(--accent, #1a1a1a)", color: "#fff", cursor: "pointer" }}
         >
           Compare
         </button>
       </form>
 
       {selA && selB && !compareResult && (
-        <p className="story-meta">One or both of those cars couldn’t be found — try picking again from the dropdowns above.</p>
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: 14.5, color: "var(--ink-dim)" }}>
+          One or both of those cars couldn&rsquo;t be found — try picking again from the dropdowns above.
+        </p>
       )}
 
       {compareResult && (

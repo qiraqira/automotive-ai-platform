@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildHreflangAlternates, buildLocaleUrl, buildBreadcrumbJsonLd, safeJsonLdString } from "@automotive/seo";
 import { formatCountryName } from "@automotive/utils";
 import { getBrand } from "@/lib/api";
-import { clampedAspectRatio } from "@/lib/image-aspect";
+import { ContentCard } from "@/components/ContentCard";
 
 const SITE_URL = process.env.PUBLIC_URL ?? "https://DOMAIN.COM";
 const SITE_NAME = process.env.PROJECT_NAME ?? "PROJECT_NAME";
@@ -81,8 +80,26 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
-      {brand.country && <div className="story-meta">{formatCountryName(brand.country)}</div>}
-      <h1 style={{ fontSize: 32, margin: "4px 0 20px" }}>{brand.name}</h1>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 6 }}>
+        Brand
+      </div>
+      {/* Premium redesign, 2026-09-18 — same eyebrow+H1+ContentCard-grid
+          pattern already applied to /topics/[slug], /guides, /brands.
+          The brand's own logo (Brand.logoImageId, backfilled the same
+          day) sits next to the H1 the same way ContentCard's own
+          `logoUrl` badge sits next to a card title — one small,
+          consistent "this is the brand" visual anchor across the site. */}
+      <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(26px, 3.5vw, 36px)", fontWeight: 800, margin: "0 0 8px", lineHeight: 1.15, display: "flex", alignItems: "center", gap: 14 }}>
+        {brand.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
+          <img src={brand.logoUrl} alt="" style={{ width: 44, height: 44, objectFit: "contain", background: "#fff", borderRadius: 8, padding: 5, flexShrink: 0 }} />
+        )}
+        <span>{brand.name}</span>
+      </h1>
+      {brand.country && (
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 14.5, color: "var(--ink-dim)", marginBottom: 32 }}>{formatCountryName(brand.country)}</div>
+      )}
+
       {/* "Models" section removed 2026-09-14 (catalog paused), restored
           2026-09-15 gated on generationCount>=2, narrowed the same day
           to GET /v1/brands/:slug's own `catalogReviewedAt` filter — a
@@ -90,40 +107,24 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           sweep output onto this page (user's verdict: "x5 сделан супер,
           а остальное некачественно"). `brand.models` here is already
           review-filtered server-side, so no client-side check is needed
-          — a brand with zero reviewed models shows no section at all.
-          Photo-card grid added the same day (was a bare text link list)
-          — same tile shape as the homepage's own "Explore models" grid,
-          reusing every real HERO photo these models already have. */}
+          — a brand with zero reviewed models shows no section at all. */}
       {brand.models.length > 0 && (
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 12 }}>{brand.name} models</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
+        <section style={{ marginBottom: 48 }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 20 }}>
+            {brand.name} models
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {brand.models.map((model) => (
-              <Link key={model.slug} href={`/cars/${slug}/${model.slug}`} style={{ display: "block" }}>
-                {model.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- plain <img>, see next.config.mjs's comment
-                  <img
-                    src={model.imageUrl}
-                    alt={`${brand.name} ${model.name}`}
-                    // No-crop fix (2026-09-15): "cover" cut real
-                    // content off real photos to fill the tile.
-                    // Ratio itself fixed 2026-09-16 (see homepage's
-                    // "Explore models" grid, same pattern) — each
-                    // tile now uses its own photo's real shape instead
-                    // of a flat "4 / 3" that never matched a real car
-                    // photo and letterboxed hard.
-                    style={{
-                      width: "100%",
-                      aspectRatio: String(clampedAspectRatio(model.imageWidth, model.imageHeight)),
-                      objectFit: "contain",
-                      background: "var(--surface-alt, rgba(128,128,128,0.06))",
-                      borderRadius: 6,
-                      marginBottom: 8,
-                    }}
-                  />
-                )}
-                <div style={{ fontWeight: 600 }}>{model.name}</div>
-              </Link>
+              <ContentCard
+                key={model.slug}
+                href={`/cars/${slug}/${model.slug}`}
+                images={model.imageUrl ? [{ altText: `${brand.name} ${model.name}`, image: { originalUrl: model.imageUrl, width: model.imageWidth, height: model.imageHeight } }] : []}
+                isLogo={false}
+                fallbackAlt={`${brand.name} ${model.name}`}
+                badge="Model"
+                title={model.name}
+                linkText="View specs"
+              />
             ))}
           </div>
         </section>
@@ -135,30 +136,45 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
         // about this brand's own models, not just its catalog page links
         // and raw news — see GET /v1/brands/:slug's own comment for how
         // this is found (ArticleCarModel, not a name match).
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>{brand.name} comparisons &amp; analysis</h2>
-          <ul className="story-list">
+        <section style={{ marginBottom: 48 }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 20 }}>
+            {brand.name} comparisons &amp; analysis
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {relatedArticles.map((article) => (
-              <li key={article.slug} className="story-item">
-                <div className="story-meta">{article.type}</div>
-                <Link href={`/articles/en/${article.slug}`}>{article.headline}</Link>
-                {article.subtitle && <p className="story-meta" style={{ marginTop: 4 }}>{article.subtitle}</p>}
-              </li>
+              <ContentCard
+                key={article.slug}
+                href={`/articles/en/${article.slug}`}
+                images={[]}
+                isLogo={false}
+                fallbackAlt={article.headline}
+                badge={article.type}
+                title={article.headline}
+                description={article.subtitle}
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
 
       {relatedStories.length > 0 && (
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 16 }}>Latest {brand.name} news</h2>
-          <ul className="story-list">
+        <section>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 20 }}>
+            Latest {brand.name} news
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 24 }}>
             {relatedStories.map((story) => (
-              <li key={story.id} className="story-item">
-                {story.articleSlug ? <Link href={`/articles/en/${story.articleSlug}`}>{story.title}</Link> : story.title}
-              </li>
+              <ContentCard
+                key={story.id}
+                href={story.articleSlug ? `/articles/en/${story.articleSlug}` : `/brands/${slug}`}
+                images={[]}
+                isLogo={false}
+                fallbackAlt={story.title}
+                badge="News"
+                title={story.title}
+              />
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </article>
