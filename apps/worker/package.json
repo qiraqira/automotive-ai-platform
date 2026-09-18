@@ -59,6 +59,7 @@
     "self-host:unsplash-images": "tsx src/self-host-unsplash-images.ts",
     "upgrade:logo-images": "tsx src/upgrade-logo-images.ts",
     "audit:published-quality": "tsx src/audit-published-quality.ts",
+    "audit:comparison-media": "tsx src/comparison-media-audit.ts",
     "media:health-check": "tsx src/media-health-check.ts",
     "rehost:external-images": "tsx src/rehost-external-images.ts",
     "backfill:land-rover-photos": "tsx src/backfill-land-rover-photos.ts",
