@@ -45,6 +45,7 @@ export const OFFICIAL_CHANNELS: Record<string, { handle: string; channelId: stri
   nio: { handle: "@nio", channelId: "UCKS0tJydbBb6mfQTGP9I_lA", label: "NIO" },
   avatr: { handle: "@avatr.singapore", channelId: "UCXRK91mQ9lutCzaWeJc6wTA", label: "AVATR Singapore" },
   xpeng: { handle: "@XPENG_Global", channelId: "UCDw84qg11Stw6RgH7JkG6xQ", label: "XPENG Global" },
+  zeekr: { handle: "@Zeekr-International", channelId: "UCOjdrH4jiZlvRVZgshc3yng", label: "Zeekr International" },
 };
 
 interface FeedEntry {
