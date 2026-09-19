@@ -298,29 +298,27 @@ export default async function ArticlePage({
         // now lands as soon as that context exists instead of being
         // buried under the whole text body — more of a "moment" early
         // in the read, not an afterthought at the end.
-        const compareOnVideoSection = article.carModels.length > 0 && article.carModels.every(({ carModel }) => carModel.videos.length > 0) && (
-          <div key="compare-on-video" style={{ marginTop: 8, marginBottom: 24 }}>
-            <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare on video</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 8 }}>
-              {article.carModels.flatMap(({ carModel }) =>
-                carModel.videos.map((video) => (
-                  <div key={video.youtubeId}>
-                    <CinematicVideo
-                      youtubeId={video.youtubeId}
-                      title={video.title}
-                      label={`${carModel.brand.name} ${carModel.name} — ${video.category === "OFFICIAL" ? "Official video" : "Euro NCAP crash test"}`}
-                    />
-                    <p className="story-meta" style={{ margin: "8px 0 0" }}>
-                      <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
-                        See the {carModel.brand.name} {carModel.name}&apos;s real specs and trims →
-                      </Link>
-                    </p>
-                  </div>
-                )),
-              )}
-            </div>
-          </div>
-        );
+        //
+        // Split into two separate full-width "moments" instead of one
+        // side-by-side grid, 2026-09-19 (same-day follow-up, user's own
+        // ask): a two-up grid squeezes each video down to column width,
+        // and showing both cars back-to-back in one spot isn't actually
+        // more useful than seeing each large, on its own, spaced through
+        // the read the same way gallery photos already are above. Each
+        // linked car's video(s) render full width (no grid wrapper) and
+        // land after a different paragraph — the first car right after
+        // the intro, the next two paragraphs later — rather than all
+        // bunched into the same spot.
+        const videosByTextIndex = new Map<number, { carModel: (typeof article.carModels)[number]["carModel"]; video: (typeof article.carModels)[number]["carModel"]["videos"][number] }[]>();
+        if (article.carModels.length > 0 && article.carModels.every(({ carModel }) => carModel.videos.length > 0)) {
+          article.carModels.forEach(({ carModel }, carIndex) => {
+            const afterIndex = Math.min(textBlockCount - 1, carIndex * 2);
+            if (afterIndex < 0) return;
+            const existing = videosByTextIndex.get(afterIndex) ?? [];
+            for (const video of carModel.videos) existing.push({ carModel, video });
+            videosByTextIndex.set(afterIndex, existing);
+          });
+        }
 
         let textBlockIndex = -1;
         return article.blocks.map((block) => {
@@ -333,8 +331,21 @@ export default async function ArticlePage({
                 {block.data.text}
               </p>,
             );
-            if (textBlockIndex === 0 && compareOnVideoSection) {
-              elements.push(compareOnVideoSection);
+            for (const { carModel, video } of videosByTextIndex.get(textBlockIndex) ?? []) {
+              elements.push(
+                <div key={`${block.id}-video-${video.youtubeId}`} style={{ margin: "8px 0 24px" }}>
+                  <CinematicVideo
+                    youtubeId={video.youtubeId}
+                    title={video.title}
+                    label={`${carModel.brand.name} ${carModel.name} — ${video.category === "OFFICIAL" ? "Official video" : "Euro NCAP crash test"}`}
+                  />
+                  <p className="story-meta" style={{ margin: "8px 0 0" }}>
+                    <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
+                      See the {carModel.brand.name} {carModel.name}&apos;s real specs and trims →
+                    </Link>
+                  </p>
+                </div>,
+              );
             }
             for (const img of insertAfterTextIndex.get(textBlockIndex) ?? []) {
               elements.push(
