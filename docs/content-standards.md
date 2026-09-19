@@ -105,6 +105,24 @@ conclusion that follows from the analysis — but don't force every
 section into every article, and don't make two different articles read
 like the same fill-in-the-blank shape.
 
+**Currency and units — light-touch conversions, 2026-09-19 micro-update
+(owner's own ask, scoped down after weighing the clutter risk together):**
+- The first time a non-US price appears in prose (£/€/etc.), add an
+  approximate USD conversion in parentheses, rounded and prefixed with
+  `~` — e.g. `£45,730 (~$61,000)` — using a same-session real exchange
+  rate, never a stale or invented one. Do this once per price figure in
+  prose; never in the `SPEC_TABLE`, which already has one column per
+  market and would just get more cluttered.
+- When a mile/inch figure is genuinely load-bearing for the comparison
+  in prose (range, rear legroom — not every dimension mentioned), add
+  the rounded metric equivalent in parentheses — e.g. `354 miles (570
+  km)`, `37.6 inches (96 cm)`. Same rule: prose only, not the spec
+  table, and only for the numbers that matter to the comparison being
+  made, not mechanically on every figure.
+- Never present the converted number as more precise than it is —
+  round it, and don't let it read as an independently-sourced fact
+  distinct from the real one it's derived from.
+
 **Length comes from real added analysis, not padding.** Longer is
 better only when every added paragraph teaches the reader something new
 — never from repeating a point in different words, restating specs
