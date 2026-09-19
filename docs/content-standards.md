@@ -105,6 +105,17 @@ conclusion that follows from the analysis — but don't force every
 section into every article, and don't make two different articles read
 like the same fill-in-the-blank shape.
 
+**Imperial is the primary unit for this site's prose, metric only as a
+light parenthetical — 2026-09-19, backed by a real check** (AP Style's
+own guidance, and Car and Driver's own published BMW X5 figures: 194.2-
+194.3 in length, 117.1 in wheelbase — matching this project's own
+converted numbers exactly). If a source gives a dimension in mm/cm and
+it's used in prose (not a SPEC_TABLE, which stays as sourced per
+market), convert it to inches as the primary figure rather than leaving
+mm as the lead unit or stacking two units — the reverse of the
+non-US-price rule below, but the same underlying logic: lead with the
+unit this site's actual reader uses day to day.
+
 **Currency and units — light-touch conversions, 2026-09-19 micro-update
 (owner's own ask, scoped down after weighing the clutter risk together):**
 - The first time a non-US price appears in prose (£/€/etc.), add an

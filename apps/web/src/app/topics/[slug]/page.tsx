@@ -86,14 +86,17 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
           style={{ display: "block", marginBottom: 40, pointerEvents: featured.articles[0] ? "auto" : "none" }}
         >
           <div style={{ position: "relative" }}>
-            <LeadMedia images={featuredImages} isLogo={isLogoImage(featuredImages)} fallbackAlt={featured.title} width="100%" borderRadius={0} marginBottom={0} />
+            <LeadMedia images={featuredImages} isLogo={isLogoImage(featuredImages)} fallbackAlt={featured.articles[0]?.headline ?? featured.title} width="100%" borderRadius={0} marginBottom={0} />
           </div>
           <div style={{ padding: "24px 28px 28px" }}>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
               Latest story
             </div>
+            {/* Real bug found and fixed 2026-09-19, user's own direct
+                catch — see GET /v1/stories' own comment for the full
+                story: prefer the real Article's own edited headline. */}
             <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(22px, 2.6vw, 30px)", fontWeight: 800, margin: "0 0 12px", lineHeight: 1.2 }}>
-              {featured.title}
+              {featured.articles[0]?.headline ?? featured.title}
             </h2>
             {featured.summary && (
               <p style={{ fontFamily: "var(--font-sans)", fontSize: 15, color: "var(--ink-dim)", lineHeight: 1.6, margin: "0 0 18px" }}>{featured.summary}</p>
@@ -110,15 +113,16 @@ export default async function TopicPage({ params }: { params: Promise<{ slug: st
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24, marginBottom: articles.length > 0 ? 48 : 0 }}>
           {restStories.map((story) => {
             const images = story.articles[0]?.images ?? [];
+            const displayTitle = story.articles[0]?.headline ?? story.title;
             return (
               <ContentCard
                 key={story.id}
                 href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : `/topics/${slug}`}
                 images={images}
                 isLogo={isLogoImage(images)}
-                fallbackAlt={story.title}
+                fallbackAlt={displayTitle}
                 badge={story.primaryTopic?.name ?? "News"}
-                title={story.title}
+                title={displayTitle}
                 description={story.summary}
               />
             );

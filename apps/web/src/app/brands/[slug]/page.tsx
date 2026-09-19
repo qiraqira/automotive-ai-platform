@@ -169,9 +169,9 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 href={story.articleSlug ? `/articles/en/${story.articleSlug}` : `/brands/${slug}`}
                 images={[]}
                 isLogo={false}
-                fallbackAlt={story.title}
+                fallbackAlt={story.articleHeadline ?? story.title}
                 badge="News"
-                title={story.title}
+                title={story.articleHeadline ?? story.title}
               />
             ))}
           </div>

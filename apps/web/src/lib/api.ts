@@ -53,7 +53,12 @@ export interface StorySummary {
   primaryTopic: { slug: string; name: string } | null;
   events: { id: string; label: string; description: string | null; occurredAt: string }[];
   sourceArticles: { id: string; title: string; url: string; author: { name: string } | null }[];
-  articles: { slug: string; locale: string; images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[] }[];
+  // `headline` added 2026-09-19 alongside the same fix on GET /v1/stories
+  // and GET /v1/topics/:slug — the real, edited Article headline, which
+  // can genuinely differ from `title` (the raw, unedited Story title)
+  // above. Callers should show this when the story has a real article,
+  // falling back to `title` only when `articles` is empty.
+  articles: { slug: string; locale: string; headline: string; images: { altText: string | null; image: { originalUrl: string; rightsStatus: string; width: number | null; height: number | null } }[] }[];
 }
 
 export interface SourceSummary {
@@ -215,7 +220,7 @@ export interface CarModelDetail {
 }
 
 export interface SearchResults {
-  stories: { id: string; title: string; articleSlug: string | null }[];
+  stories: { id: string; title: string; articleSlug: string | null; articleHeadline: string | null }[];
   carModels: { brandSlug: string; modelSlug: string; name: string }[];
 }
 
@@ -352,6 +357,10 @@ export interface RelatedStorySummary {
   id: string;
   title: string;
   articleSlug: string | null;
+  // Added 2026-09-19, same real headline-mismatch bug/fix as
+  // StorySummary.articles[].headline above — the real, edited Article
+  // headline, non-null exactly when `articleSlug` is.
+  articleHeadline: string | null;
 }
 
 export interface CarModelWithRelated {

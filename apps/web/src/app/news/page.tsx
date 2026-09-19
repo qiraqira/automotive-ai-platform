@@ -79,7 +79,7 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
           <LeadMedia
             images={featured.articles[0]?.images ?? []}
             isLogo={isLogoImage(featured.articles[0]?.images ?? [])}
-            fallbackAlt={featured.title}
+            fallbackAlt={featured.articles[0]?.headline ?? featured.title}
             width="100%"
             borderRadius={0}
             marginBottom={0}
@@ -88,8 +88,11 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-muted)", marginBottom: 10 }}>
               Latest story
             </div>
+            {/* Real bug found and fixed 2026-09-19, user's own direct
+                catch: always showed the raw `story.title` even once a
+                real, edited Article existed with its own headline. */}
             <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(22px, 2.6vw, 30px)", fontWeight: 800, margin: "0 0 12px", lineHeight: 1.2 }}>
-              {featured.title}
+              {featured.articles[0]?.headline ?? featured.title}
             </h2>
             <div className="story-meta">
               {featured._count.sourceArticles} source{featured._count.sourceArticles === 1 ? "" : "s"}
@@ -105,15 +108,16 @@ export default async function NewsIndexPage({ searchParams }: { searchParams: Pr
           {rest.map((story) => {
             if (!story) return null;
             const images = story.articles[0]?.images ?? [];
+            const displayTitle = story.articles[0]?.headline ?? story.title;
             return (
               <ContentCard
                 key={story.id}
                 href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : "/news"}
                 images={images}
                 isLogo={isLogoImage(images)}
-                fallbackAlt={story.title}
+                fallbackAlt={displayTitle}
                 badge={story.primaryTopic?.name ?? "News"}
-                title={story.title}
+                title={displayTitle}
               />
             );
           })}

@@ -68,9 +68,9 @@ export default async function SearchPage({
                     href={s.articleSlug ? `/articles/en/${s.articleSlug}` : "/search"}
                     images={[]}
                     isLogo={false}
-                    fallbackAlt={s.title}
+                    fallbackAlt={s.articleHeadline ?? s.title}
                     badge="Story"
-                    title={s.title}
+                    title={s.articleHeadline ?? s.title}
                   />
                 ))}
               </div>

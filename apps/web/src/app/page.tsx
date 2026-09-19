@@ -345,15 +345,23 @@ export default async function HomePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
             {news.map((story) => {
               const images = story.articles[0]?.images ?? [];
+              // Real bug found and fixed 2026-09-19, user's own direct
+              // catch: this card always showed `story.title` — the raw,
+              // unedited source-derived title — even once a real, edited
+              // Article existed with its own headline that could read
+              // quite differently. Prefer the real article's own headline
+              // now that GET /v1/stories actually returns it; fall back
+              // to the story title only when no article exists yet.
+              const displayTitle = story.articles[0]?.headline ?? story.title;
               return (
                 <ContentCard
                   key={story.id}
                   href={story.articles[0] ? `/articles/en/${story.articles[0].slug}` : "/news"}
                   images={images}
                   isLogo={isLogoImage(images)}
-                  fallbackAlt={story.title}
+                  fallbackAlt={displayTitle}
                   badge={story.primaryTopic?.name ?? "News"}
-                  title={story.title}
+                  title={displayTitle}
                   description={story.summary}
                 />
               );

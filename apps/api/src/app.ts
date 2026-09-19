@@ -282,6 +282,14 @@ app.get("/v1/stories", async (req, res) => {
         select: {
           slug: true,
           locale: true,
+          // Real bug found and fixed 2026-09-19, user's own direct catch:
+          // this endpoint used to strip `headline` out entirely (see the
+          // `.map` below), so every Story-listing card on the homepage
+          // and /news fell back to the raw, unedited `story.title` even
+          // once a real, edited Article existed with its own — often
+          // meaningfully different — headline. The card text and the
+          // article you land on telling two different stories.
+          headline: true,
           images: { where: { role: "HERO" }, select: { altText: true, image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 2, orderBy: { position: "asc" } },
           factualScore: true,
           sourceScore: true,
@@ -314,7 +322,7 @@ app.get("/v1/stories", async (req, res) => {
   const stories = rowsPage
     .map((s) => ({
       ...s,
-      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, headline, images }) => ({ slug, locale, headline, images })),
     }))
     .filter((s) => !parsed.data.hasArticle || s.articles.length > 0);
   res.json({ stories, hasMore, offset: parsed.data.offset, limit: parsed.data.limit });
@@ -862,7 +870,7 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
   // preserved by mapping over `stories`, not the follow-up query's own
   // unordered result).
   const storyIds = stories.map((s) => s.id);
-  const articlesByStoryId = new Map<string, string>();
+  const articlesByStoryId = new Map<string, { slug: string; headline: string }>();
   if (storyIds.length > 0) {
     const storiesWithArticles = await prisma.story.findMany({
       where: { id: { in: storyIds } },
@@ -870,7 +878,9 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
         id: true,
         articles: {
           where: { status: "PUBLISHED", locale: "en" },
-          select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+          // `headline` added 2026-09-19, same real bug/fix as GET
+          // /v1/stories — see that route's own comment.
+          select: { slug: true, headline: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
           take: 1,
         },
       },
@@ -880,7 +890,7 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
       // own comment: same fix as GET /v1/stories/GET /v1/topics/:slug/
       // GET /v1/brands/:slug, independently needed here since search
       // results are a fourth, separate reader-facing surface.
-      if (s.articles[0] && !isRejectedByQualityGate(s.articles[0])) articlesByStoryId.set(s.id, s.articles[0].slug);
+      if (s.articles[0] && !isRejectedByQualityGate(s.articles[0])) articlesByStoryId.set(s.id, { slug: s.articles[0].slug, headline: s.articles[0].headline });
     }
   }
 
@@ -894,7 +904,10 @@ app.get("/v1/search", searchRateLimit, async (req, res) => {
   // result at all, so it's dropped here rather than shown unlinked.
   res.json({
     stories: stories
-      .map((s) => ({ id: s.id, title: s.title, articleSlug: articlesByStoryId.get(s.id) ?? null }))
+      .map((s) => {
+        const article = articlesByStoryId.get(s.id);
+        return { id: s.id, title: s.title, articleSlug: article?.slug ?? null, articleHeadline: article?.headline ?? null };
+      })
       .filter((s) => s.articleSlug !== null),
     carModels: carModels.map((c) => ({ brandSlug: c.brand.slug, modelSlug: c.slug, name: `${c.brand.name} ${c.name}` })),
   });
@@ -1137,7 +1150,7 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
           include: {
             articles: {
               where: { locale: "en", status: "PUBLISHED" },
-              select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+              select: { slug: true, headline: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
               take: 1,
             },
           },
@@ -1163,6 +1176,7 @@ app.get("/v1/cars/:brandSlug/:modelSlug", async (req, res) => {
         id: s.id,
         title: s.title,
         articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+        articleHeadline: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].headline : null,
       }))
       .filter((s) => s.articleSlug !== null),
   });
@@ -1301,7 +1315,7 @@ app.get("/v1/brands/:slug", async (req, res) => {
           include: {
             articles: {
               where: { locale: "en", status: "PUBLISHED" },
-              select: { slug: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
+              select: { slug: true, headline: true, factualScore: true, sourceScore: true, qualityScore: true, originalityScore: true, valueScore: true, readabilityScore: true },
               take: 1,
             },
           },
@@ -1373,6 +1387,7 @@ app.get("/v1/brands/:slug", async (req, res) => {
         id: s.id,
         title: s.title,
         articleSlug: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].slug : null,
+        articleHeadline: s.articles[0] && !isRejectedByQualityGate(s.articles[0]) ? s.articles[0].headline : null,
       }))
       .filter((s) => s.articleSlug !== null),
   });
@@ -1446,6 +1461,9 @@ app.get("/v1/topics/:slug", async (req, res) => {
         select: {
           slug: true,
           locale: true,
+          // Same real headline-mismatch bug and fix as GET /v1/stories,
+          // 2026-09-19 — see that route's own comment.
+          headline: true,
           images: { where: { role: "HERO" }, select: { altText: true, image: { select: { originalUrl: true, rightsStatus: true, width: true, height: true } } }, take: 2, orderBy: { position: "asc" } },
           factualScore: true,
           sourceScore: true,
@@ -1473,7 +1491,7 @@ app.get("/v1/topics/:slug", async (req, res) => {
   const storiesWithFilteredArticles = stories
     .map((s) => ({
       ...s,
-      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, images }) => ({ slug, locale, images })),
+      articles: s.articles.filter((a) => !isRejectedByQualityGate(a)).map(({ slug, locale, headline, images }) => ({ slug, locale, headline, images })),
     }))
     .filter((s) => s.articles.length > 0);
 

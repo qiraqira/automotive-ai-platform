@@ -680,9 +680,9 @@ export default async function CarModelPage({
                 href={story.articleSlug ? `/articles/en/${story.articleSlug}` : `/cars/${brand}/${model}`}
                 images={[]}
                 isLogo={false}
-                fallbackAlt={story.title}
+                fallbackAlt={story.articleHeadline ?? story.title}
                 badge="News"
-                title={story.title}
+                title={story.articleHeadline ?? story.title}
               />
             ))}
           </div>
