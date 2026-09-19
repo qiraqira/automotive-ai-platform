@@ -20,6 +20,7 @@ interface RewriteSpec {
   // entirely to leave whatever's already there untouched.
   keyTakeaway?: string | null;
   paragraphs: string[];
+  additionalCitations?: { label: string; url: string }[];
   reason: string;
 }
 
@@ -41,6 +42,9 @@ async function main() {
       data: spec.paragraphs.map((text, position) => ({ articleId: article.id, type: "TEXT" as const, position, data: { text } })),
     }),
     ...keptBlocks.map((b, i) => prisma.articleBlock.update({ where: { id: b.id }, data: { position: spec.paragraphs.length + i } })),
+    ...(spec.additionalCitations?.length
+      ? [prisma.citation.createMany({ data: spec.additionalCitations.map((c) => ({ articleId: article.id, label: c.label, url: c.url })) })]
+      : []),
     prisma.article.update({
       where: { id: article.id },
       data: {
