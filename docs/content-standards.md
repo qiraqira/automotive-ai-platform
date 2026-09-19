@@ -245,6 +245,12 @@ Same "real, never fabricated" bar applies to video as to photos.
   "Watch" section and the inline `VIDEO` block already use (muted,
   autoplays once scrolled into view, real click-to-unmute) — never a
   bare iframe.
+- **Hard cap: one OFFICIAL + one CRASH_TEST video per car, four total
+  — 2026-09-19 (owner's own ask).** Crash-test footage is optional, not
+  required. Enforced in code (`videosByTextIndex`'s per-category dedupe
+  in the same file) — never curate more than one video per category per
+  car via `add:car-video` in the first place, since the page will only
+  ever show the first one of each category anyway.
 - **Two full-width moments, not a side-by-side grid — same-day
   follow-up, owner's own ask.** Each linked car's video renders full
   width on its own, not squeezed into a two-column grid. They're spaced
