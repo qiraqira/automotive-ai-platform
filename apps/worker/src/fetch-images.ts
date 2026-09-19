@@ -547,17 +547,33 @@ export async function attachHeroImage(articleId: string, searchTexts: string[]):
 
   // Last resort: the brand's own logo (searchBrandLogo above) — never a
   // vision-matched photo of the specific event, but a real, honest
-  // placeholder. Brand is the headline's own first word by construction
-  // (buildSearchQueries()' own anchor-word convention, confirmed live
-  // against this file's real isRelevantTitle() logic). Real gap found
-  // live 2026-09-11: that convention only holds for a headline that
-  // actually LEADS with the brand — "Second Tesla driver killed after
-  // vehicle stopped..." has "Second" as its first word, so the naive
-  // first-word extraction missed a real, findable Tesla logo entirely.
-  // detectBrand() below checks for any of this site's actual covered
-  // brands appearing anywhere in the text, falling back to the
-  // first-word convention only when none matches.
-  const brand = detectBrand(context) ?? context.split(/\s+/)[0];
+  // placeholder, ONLY when detectBrand() actually recognized a real car
+  // brand in the text.
+  //
+  // Real, embarrassing bug found live 2026-09-19 (owner's own direct
+  // catch on two just-published articles): this used to fall back to
+  // `context.split(/\s+/)[0]` — the text's literal first word — whenever
+  // detectBrand() found no known brand, then handed that raw word to
+  // searchBrandLogo() with no sanity check that it's an actual company
+  // name at all. searchBrandLogo()'s own relevance check (title must
+  // contain "logo" AND the query word) still happily matches on a
+  // generic English word, because Commons hosts real logos for real
+  // companies/places that happen to share it: "How Hankook Is
+  // Stretching EV Tire Life..." → brand "How" → a real Commons file for
+  // a cooking-brand logo literally called "How The Fork"; a Jay-Leno's-
+  // Law story whose text mentions "California" → the City of Walnut
+  // Creek's municipal seal, not any real automotive or state logo. Both
+  // published live with a technically-true-sounding "Official ___ logo"
+  // attribution that was actually nonsense.
+  //
+  // No safe way to tell a real brand's first-word headline ("Tesla
+  // recalls...") apart from an ordinary sentence's first word ("How
+  // Hankook...", "California signs...") without a real brand match, so
+  // the fix is to stop guessing: skip the logo fallback entirely when
+  // detectBrand() finds nothing, same as this project's own standing
+  // rule for a hero photo it can't verify — leave the article without
+  // one rather than substitute something wrong.
+  const brand = detectBrand(context);
   if (brand) {
     const logo = await searchBrandLogo(brand);
     if (logo) {
