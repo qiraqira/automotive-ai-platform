@@ -52,6 +52,7 @@
     "compare:next-candidate": "tsx src/next-comparison-candidate.ts",
     "seed:real-articles": "tsx src/seed-real-articles.ts",
     "publish:manual": "tsx src/publish-manual-article.ts",
+    "rewrite:article": "tsx src/rewrite-article.ts",
     "replace:ai-images": "tsx src/replace-ai-images.ts",
     "reverify:hero-images": "tsx src/reverify-hero-images.ts",
     "recover:hero-images": "tsx src/recover-missing-hero-images.ts",
