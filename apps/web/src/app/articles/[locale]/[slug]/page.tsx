@@ -396,19 +396,23 @@ export default async function ArticlePage({
             {article.carModels.flatMap(({ carModel }) =>
               carModel.videos.map((video) => (
                 <div key={video.youtubeId}>
-                  <div className="story-meta">
-                    {carModel.brand.name} {carModel.name} — {video.category === "OFFICIAL" ? "Official" : "Euro NCAP crash test"}
-                  </div>
-                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
-                    <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}`}
-                      title={video.title}
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-                    />
-                  </div>
+                  {/* Real fix 2026-09-19, user's own direct catch: this used
+                      to be a plain <iframe> with visible YouTube chrome —
+                      not the muted/looping/click-to-unmute "moment" the
+                      homepage's own Watch section and the inline VIDEO
+                      block above already use. Same CinematicVideo
+                      component, so both sides of a comparison now play the
+                      same way as the homepage's Toyota RAV4 example. */}
+                  <CinematicVideo
+                    youtubeId={video.youtubeId}
+                    title={video.title}
+                    label={`${carModel.brand.name} ${carModel.name} — ${video.category === "OFFICIAL" ? "Official video" : "Euro NCAP crash test"}`}
+                  />
+                  <p className="story-meta" style={{ margin: "8px 0 0" }}>
+                    <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
+                      See the {carModel.brand.name} {carModel.name}&apos;s real specs and trims →
+                    </Link>
+                  </p>
                 </div>
               )),
             )}
