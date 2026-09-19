@@ -21,6 +21,15 @@ interface RewriteSpec {
   keyTakeaway?: string | null;
   paragraphs: string[];
   additionalCitations?: { label: string; url: string }[];
+  // Default true: as part of the same rewrite, also drop any GALLERY
+  // photo that's tagged with a generation other than this article's own
+  // linked CarModel's current one. Real bug found 2026-09-19 (owner's
+  // own direct catch on the live Audi Q5 vs BMW X3 page): an earlier
+  // backfill-comparison-gallery.ts run pulled every generation's own
+  // catalog photo into some articles' galleries instead of just the
+  // current one — set false only for an article where that's already
+  // been hand-verified clean.
+  cleanupWrongGenerationPhotos?: boolean;
   reason: string;
 }
 
@@ -36,6 +45,31 @@ async function main() {
 
   const oldParagraphs = oldTextBlocks.map((b) => (b.data as { text: string }).text);
 
+  let wrongGenPhotoIds: string[] = [];
+  let wrongGenPhotoLabels: string[] = [];
+  if (spec.cleanupWrongGenerationPhotos !== false) {
+    const linkedCarModels = await prisma.articleCarModel.findMany({ where: { articleId: article.id }, select: { carModelId: true } });
+    const galleryImages = await prisma.articleImage.findMany({ where: { articleId: article.id, role: "GALLERY" } });
+    for (const carModelId of linkedCarModels.map((c) => c.carModelId)) {
+      const currentGen = await prisma.generation.findFirst({
+        where: { carModelId },
+        orderBy: [{ endYear: "desc" }, { startYear: "desc" }],
+      });
+      // endYear: "desc" alone puts NULL (still-in-production) first
+      // under Postgres's default NULLS LAST-for-ASC/NULLS-FIRST-for-DESC
+      // ordering — exactly "currently sold" ranks above "discontinued".
+      if (!currentGen) continue;
+      for (const img of galleryImages) {
+        const cmi = await prisma.carModelImage.findFirst({ where: { carModelId, imageId: img.imageId } });
+        if (cmi && cmi.generationId && cmi.generationId !== currentGen.id) {
+          wrongGenPhotoIds.push(img.id);
+          wrongGenPhotoLabels.push(img.altText ?? img.imageId);
+        }
+      }
+    }
+    wrongGenPhotoIds = [...new Set(wrongGenPhotoIds)];
+  }
+
   await prisma.$transaction([
     prisma.articleBlock.deleteMany({ where: { articleId: article.id, type: "TEXT" } }),
     prisma.articleBlock.createMany({
@@ -45,6 +79,7 @@ async function main() {
     ...(spec.additionalCitations?.length
       ? [prisma.citation.createMany({ data: spec.additionalCitations.map((c) => ({ articleId: article.id, label: c.label, url: c.url })) })]
       : []),
+    ...(wrongGenPhotoIds.length ? [prisma.articleImage.deleteMany({ where: { id: { in: wrongGenPhotoIds } } })] : []),
     prisma.article.update({
       where: { id: article.id },
       data: {
@@ -59,13 +94,22 @@ async function main() {
         articleId: article.id,
         authorType: "AI_AGENT",
         changeType: "rewrite",
-        diff: { oldParagraphs, newParagraphs: spec.paragraphs, oldHeadline: article.headline, newHeadline: spec.headline ?? article.headline },
+        diff: {
+          oldParagraphs,
+          newParagraphs: spec.paragraphs,
+          oldHeadline: article.headline,
+          newHeadline: spec.headline ?? article.headline,
+          ...(wrongGenPhotoLabels.length ? { removedWrongGenerationPhotos: wrongGenPhotoLabels } : {}),
+        },
         reason: spec.reason,
       },
     }),
   ]);
 
   console.log(`"${spec.slug}": rewrote ${oldParagraphs.length} -> ${spec.paragraphs.length} paragraph(s), logged as an ArticleRevision.`);
+  if (wrongGenPhotoLabels.length) {
+    console.log(`  Also removed ${wrongGenPhotoLabels.length} wrong-generation gallery photo(s): ${wrongGenPhotoLabels.join("; ")}`);
+  }
 }
 
 main()
