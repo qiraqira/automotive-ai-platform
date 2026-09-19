@@ -43,6 +43,73 @@ which is fine — it means "not only," not marketing filler).
 No invented drama. No "revolutionizes the industry." No universal winner
 declared without real, stated criteria.
 
+## The approved article shape (2026-09-19, owner sign-off: "вот теперь просто идеально")
+
+This section is the standard to check every comparison article against —
+both new ones and rewrites of existing ones. It supersedes the earlier,
+more template-driven shape (context → price → efficiency → safety →
+"US reader" wrap-up) that most of this project's China-vs-West pieces
+were originally written in. Read this before writing or rewriting any
+comparison article.
+
+**No spoiler block.** Never render or write a labeled "Verdict," "Our
+Recommendation," "Key Takeaways," "Winner," or "Which One Should You
+Buy?" section before the body text, and never write body paragraphs that
+just restate that block's conclusion in different words. The article
+page's `keyTakeaway` field renders as exactly this kind of box (`**Key
+takeaway:**` inline before the body) — when rewriting an article, set it
+to `null` via `rewrite:article` rather than filling it with a full
+spoiler conclusion. Let the real conclusion emerge from the analysis
+itself, stated once, at the end.
+
+**Write for the buyer, not for "what can be said about this car."**
+Before writing any paragraph, ask what a person about to spend real
+money on one of these two cars actually needs to know. Apply
+CHARACTERISTIC → WHAT IT CHANGES → WHY IT MATTERS to every spec that
+gets real estate — a number alone (battery kWh, horsepower, boot liters)
+is never enough on its own.
+
+**Interior, practicality, and driving character are not optional
+extras** — they're as central as price and safety, and were the
+recurring gap in this project's own China-vs-West batch. For every
+comparison, actually source and include (when real data exists):
+- Real driving impressions from an actual road test (Autocar, Top Gear,
+  What Car, Car and Driver, Edmunds, CarExpert, etc.) — steering,
+  ride, body control, noise. Never invented, never generic
+  ("responsive and comfortable").
+- Rear-seat legroom/headroom and cargo capacity, compared concretely
+  (liters/cubic feet), not "spacious" or "practical."
+- Interior material quality and cabin design, when a real source
+  describes it.
+
+**Market framing is a fact, not the theme.** State plainly, once, which
+market(s) each car is actually sold and cross-shopped in — including
+when that means one side isn't sold in the reader's home market. Don't
+make "car X isn't sold in the US" the throughline of every paragraph;
+that was a real, repeated overreach in this project's early China-vs-
+West pieces. The article is about the cars, not about the process of
+determining where they're sold.
+
+**Prefer same-market pairs going forward.** After a long run of
+Chinese-brand-vs-Western-brand-in-a-different-market pieces, mix in more
+comparisons where both cars are actually sold and cross-shopped in the
+same market as the default for new candidate pairs (see
+`memory/comparison-pairs-same-market-preference.md`). Existing
+cross-market pieces already published get rewritten in place, not
+deleted.
+
+**Structure follows the specific pair, not a fixed template.** A good
+default shape is context → real differences → deep analysis (driving
+character, interior/practicality) → real-world scenarios → trade-offs →
+conclusion that follows from the analysis — but don't force every
+section into every article, and don't make two different articles read
+like the same fill-in-the-blank shape.
+
+**Length comes from real added analysis, not padding.** Longer is
+better only when every added paragraph teaches the reader something new
+— never from repeating a point in different words, restating specs
+already given, or adding scene-setting filler.
+
 ## What every comparison article needs to actually answer
 
 Don't force every section into every article — pick what's real and
@@ -153,6 +220,26 @@ Same "real, never fabricated" bar applies to video as to photos.
   or via the automatic "Compare on video" section (which now only
   renders when *both* linked cars have a curated video — see
   `memory/comparison-article-video-balance.md`). Never one-sided.
+- **Real interactive playback, not a plain embed — fixed 2026-09-19,
+  owner's own direct catch.** The article page's "Compare on video"
+  section used to render a plain `<iframe>` with default YouTube
+  chrome. It must use the same `CinematicVideo` component the homepage's
+  "Watch" section and the inline `VIDEO` block already use (muted,
+  autoplays once scrolled into view, real click-to-unmute) — never a
+  bare iframe.
+- **Two full-width moments, not a side-by-side grid — same-day
+  follow-up, owner's own ask.** Each linked car's video renders full
+  width on its own, not squeezed into a two-column grid. They're spaced
+  through the body the same way gallery photos already are: the first
+  car's video lands right after the opening paragraph (by then the
+  reader knows why these two cars are being compared), the second car's
+  video lands two paragraphs later — never both dropped in the same
+  spot. This is implemented in
+  `apps/web/src/app/articles/[locale]/[slug]/page.tsx` (the
+  `videosByTextIndex` map) — a rewritten article doesn't need to do
+  anything special to get this; it's automatic as long as both linked
+  `CarModel`s have a curated `OFFICIAL` video attached via
+  `add:car-video`.
 
 ## Technical workflow (for this specific codebase)
 
