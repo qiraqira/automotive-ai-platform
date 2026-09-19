@@ -275,6 +275,53 @@ export default async function ArticlePage({
           insertAfterTextIndex.set(afterIndex, existing);
         });
 
+        // Real gap found and fixed 2026-09-11 (first real use on the BMW
+        // X5 vs GLE rebuild): every linked CarModel already has real
+        // OFFICIAL/CRASH_TEST video on its own model page (see GET
+        // /v1/articles's own comment) — a comparison piece is exactly
+        // where a reader most wants to see both cars' own official
+        // trailer and Euro NCAP footage side by side, not just a link
+        // away to each model page separately.
+        //
+        // Changed from .some() to .every(), 2026-09-16 — user's own
+        // direct catch: this rendered as soon as ANY linked car had a
+        // video, so a pair where only one side had curated footage
+        // showed a one-sided "Compare on video" section that read as
+        // implicitly favoring whichever car happened to have one. A
+        // real comparison either shows both sides on video or shows
+        // neither — see memory/comparison-article-video-balance.md.
+        //
+        // Moved from below the SPEC_TABLE up to right after the first
+        // paragraph, 2026-09-19 (user's own ask): by the end of a
+        // comparison's opening paragraph the reader already knows why
+        // these two cars are being set against each other, so the video
+        // now lands as soon as that context exists instead of being
+        // buried under the whole text body — more of a "moment" early
+        // in the read, not an afterthought at the end.
+        const compareOnVideoSection = article.carModels.length > 0 && article.carModels.every(({ carModel }) => carModel.videos.length > 0) && (
+          <div key="compare-on-video" style={{ marginTop: 8, marginBottom: 24 }}>
+            <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare on video</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 8 }}>
+              {article.carModels.flatMap(({ carModel }) =>
+                carModel.videos.map((video) => (
+                  <div key={video.youtubeId}>
+                    <CinematicVideo
+                      youtubeId={video.youtubeId}
+                      title={video.title}
+                      label={`${carModel.brand.name} ${carModel.name} — ${video.category === "OFFICIAL" ? "Official video" : "Euro NCAP crash test"}`}
+                    />
+                    <p className="story-meta" style={{ margin: "8px 0 0" }}>
+                      <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
+                        See the {carModel.brand.name} {carModel.name}&apos;s real specs and trims →
+                      </Link>
+                    </p>
+                  </div>
+                )),
+              )}
+            </div>
+          </div>
+        );
+
         let textBlockIndex = -1;
         return article.blocks.map((block) => {
           const elements: ReactNode[] = [];
@@ -286,6 +333,9 @@ export default async function ArticlePage({
                 {block.data.text}
               </p>,
             );
+            if (textBlockIndex === 0 && compareOnVideoSection) {
+              elements.push(compareOnVideoSection);
+            }
             for (const img of insertAfterTextIndex.get(textBlockIndex) ?? []) {
               elements.push(
                 <figure key={`${block.id}-img-${img.image.originalUrl}`} style={{ margin: "8px 0 24px" }}>
@@ -358,10 +408,10 @@ export default async function ArticlePage({
           // Added 2026-09-16, user's own ask: a real official YouTube
           // video placed inline in the article body itself, wherever the
           // writer chose to put it — distinct from the auto-generated
-          // "Compare on video" section below (which only ever pulls each
-          // linked CarModel's own curated videos, always at the end).
-          // Reuses CinematicVideo.tsx, same real-video component the
-          // homepage/car pages already use.
+          // "Compare on video" section (pushed right after the first
+          // paragraph above, which only ever pulls each linked CarModel's
+          // own curated videos). Reuses CinematicVideo.tsx, same real-
+          // video component the homepage/car pages already use.
           if (block.type === "VIDEO" && block.data.youtubeId && block.data.title) {
             elements.push(
               <div key={block.id} style={{ margin: "8px 0 24px" }}>
@@ -373,52 +423,6 @@ export default async function ArticlePage({
           return elements;
         });
       })()}
-
-      {article.carModels.length > 0 && article.carModels.every(({ carModel }) => carModel.videos.length > 0) && (
-        // Real gap found and fixed 2026-09-11 (first real use on the BMW
-        // X5 vs GLE rebuild): every linked CarModel already has real
-        // OFFICIAL/CRASH_TEST video on its own model page (see GET
-        // /v1/articles's own comment) — a comparison piece is exactly
-        // where a reader most wants to see both cars' own official
-        // trailer and Euro NCAP footage side by side, not just a link
-        // away to each model page separately.
-        //
-        // Changed from .some() to .every(), 2026-09-16 — user's own
-        // direct catch: this rendered as soon as ANY linked car had a
-        // video, so a pair where only one side had curated footage
-        // showed a one-sided "Compare on video" section that read as
-        // implicitly favoring whichever car happened to have one. A
-        // real comparison either shows both sides on video or shows
-        // neither — see memory/comparison-article-video-balance.md.
-        <div style={{ marginTop: 24, marginBottom: 24 }}>
-          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-dim)" }}>Compare on video</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginTop: 8 }}>
-            {article.carModels.flatMap(({ carModel }) =>
-              carModel.videos.map((video) => (
-                <div key={video.youtubeId}>
-                  {/* Real fix 2026-09-19, user's own direct catch: this used
-                      to be a plain <iframe> with visible YouTube chrome —
-                      not the muted/looping/click-to-unmute "moment" the
-                      homepage's own Watch section and the inline VIDEO
-                      block above already use. Same CinematicVideo
-                      component, so both sides of a comparison now play the
-                      same way as the homepage's Toyota RAV4 example. */}
-                  <CinematicVideo
-                    youtubeId={video.youtubeId}
-                    title={video.title}
-                    label={`${carModel.brand.name} ${carModel.name} — ${video.category === "OFFICIAL" ? "Official video" : "Euro NCAP crash test"}`}
-                  />
-                  <p className="story-meta" style={{ margin: "8px 0 0" }}>
-                    <Link href={`/cars/${carModel.brand.slug}/${carModel.slug}`}>
-                      See the {carModel.brand.name} {carModel.name}&apos;s real specs and trims →
-                    </Link>
-                  </p>
-                </div>
-              )),
-            )}
-          </div>
-        </div>
-      )}
 
       {article.story && (
         // No standalone Story detail page exists yet (see README's status
